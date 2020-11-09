@@ -89,4 +89,5 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 replace github.com/bradfitz/gomemcache => github.com/themihai/gomemcache v0.0.0-20180902122335-24332e2d58ab
 
 replace github.com/grafana/loki/pkg/querier => ./pkg/querier
+replace github.com/grafana/loki/pkg/loki => ./pkg/loki
 
