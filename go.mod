@@ -87,3 +87,6 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 // Same as Cortex
 // Using a 3rd-party branch for custom dialer - see https://github.com/bradfitz/gomemcache/pull/86
 replace github.com/bradfitz/gomemcache => github.com/themihai/gomemcache v0.0.0-20180902122335-24332e2d58ab
+
+replace github.com/grafana/loki/pkg/querier => ./pkg/querier
+
