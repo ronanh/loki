@@ -29,6 +29,7 @@ const (
 type HttpQuerier struct {
 	querier Querier
 	cfg     Config
+	engine  *logql.Engine
 	limits  *validation.Overrides
 }
 
@@ -38,6 +39,7 @@ func NewHttpQuerier(cfg Config, q Querier, limits *validation.Overrides) (*HttpQ
 		querier: q,
 		cfg:     cfg,
 		limits:  limits,
+		engine:  logql.NewEngine(cfg.Engine, q),
 	}
 	return &hq, nil
 }
@@ -74,7 +76,7 @@ func (hq *HttpQuerier) RangeQueryHandler(w http.ResponseWriter, r *http.Request)
 		request.Limit,
 		request.Shards,
 	)
-	query := hq.querier.Engine().Query(params)
+	query := hq.engine.Query(params)
 	result, err := query.Exec(ctx)
 	if err != nil {
 		serverutil.WriteError(err, w)
@@ -114,7 +116,7 @@ func (hq *HttpQuerier) InstantQueryHandler(w http.ResponseWriter, r *http.Reques
 		request.Limit,
 		nil,
 	)
-	query := hq.querier.Engine().Query(params)
+	query := hq.engine.Query(params)
 	result, err := query.Exec(ctx)
 	if err != nil {
 		serverutil.WriteError(err, w)
@@ -171,7 +173,7 @@ func (hq *HttpQuerier) LogQueryHandler(w http.ResponseWriter, r *http.Request) {
 		request.Limit,
 		request.Shards,
 	)
-	query := hq.querier.Engine().Query(params)
+	query := hq.engine.Query(params)
 
 	result, err := query.Exec(ctx)
 	if err != nil {

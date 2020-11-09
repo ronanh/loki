@@ -61,7 +61,6 @@ type Querier interface {
 	Label(ctx context.Context, req *logproto.LabelRequest) (*logproto.LabelResponse, error)
 	Tail(ctx context.Context, req *logproto.TailRequest) (*Tailer, error)
 	Series(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error)
-	Engine() *logql.Engine
 }
 
 // querier handlers queries.
@@ -82,13 +81,7 @@ func New(cfg Config, store storage.Store, ingesterQuerier *IngesterQuerier, limi
 		limits:          limits,
 	}
 
-	qr.engine = logql.NewEngine(cfg.Engine, &qr)
-
 	return &qr, nil
-}
-
-func (q *querier) Engine() *logql.Engine {
-	return q.engine
 }
 
 // Select Implements logql.Querier which select logs via matchers and regex filters.
