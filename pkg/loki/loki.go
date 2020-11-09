@@ -140,7 +140,7 @@ type Loki struct {
 	overrides       *validation.Overrides
 	distributor     *distributor.Distributor
 	ingester        *ingester.Ingester
-	querier         *querier.Querier
+	querier         *querier.HttpQuerier
 	ingesterQuerier *querier.IngesterQuerier
 	store           storage.Store
 	tableManager    *chunk.TableManager

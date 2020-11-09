@@ -55,7 +55,17 @@ func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 }
 
 // Querier handlers queries.
-type Querier struct {
+type Querier interface {
+	SelectLogs(ctx context.Context, params logql.SelectLogParams) (iter.EntryIterator, error)
+	SelectSamples(ctx context.Context, params logql.SelectSampleParams) (iter.SampleIterator, error)
+	Label(ctx context.Context, req *logproto.LabelRequest) (*logproto.LabelResponse, error)
+	Tail(ctx context.Context, req *logproto.TailRequest) (*Tailer, error)
+	Series(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error)
+	Engine() *logql.Engine
+}
+
+// querier handlers queries.
+type querier struct {
 	cfg             Config
 	store           storage.Store
 	engine          *logql.Engine
@@ -64,21 +74,25 @@ type Querier struct {
 }
 
 // New makes a new Querier.
-func New(cfg Config, store storage.Store, ingesterQuerier *IngesterQuerier, limits *validation.Overrides) (*Querier, error) {
-	querier := Querier{
+func New(cfg Config, store storage.Store, ingesterQuerier *IngesterQuerier, limits *validation.Overrides) (Querier, error) {
+	qr := querier{
 		cfg:             cfg,
 		store:           store,
 		ingesterQuerier: ingesterQuerier,
 		limits:          limits,
 	}
 
-	querier.engine = logql.NewEngine(cfg.Engine, &querier)
+	qr.engine = logql.NewEngine(cfg.Engine, &qr)
 
-	return &querier, nil
+	return &qr, nil
+}
+
+func (q *querier) Engine() *logql.Engine {
+	return q.engine
 }
 
 // Select Implements logql.Querier which select logs via matchers and regex filters.
-func (q *Querier) SelectLogs(ctx context.Context, params logql.SelectLogParams) (iter.EntryIterator, error) {
+func (q *querier) SelectLogs(ctx context.Context, params logql.SelectLogParams) (iter.EntryIterator, error) {
 	err := q.validateQueryRequest(ctx, params)
 	if err != nil {
 		return nil, err
@@ -120,7 +134,7 @@ func (q *Querier) SelectLogs(ctx context.Context, params logql.SelectLogParams) 
 	return iter.NewHeapIterator(ctx, iters, params.Direction), nil
 }
 
-func (q *Querier) SelectSamples(ctx context.Context, params logql.SelectSampleParams) (iter.SampleIterator, error) {
+func (q *querier) SelectSamples(ctx context.Context, params logql.SelectSampleParams) (iter.SampleIterator, error) {
 	err := q.validateQueryRequest(ctx, params)
 	if err != nil {
 		return nil, err
@@ -161,7 +175,7 @@ func (q *Querier) SelectSamples(ctx context.Context, params logql.SelectSamplePa
 	return iter.NewHeapSampleIterator(ctx, iters), nil
 }
 
-func (q *Querier) buildQueryIntervals(queryStart, queryEnd time.Time) (*interval, *interval) {
+func (q *querier) buildQueryIntervals(queryStart, queryEnd time.Time) (*interval, *interval) {
 	// limitQueryInterval is a flag for whether store queries should be limited to start time of ingester queries.
 	limitQueryInterval := false
 	// ingesterMLB having -1 means query ingester for whole duration.
@@ -237,7 +251,7 @@ func (q *Querier) buildQueryIntervals(queryStart, queryEnd time.Time) (*interval
 }
 
 // Label does the heavy lifting for a Label query.
-func (q *Querier) Label(ctx context.Context, req *logproto.LabelRequest) (*logproto.LabelResponse, error) {
+func (q *querier) Label(ctx context.Context, req *logproto.LabelRequest) (*logproto.LabelResponse, error) {
 	userID, err := user.ExtractOrgID(ctx)
 	if err != nil {
 		return nil, err
@@ -278,12 +292,12 @@ func (q *Querier) Label(ctx context.Context, req *logproto.LabelRequest) (*logpr
 }
 
 // Check implements the grpc healthcheck
-func (*Querier) Check(_ context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+func (*querier) Check(_ context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	return &grpc_health_v1.HealthCheckResponse{Status: grpc_health_v1.HealthCheckResponse_SERVING}, nil
 }
 
 // Tail keeps getting matching logs from all ingesters for given query
-func (q *Querier) Tail(ctx context.Context, req *logproto.TailRequest) (*Tailer, error) {
+func (q *querier) Tail(ctx context.Context, req *logproto.TailRequest) (*Tailer, error) {
 	err := q.checkTailRequestLimit(ctx)
 	if err != nil {
 		return nil, err
@@ -338,7 +352,7 @@ func (q *Querier) Tail(ctx context.Context, req *logproto.TailRequest) (*Tailer,
 }
 
 // Series fetches any matching series for a list of matcher sets
-func (q *Querier) Series(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error) {
+func (q *querier) Series(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error) {
 	userID, err := user.ExtractOrgID(ctx)
 	if err != nil {
 		return nil, err
@@ -356,7 +370,7 @@ func (q *Querier) Series(ctx context.Context, req *logproto.SeriesRequest) (*log
 
 }
 
-func (q *Querier) awaitSeries(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error) {
+func (q *querier) awaitSeries(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error) {
 
 	// buffer the channels to the # of calls they're expecting su
 	series := make(chan [][]logproto.SeriesIdentifier, 2)
@@ -417,7 +431,7 @@ func (q *Querier) awaitSeries(ctx context.Context, req *logproto.SeriesRequest) 
 
 // seriesForMatchers fetches series from the store for each matcher set
 // TODO: make efficient if/when the index supports labels so we don't have to read chunks
-func (q *Querier) seriesForMatchers(
+func (q *querier) seriesForMatchers(
 	ctx context.Context,
 	from, through time.Time,
 	groups []string,
@@ -445,7 +459,7 @@ func (q *Querier) seriesForMatchers(
 }
 
 // seriesForMatcher fetches series from the store for a given matcher
-func (q *Querier) seriesForMatcher(ctx context.Context, from, through time.Time, matcher string) ([]logproto.SeriesIdentifier, error) {
+func (q *querier) seriesForMatcher(ctx context.Context, from, through time.Time, matcher string) ([]logproto.SeriesIdentifier, error) {
 	ids, err := q.store.GetSeries(ctx, logql.SelectLogParams{
 		QueryRequest: &logproto.QueryRequest{
 			Selector:  matcher,
@@ -461,7 +475,7 @@ func (q *Querier) seriesForMatcher(ctx context.Context, from, through time.Time,
 	return ids, nil
 }
 
-func (q *Querier) validateQueryRequest(ctx context.Context, req logql.QueryParams) error {
+func (q *querier) validateQueryRequest(ctx context.Context, req logql.QueryParams) error {
 	userID, err := user.ExtractOrgID(ctx)
 	if err != nil {
 		return err
@@ -482,7 +496,7 @@ func (q *Querier) validateQueryRequest(ctx context.Context, req logql.QueryParam
 	return q.validateQueryTimeRange(userID, req.GetStart(), req.GetEnd())
 }
 
-func (q *Querier) validateQueryTimeRange(userID string, from time.Time, through time.Time) error {
+func (q *querier) validateQueryTimeRange(userID string, from time.Time, through time.Time) error {
 	if (through).Before(from) {
 		return httpgrpc.Errorf(http.StatusBadRequest, "invalid query, through < from (%s < %s)", through, from)
 	}
@@ -495,7 +509,7 @@ func (q *Querier) validateQueryTimeRange(userID string, from time.Time, through 
 	return nil
 }
 
-func (q *Querier) checkTailRequestLimit(ctx context.Context) error {
+func (q *querier) checkTailRequestLimit(ctx context.Context) error {
 	userID, err := user.ExtractOrgID(ctx)
 	if err != nil {
 		return err
