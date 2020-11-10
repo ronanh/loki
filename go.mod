@@ -89,5 +89,23 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 replace github.com/bradfitz/gomemcache => github.com/themihai/gomemcache v0.0.0-20180902122335-24332e2d58ab
 
 replace github.com/grafana/loki/pkg/querier => ./pkg/querier
+replace github.com/grafana/loki/pkg/querier/queryrange => ./pkg/querier/queryrange
 replace github.com/grafana/loki/pkg/loki => ./pkg/loki
+replace github.com/grafana/loki/pkg/logql => ./pkg/logql
+replace github.com/grafana/loki/pkg/logql/log => ./pkg/logql/log
+replace github.com/grafana/loki/pkg/marshal => ./pkg/marshal
+replace github.com/grafana/loki/pkg/marshal/legacy => ./pkg/marshal/legacy
+replace github.com/grafana/loki/pkg/unmarshal => ./pkg/unmarshal
+replace github.com/grafana/loki/pkg/unmarshal/legacy => ./pkg/unmarshal/legacy
+replace github.com/grafana/loki/pkg/loghttp => ./pkg/loghttp
+replace github.com/grafana/loki/pkg/loghttp/legacy => ./pkg/loghttp/legacy
+replace github.com/grafana/loki/pkg/logentry => ./pkg/logentry
+replace github.com/grafana/loki/pkg/logentry/metric => ./pkg/logentry/metric
+replace github.com/grafana/loki/pkg/logentry/stages => ./pkg/logentry/stages
+replace github.com/grafana/loki/pkg/stats => ./pkg/stats
+replace github.com/grafana/loki/pkg/logql/log/logfmt => ./pkg/logql/log/logfmt
+replace github.com/grafana/loki/pkg/iter => ./pkg/iter
+replace github.com/grafana/loki/pkg/util => ./pkg/util
+replace github.com/grafana/loki/pkg/tracing => ./pkg/tracing
+replace github.com/grafana/loki/pkg/logproto => ./pkg/logproto
 
