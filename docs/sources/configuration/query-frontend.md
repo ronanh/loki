@@ -112,7 +112,7 @@ spec:
         - -config.file=/etc/loki/config.yaml
         - -log.level=debug
         - -target=query-frontend
-        image: grafana/loki:latest
+        image: ronanh/loki:latest
         imagePullPolicy: Always
         name: query-frontend
         ports:

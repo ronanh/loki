@@ -194,7 +194,7 @@ For more information, see the [retention configuration](../operations/storage/re
 
 ### Single machine/local development (boltdb+filesystem)
 
-[The repo contains a working example](https://github.com/grafana/loki/blob/master/cmd/loki/loki-local-config.yaml), you may want to checkout a tag of the repo to make sure you get a compatible example.
+[The repo contains a working example](https://github.com/ronanh/loki/blob/master/cmd/loki/loki-local-config.yaml), you may want to checkout a tag of the repo to make sure you get a compatible example.
 
 ### GCP deployment (GCS Single Store)
 

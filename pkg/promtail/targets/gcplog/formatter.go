@@ -11,9 +11,9 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/relabel"
 
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/promtail/api"
-	"github.com/grafana/loki/pkg/util"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/promtail/api"
+	"github.com/ronanh/loki/pkg/util"
 )
 
 // LogEntry that will be written to the pubsub topic.

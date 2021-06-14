@@ -3,7 +3,7 @@ package queryrange
 import (
 	"sort"
 
-	"github.com/grafana/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logproto"
 )
 
 type entry struct {

@@ -17,10 +17,10 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
-	"github.com/grafana/loki/pkg/iter"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql/log"
-	"github.com/grafana/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/pkg/iter"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql/log"
+	"github.com/ronanh/loki/pkg/logql/stats"
 )
 
 const (

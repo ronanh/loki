@@ -1,5 +1,5 @@
 image:
-  repository: grafana/loki
+  repository: ronanh/loki
   tag: 2.0.0
   pullPolicy: IfNotPresent
 

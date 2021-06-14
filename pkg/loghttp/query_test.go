@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/grafana/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logproto"
 )
 
 func TestParseRangeQuery(t *testing.T) {

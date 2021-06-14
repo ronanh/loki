@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/weaveworks/common/user"
 
-	"github.com/grafana/loki/pkg/loghttp"
-	"github.com/grafana/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/loghttp"
+	"github.com/ronanh/loki/pkg/logproto"
 )
 
 var nilMetrics = NewSplitByMetrics(nil)

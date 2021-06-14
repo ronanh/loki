@@ -24,7 +24,7 @@ local pipeline(name) = {
 
 local run(name, commands) = {
   name: name,
-  image: 'grafana/loki-build-image:%s' % build_image_version,
+  image: 'ronanh/loki-build-image:%s' % build_image_version,
   commands: commands,
 };
 
@@ -257,7 +257,7 @@ local manifest(apps) = pipeline('manifest') {
     steps: [
       {
         name: 'trigger',
-        image: 'grafana/loki-build-image:%s' % build_image_version,
+        image: 'ronanh/loki-build-image:%s' % build_image_version,
         environment: {
           CIRCLE_TOKEN: { from_secret: 'circle_token' },
         },

@@ -52,12 +52,12 @@ export GPG_TTY=$(tty)
    numbers across the entire repository (e.g. README.md in the project root).
 1. Modify `CHANGELOG.md` with the new version number and its release date.
 1. List all the merged PRs since the previous release. This command is helpful
-   for generating the list (modifying the date to the date of the previous release): `curl https://api.github.com/search/issues?q=repo:grafana/loki+is:pr+"merged:>=2019-08-02" | jq -r ' .items[] | "* [" + (.number|tostring) + "](" + .html_url + ") **" + .user.login + "**: " + .title'`
+   for generating the list (modifying the date to the date of the previous release): `curl https://api.github.com/search/issues?q=repo:ronanh/loki+is:pr+"merged:>=2019-08-02" | jq -r ' .items[] | "* [" + (.number|tostring) + "](" + .html_url + ") **" + .user.login + "**: " + .title'`
 1. Go through `docs/` and find references to the previous release version and
    update them to reference the new version.
 1. *Without creating a tag*, create a commit based on your changes and open a PR
    for updating the release notes.
-   1. Until [852](https://github.com/grafana/loki/issues/852) is fixed, updating
+   1. Until [852](https://github.com/ronanh/loki/issues/852) is fixed, updating
       Helm and Ksonnet configs needs to be done in a separate commit following
       the release tag so that Helm tests pass.
 1. Merge the changelog PR.
@@ -91,7 +91,7 @@ finished running all the release jobs.
 
 Once the previous two steps are completed, you can publish your draft!
 
-1. Go to the [GitHub releases page](https://github.com/grafana/loki/releases)
+1. Go to the [GitHub releases page](https://github.com/ronanh/loki/releases)
    and find the drafted release.
 1. Edit the drafted release, copying and pasting *notable changes* from the
    CHANGELOG. Add a link to the CHANGELOG, noting that the full list of changes

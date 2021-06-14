@@ -19,9 +19,9 @@ import (
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/promtail/api"
-	lokiflag "github.com/grafana/loki/pkg/util/flagext"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/promtail/api"
+	lokiflag "github.com/ronanh/loki/pkg/util/flagext"
 )
 
 var logEntries = []api.Entry{

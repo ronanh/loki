@@ -22,14 +22,14 @@ import (
 	cutil "github.com/cortexproject/cortex/pkg/util"
 	util_log "github.com/cortexproject/cortex/pkg/util/log"
 
-	"github.com/grafana/loki/pkg/helpers"
-	"github.com/grafana/loki/pkg/iter"
-	"github.com/grafana/loki/pkg/loghttp"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	"github.com/grafana/loki/pkg/logql/stats"
-	"github.com/grafana/loki/pkg/util/runtime"
-	"github.com/grafana/loki/pkg/util/validation"
+	"github.com/ronanh/loki/pkg/helpers"
+	"github.com/ronanh/loki/pkg/iter"
+	"github.com/ronanh/loki/pkg/loghttp"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/pkg/util/runtime"
+	"github.com/ronanh/loki/pkg/util/validation"
 )
 
 const (

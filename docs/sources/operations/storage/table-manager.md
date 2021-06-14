@@ -209,4 +209,4 @@ When Loki runs in [microservices mode](../../../architecture#modes-of-operation)
 the Table Manager should be started as separate service named `table-manager`.
 
 You can check out a production grade deployment example at
-[`table-manager.libsonnet`](https://github.com/grafana/loki/tree/master/production/ksonnet/loki/table-manager.libsonnet).
+[`table-manager.libsonnet`](https://github.com/ronanh/loki/tree/master/production/ksonnet/loki/table-manager.libsonnet).

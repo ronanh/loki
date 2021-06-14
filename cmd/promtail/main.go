@@ -18,12 +18,12 @@ import (
 	// embed time zone data
 	_ "time/tzdata"
 
-	_ "github.com/grafana/loki/pkg/build"
-	"github.com/grafana/loki/pkg/cfg"
-	"github.com/grafana/loki/pkg/logentry/stages"
-	"github.com/grafana/loki/pkg/promtail"
-	"github.com/grafana/loki/pkg/promtail/config"
-	logutil "github.com/grafana/loki/pkg/util"
+	_ "github.com/ronanh/loki/pkg/build"
+	"github.com/ronanh/loki/pkg/cfg"
+	"github.com/ronanh/loki/pkg/logentry/stages"
+	"github.com/ronanh/loki/pkg/promtail"
+	"github.com/ronanh/loki/pkg/promtail/config"
+	logutil "github.com/ronanh/loki/pkg/util"
 )
 
 func init() {

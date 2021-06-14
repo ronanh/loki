@@ -12,8 +12,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/yaml.v2"
 
-	"github.com/grafana/loki/pkg/promtail/api"
-	lokiflag "github.com/grafana/loki/pkg/util/flagext"
+	"github.com/ronanh/loki/pkg/promtail/api"
+	lokiflag "github.com/ronanh/loki/pkg/util/flagext"
 )
 
 var (

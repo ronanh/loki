@@ -8,7 +8,7 @@ import (
 
 	"github.com/fatih/color"
 
-	"github.com/grafana/loki/pkg/loghttp"
+	"github.com/ronanh/loki/pkg/loghttp"
 )
 
 // DefaultOutput provides logs and metadata in human readable format

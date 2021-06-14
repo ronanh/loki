@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/stretchr/testify/require"
 
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	"github.com/grafana/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/logql/stats"
 )
 
 func testSampleStreams() []queryrange.SampleStream {

@@ -121,7 +121,7 @@ func TestLoadSmallConfig(t *testing.T) {
 	require.Equal(t, expected, config)
 }
 
-// bugfix: https://github.com/grafana/loki/issues/3403
+// bugfix: https://github.com/ronanh/loki/issues/3403
 func TestEmptyPipelineStagesConfig(t *testing.T) {
 	var config Config
 	err := yaml.Unmarshal([]byte(noPipelineStagesYaml), &config)

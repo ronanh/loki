@@ -11,14 +11,14 @@ queries against a Loki server.
 ### Binary (Recommended)
 
 Every release includes binaries for `logcli` which can be found on the
-[Releases page](https://github.com/grafana/loki/releases).
+[Releases page](https://github.com/ronanh/loki/releases).
 
 ### From source
 
 Use `go get` to install `logcli` to `$GOPATH/bin`:
 
 ```
-$ go get github.com/grafana/loki/cmd/logcli
+$ go get github.com/ronanh/loki/cmd/logcli
 ```
 
 ## Usage

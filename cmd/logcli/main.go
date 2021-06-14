@@ -11,12 +11,12 @@ import (
 	"github.com/prometheus/common/version"
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	_ "github.com/grafana/loki/pkg/build"
-	"github.com/grafana/loki/pkg/logcli/client"
-	"github.com/grafana/loki/pkg/logcli/labelquery"
-	"github.com/grafana/loki/pkg/logcli/output"
-	"github.com/grafana/loki/pkg/logcli/query"
-	"github.com/grafana/loki/pkg/logcli/seriesquery"
+	_ "github.com/ronanh/loki/pkg/build"
+	"github.com/ronanh/loki/pkg/logcli/client"
+	"github.com/ronanh/loki/pkg/logcli/labelquery"
+	"github.com/ronanh/loki/pkg/logcli/output"
+	"github.com/ronanh/loki/pkg/logcli/query"
+	"github.com/ronanh/loki/pkg/logcli/seriesquery"
 )
 
 var (

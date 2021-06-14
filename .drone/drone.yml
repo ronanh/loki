@@ -12,28 +12,28 @@ workspace:
 
 steps:
 - name: test
-  image: grafana/loki-build-image:0.12.0
+  image: ronanh/loki-build-image:0.12.0
   commands:
   - make BUILD_IN_CONTAINER=false test
   depends_on:
   - clone
 
 - name: lint
-  image: grafana/loki-build-image:0.12.0
+  image: ronanh/loki-build-image:0.12.0
   commands:
   - make BUILD_IN_CONTAINER=false lint
   depends_on:
   - clone
 
 - name: check-generated-files
-  image: grafana/loki-build-image:0.12.0
+  image: ronanh/loki-build-image:0.12.0
   commands:
   - make BUILD_IN_CONTAINER=false check-generated-files
   depends_on:
   - clone
 
 - name: check-mod
-  image: grafana/loki-build-image:0.12.0
+  image: ronanh/loki-build-image:0.12.0
   commands:
   - make BUILD_IN_CONTAINER=false check-mod
   depends_on:
@@ -66,7 +66,7 @@ steps:
     dry_run: true
     password:
       from_secret: docker_password
-    repo: grafana/loki
+    repo: ronanh/loki
     username:
       from_secret: docker_username
   when:
@@ -87,7 +87,7 @@ steps:
     dry_run: true
     password:
       from_secret: docker_password
-    repo: grafana/loki-canary
+    repo: ronanh/loki-canary
     username:
       from_secret: docker_username
   when:
@@ -149,7 +149,7 @@ steps:
     dockerfile: cmd/loki/Dockerfile
     password:
       from_secret: docker_password
-    repo: grafana/loki
+    repo: ronanh/loki
     username:
       from_secret: docker_username
   when:
@@ -168,7 +168,7 @@ steps:
     dockerfile: cmd/loki-canary/Dockerfile
     password:
       from_secret: docker_password
-    repo: grafana/loki-canary
+    repo: ronanh/loki-canary
     username:
       from_secret: docker_username
   when:
@@ -245,7 +245,7 @@ steps:
     dry_run: true
     password:
       from_secret: docker_password
-    repo: grafana/loki
+    repo: ronanh/loki
     username:
       from_secret: docker_username
   when:
@@ -266,7 +266,7 @@ steps:
     dry_run: true
     password:
       from_secret: docker_password
-    repo: grafana/loki-canary
+    repo: ronanh/loki-canary
     username:
       from_secret: docker_username
   when:
@@ -328,7 +328,7 @@ steps:
     dockerfile: cmd/loki/Dockerfile
     password:
       from_secret: docker_password
-    repo: grafana/loki
+    repo: ronanh/loki
     username:
       from_secret: docker_username
   when:
@@ -347,7 +347,7 @@ steps:
     dockerfile: cmd/loki-canary/Dockerfile
     password:
       from_secret: docker_password
-    repo: grafana/loki-canary
+    repo: ronanh/loki-canary
     username:
       from_secret: docker_username
   when:
@@ -424,7 +424,7 @@ steps:
     dry_run: true
     password:
       from_secret: docker_password
-    repo: grafana/loki
+    repo: ronanh/loki
     username:
       from_secret: docker_username
   when:
@@ -445,7 +445,7 @@ steps:
     dry_run: true
     password:
       from_secret: docker_password
-    repo: grafana/loki-canary
+    repo: ronanh/loki-canary
     username:
       from_secret: docker_username
   when:
@@ -507,7 +507,7 @@ steps:
     dockerfile: cmd/loki/Dockerfile
     password:
       from_secret: docker_password
-    repo: grafana/loki
+    repo: ronanh/loki
     username:
       from_secret: docker_username
   when:
@@ -526,7 +526,7 @@ steps:
     dockerfile: cmd/loki-canary/Dockerfile
     password:
       from_secret: docker_password
-    repo: grafana/loki-canary
+    repo: ronanh/loki-canary
     username:
       from_secret: docker_username
   when:
@@ -814,7 +814,7 @@ platform:
 
 steps:
 - name: trigger
-  image: grafana/loki-build-image:0.12.0
+  image: ronanh/loki-build-image:0.12.0
   commands:
   - ./tools/deploy.sh
   environment:

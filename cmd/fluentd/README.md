@@ -20,7 +20,7 @@ Useful additions:
 Start Loki using:
 
 ```bash
-docker run -it -p 3100:3100 grafana/loki:latest
+docker run -it -p 3100:3100 ronanh/loki:latest
 ```
 
 Verify that Loki accept and stores logs:

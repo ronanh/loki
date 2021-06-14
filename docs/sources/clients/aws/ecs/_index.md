@@ -43,7 +43,7 @@ We will also need an [IAM Role to run containers][ecs iam] with, let's create a 
 > You might already have this `ecsTaskExecutionRole` role in your AWS account if that's the case you can skip this step.
 
 ```bash
-curl https://raw.githubusercontent.com/grafana/loki/master/docs/sources/clients/aws/ecs/ecs-role.json > ecs-role.json
+curl https://raw.githubusercontent.com/ronanh/loki/master/docs/sources/clients/aws/ecs/ecs-role.json > ecs-role.json
 aws iam create-role --role-name ecsTaskExecutionRole  --assume-role-policy-document file://ecs-role.json
 
 {
@@ -92,7 +92,7 @@ Our [task definition][task] will be made of two containers, the [Firelens][Firel
 Let's download the task definition, we'll go through the most important parts.
 
 ```bash
-curl https://raw.githubusercontent.com/grafana/loki/master/docs/sources/clients/aws/ecs/ecs-task.json > ecs-task.json
+curl https://raw.githubusercontent.com/ronanh/loki/master/docs/sources/clients/aws/ecs/ecs-task.json > ecs-task.json
 ```
 
 ```json
@@ -228,8 +228,8 @@ That's it ! Make sure to checkout the [LogQL][logql] to learn more about Loki po
 [ecs iam]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html
 [arn]: https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
 [task]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definitions.html
-[fluentd loki]: https://github.com/grafana/loki/tree/master/cmd/fluentd
-[fluentbit loki]: https://github.com/grafana/loki/tree/master/cmd/fluent-bit
+[fluentd loki]: https://github.com/ronanh/loki/tree/master/cmd/fluentd
+[fluentbit loki]: https://github.com/ronanh/loki/tree/master/cmd/fluent-bit
 [fluentbit]: https://fluentbit.io/
 [fluentd]: https://www.fluentd.org/
 [fluentbit loki image]: https://hub.docker.com/r/grafana/fluent-bit-plugin-loki

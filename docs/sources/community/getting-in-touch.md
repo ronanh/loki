@@ -11,7 +11,7 @@ For questions regarding Loki:
 
 Your feedback is always welcome! To submit feedback or a report a potential bug:
 
-- [File a GitHub issue](https://github.com/grafana/loki/issues/new) for bugs, issues and feature suggestions. Grafana UI issues for the Loki data source plugin should be posted directly to the [Grafana repository](https://github.com/grafana/grafana/issues/new), not the Loki repository. 
+- [File a GitHub issue](https://github.com/ronanh/loki/issues/new) for bugs, issues and feature suggestions. Grafana UI issues for the Loki data source plugin should be posted directly to the [Grafana repository](https://github.com/grafana/grafana/issues/new), not the Loki repository. 
 - Send an email to [lokiproject@googlegroups.com](mailto:lokiproject@googlegroups.com), or visit the [google groups](https://groups.google.com/forum/#!forum/lokiproject) page.
 - Join us for our monthly [Loki Community Call](https://docs.google.com/document/d/1MNjiHQxwFukm2J4NJRWyRgRIiK7VpokYyATzJ5ce-O8/edit?usp=sharing) on first Thursday of every month 12:00 UTC (8:00 am EST). 
 

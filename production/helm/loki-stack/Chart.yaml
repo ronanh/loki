@@ -7,7 +7,7 @@ appVersion: v2.0.0
 kubeVersion: "^1.10.0-0"
 description: "DEPRECATED Loki: like Prometheus, but for logs."
 home: https://grafana.com/loki
-icon: https://raw.githubusercontent.com/grafana/loki/master/docs/sources/logo.png
+icon: https://raw.githubusercontent.com/ronanh/loki/master/docs/sources/logo.png
 sources:
-- https://github.com/grafana/loki
+- https://github.com/ronanh/loki
 engine: gotpl

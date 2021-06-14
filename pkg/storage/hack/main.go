@@ -20,11 +20,11 @@ import (
 	"github.com/cortexproject/cortex/pkg/ingester/client"
 	util_log "github.com/cortexproject/cortex/pkg/util/log"
 
-	"github.com/grafana/loki/pkg/chunkenc"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	lstore "github.com/grafana/loki/pkg/storage"
-	"github.com/grafana/loki/pkg/util/validation"
+	"github.com/ronanh/loki/pkg/chunkenc"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	lstore "github.com/ronanh/loki/pkg/storage"
+	"github.com/ronanh/loki/pkg/util/validation"
 )
 
 var (

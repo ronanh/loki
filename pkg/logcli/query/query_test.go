@@ -12,11 +12,11 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/grafana/loki/pkg/logcli/output"
-	"github.com/grafana/loki/pkg/loghttp"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	"github.com/grafana/loki/pkg/logql/marshal"
+	"github.com/ronanh/loki/pkg/logcli/output"
+	"github.com/ronanh/loki/pkg/loghttp"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/logql/marshal"
 )
 
 func Test_commonLabels(t *testing.T) {

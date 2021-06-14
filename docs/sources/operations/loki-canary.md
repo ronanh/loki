@@ -108,7 +108,7 @@ canary.  To stop or start the canary issue an HTTP GET request against the `/sus
 ### Binary
 
 Loki Canary is provided as a pre-compiled binary as part of the
-[Loki Releases](https://github.com/grafana/loki/releases) on GitHub.
+[Loki Releases](https://github.com/ronanh/loki/releases) on GitHub.
 
 ### Docker
 
@@ -116,7 +116,7 @@ Loki Canary is also provided as a Docker container image:
 
 ```bash
 # change tag to the most recent release
-$ docker pull grafana/loki-canary:2.0.0
+$ docker pull ronanh/loki-canary:2.0.0
 ```
 
 ### Kubernetes
@@ -124,7 +124,7 @@ $ docker pull grafana/loki-canary:2.0.0
 To run on Kubernetes, you can do something simple like:
 
 `kubectl run loki-canary --generator=run-pod/v1
---image=grafana/loki-canary:latest --restart=Never --image-pull-policy=IfNotPresent
+--image=ronanh/loki-canary:latest --restart=Never --image-pull-policy=IfNotPresent
 --labels=name=loki-canary -- -addr=loki:3100`
 
 Or you can do something more complex like deploy it as a DaemonSet, there is a
@@ -132,7 +132,7 @@ Tanka setup for this in the `production` folder, you can import it using
 `jsonnet-bundler`:
 
 ```shell
-jb install github.com/grafana/loki-canary/production/ksonnet/loki-canary
+jb install github.com/ronanh/loki-canary/production/ksonnet/loki-canary
 ```
 
 Then in your Tanka environment's `main.jsonnet` you'll want something like
@@ -172,7 +172,7 @@ spec:
   containers:
   - args:
     - -addr=loki:3100
-    image: grafana/loki-canary:latest
+    image: ronanh/loki-canary:latest
     imagePullPolicy: IfNotPresent
     name: loki-canary
     resources: {}
@@ -215,7 +215,7 @@ spec:
       containers:
       - args:
         - -addr=loki:3100
-        image: grafana/loki-canary:latest
+        image: ronanh/loki-canary:latest
         imagePullPolicy: IfNotPresent
         name: loki-canary
         resources: {}
@@ -245,7 +245,7 @@ If the other options are not sufficient for your use case, you can compile
 
 ```bash
 # clone the source tree
-$ git clone https://github.com/grafana/loki
+$ git clone https://github.com/ronanh/loki
 
 # build the binary
 $ make loki-canary

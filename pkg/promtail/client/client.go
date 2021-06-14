@@ -14,8 +14,8 @@ import (
 
 	"github.com/prometheus/prometheus/promql/parser"
 
-	"github.com/grafana/loki/pkg/logentry/metric"
-	"github.com/grafana/loki/pkg/promtail/api"
+	"github.com/ronanh/loki/pkg/logentry/metric"
+	"github.com/ronanh/loki/pkg/promtail/api"
 
 	"github.com/cortexproject/cortex/pkg/util"
 	"github.com/go-kit/kit/log"
@@ -26,7 +26,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/version"
 
-	"github.com/grafana/loki/pkg/helpers"
+	"github.com/ronanh/loki/pkg/helpers"
 )
 
 const (

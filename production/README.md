@@ -16,7 +16,7 @@ Grafana is offering hosted Loki as part of our broader Grafana Cloud platform. L
 
 ## Run locally using Docker
 
-The Docker images for [Loki](https://hub.docker.com/r/grafana/loki/) and [Promtail](https://hub.docker.com/r/grafana/promtail/) are available on DockerHub.
+The Docker images for [Loki](https://hub.docker.com/r/ronanh/loki/) and [Promtail](https://hub.docker.com/r/grafana/promtail/) are available on DockerHub.
 
 To test locally, we recommend using the `docker-compose.yaml` file in this directory. Docker starts containers for Promtail, Loki, and Grafana.
 

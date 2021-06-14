@@ -59,7 +59,7 @@ DONT_FIND := -name tools -prune -o -name vendor -prune -o -name .git -prune -o -
 APP_GO_FILES := $(shell find . $(DONT_FIND) -name .y.go -prune -o -name .pb.go -prune -o -name cmd -prune -o -type f -name '*.go' -print)
 
 # Build flags
-VPREFIX := github.com/grafana/loki/pkg/build
+VPREFIX := github.com/ronanh/loki/pkg/build
 GO_LDFLAGS   := -X $(VPREFIX).Branch=$(GIT_BRANCH) -X $(VPREFIX).Version=$(IMAGE_TAG) -X $(VPREFIX).Revision=$(GIT_REVISION) -X $(VPREFIX).BuildUser=$(shell whoami)@$(shell hostname) -X $(VPREFIX).BuildDate=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GO_FLAGS     := -ldflags "-extldflags \"-static\" -s -w $(GO_LDFLAGS)" -tags netgo $(MOD_FLAG)
 DYN_GO_FLAGS := -ldflags "-s -w $(GO_LDFLAGS)" -tags netgo $(MOD_FLAG)
@@ -345,7 +345,7 @@ endif
 #################
 
 # optionally set the tag or the arch suffix (-arm64)
-LOKI_DOCKER_DRIVER ?= "grafana/loki-docker-driver"
+LOKI_DOCKER_DRIVER ?= "ronanh/loki-docker-driver"
 PLUGIN_TAG ?= $(IMAGE_TAG)
 PLUGIN_ARCH ?=
 
@@ -455,7 +455,7 @@ print-images:
 	$(info $(patsubst %,%:$(IMAGE_TAG),$(IMAGE_NAMES)))
 	@echo > /dev/null
 
-IMAGE_NAMES := grafana/loki grafana/promtail grafana/loki-canary
+IMAGE_NAMES := ronanh/loki grafana/promtail ronanh/loki-canary
 
 # push(app, optional tag)
 # pushes the app, optionally tagging it differently before

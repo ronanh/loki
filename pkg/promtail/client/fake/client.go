@@ -3,7 +3,7 @@ package fake
 import (
 	"sync"
 
-	"github.com/grafana/loki/pkg/promtail/api"
+	"github.com/ronanh/loki/pkg/promtail/api"
 )
 
 // Client is a fake client used for testing.

@@ -16,12 +16,12 @@ import (
 	"github.com/weaveworks/common/server"
 	"github.com/weaveworks/common/user"
 
-	"github.com/grafana/loki/pkg/distributor"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	"github.com/grafana/loki/pkg/promtail/api"
-	"github.com/grafana/loki/pkg/promtail/scrapeconfig"
-	"github.com/grafana/loki/pkg/promtail/targets/target"
+	"github.com/ronanh/loki/pkg/distributor"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/promtail/api"
+	"github.com/ronanh/loki/pkg/promtail/scrapeconfig"
+	"github.com/ronanh/loki/pkg/promtail/targets/target"
 )
 
 type PushTarget struct {

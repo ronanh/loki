@@ -12,7 +12,7 @@ import (
 	util_log "github.com/cortexproject/cortex/pkg/util/log"
 	"github.com/cortexproject/cortex/tools/querytee"
 
-	"github.com/grafana/loki/pkg/loghttp"
+	"github.com/ronanh/loki/pkg/loghttp"
 )
 
 type Config struct {

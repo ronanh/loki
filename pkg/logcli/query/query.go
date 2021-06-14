@@ -19,17 +19,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/weaveworks/common/user"
 
-	"github.com/grafana/loki/pkg/cfg"
-	"github.com/grafana/loki/pkg/logcli/client"
-	"github.com/grafana/loki/pkg/logcli/output"
-	"github.com/grafana/loki/pkg/loghttp"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	"github.com/grafana/loki/pkg/logql/marshal"
-	"github.com/grafana/loki/pkg/logql/stats"
-	"github.com/grafana/loki/pkg/loki"
-	"github.com/grafana/loki/pkg/storage"
-	"github.com/grafana/loki/pkg/util/validation"
+	"github.com/ronanh/loki/pkg/cfg"
+	"github.com/ronanh/loki/pkg/logcli/client"
+	"github.com/ronanh/loki/pkg/logcli/output"
+	"github.com/ronanh/loki/pkg/loghttp"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/logql/marshal"
+	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/pkg/loki"
+	"github.com/ronanh/loki/pkg/storage"
+	"github.com/ronanh/loki/pkg/util/validation"
 )
 
 type streamEntryPair struct {

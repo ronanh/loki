@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/grafana/loki/pkg/promtail/scrapeconfig"
-	"github.com/grafana/loki/pkg/promtail/targets/windows/win_eventlog"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/ronanh/loki/pkg/promtail/scrapeconfig"
+	"github.com/ronanh/loki/pkg/promtail/targets/windows/win_eventlog"
 )
 
 type Event struct {

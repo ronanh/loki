@@ -20,9 +20,9 @@ import (
 	"github.com/weaveworks/common/instrument"
 	"go.etcd.io/bbolt"
 
-	"github.com/grafana/loki/pkg/storage/stores/shipper/downloads"
-	"github.com/grafana/loki/pkg/storage/stores/shipper/uploads"
-	"github.com/grafana/loki/pkg/storage/stores/util"
+	"github.com/ronanh/loki/pkg/storage/stores/shipper/downloads"
+	"github.com/ronanh/loki/pkg/storage/stores/shipper/uploads"
+	"github.com/ronanh/loki/pkg/storage/stores/util"
 )
 
 const (

@@ -1,4 +1,4 @@
-module github.com/grafana/loki
+module github.com/ronanh/loki
 
 go 1.15
 

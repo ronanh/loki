@@ -17,12 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/weaveworks/common/user"
 
-	"github.com/grafana/loki/pkg/chunkenc"
-	"github.com/grafana/loki/pkg/ingester/client"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql/log"
-	"github.com/grafana/loki/pkg/util/runtime"
-	"github.com/grafana/loki/pkg/util/validation"
+	"github.com/ronanh/loki/pkg/chunkenc"
+	"github.com/ronanh/loki/pkg/ingester/client"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql/log"
+	"github.com/ronanh/loki/pkg/util/runtime"
+	"github.com/ronanh/loki/pkg/util/validation"
 )
 
 // small util for ensuring data exists as we expect

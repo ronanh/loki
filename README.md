@@ -1,8 +1,8 @@
 <p align="center"><img src="docs/sources/logo_and_name.png" alt="Loki Logo"></p>
 
-<a href="https://drone.grafana.net/grafana/loki"><img src="https://drone.grafana.net/api/badges/grafana/loki/status.svg" alt="Drone CI" /></a>
-<a href="https://circleci.com/gh/grafana/loki/tree/master"><img src="https://circleci.com/gh/grafana/loki.svg?style=shield&circle-token=618193e5787b2951c1ea3352ad5f254f4f52313d" alt="CircleCI" /></a>
-<a href="https://goreportcard.com/report/github.com/grafana/loki"><img src="https://goreportcard.com/badge/github.com/grafana/loki" alt="Go Report Card" /></a>
+<a href="https://drone.grafana.net/ronanh/loki"><img src="https://drone.grafana.net/api/badges/ronanh/loki/status.svg" alt="Drone CI" /></a>
+<a href="https://circleci.com/gh/ronanh/loki/tree/master"><img src="https://circleci.com/gh/ronanh/loki.svg?style=shield&circle-token=618193e5787b2951c1ea3352ad5f254f4f52313d" alt="CircleCI" /></a>
+<a href="https://goreportcard.com/report/github.com/ronanh/loki"><img src="https://goreportcard.com/badge/github.com/ronanh/loki" alt="Go Report Card" /></a>
 <a href="https://slack.grafana.com/"><img src="https://img.shields.io/badge/join%20slack-%23loki-brightgreen.svg" alt="Slack" /></a>
 
 # Loki: like Prometheus, but for logs.
@@ -40,13 +40,13 @@ Loki differs from Prometheus by focusing on logs instead of metrics, and deliver
 ### Documentation
 
 * [master](https://grafana.com/docs/loki/latest/)
-* [v1.5.0](https://github.com/grafana/loki/tree/v1.5.0/docs/README.md)
-* [v1.4.1](https://github.com/grafana/loki/tree/v1.4.1/docs/README.md)
-* [v1.4.0](https://github.com/grafana/loki/tree/v1.4.0/docs/README.md)
-* [v1.3.0](https://github.com/grafana/loki/tree/v1.3.0/docs/README.md)
-* [v1.2.0](https://github.com/grafana/loki/tree/v1.2.0/docs/README.md)
-* [v1.1.0](https://github.com/grafana/loki/tree/v1.1.0/docs/README.md)
-* [v1.0.0](https://github.com/grafana/loki/tree/v1.0.0/docs/README.md)
+* [v1.5.0](https://github.com/ronanh/loki/tree/v1.5.0/docs/README.md)
+* [v1.4.1](https://github.com/ronanh/loki/tree/v1.4.1/docs/README.md)
+* [v1.4.0](https://github.com/ronanh/loki/tree/v1.4.0/docs/README.md)
+* [v1.3.0](https://github.com/ronanh/loki/tree/v1.3.0/docs/README.md)
+* [v1.2.0](https://github.com/ronanh/loki/tree/v1.2.0/docs/README.md)
+* [v1.1.0](https://github.com/ronanh/loki/tree/v1.1.0/docs/README.md)
+* [v1.0.0](https://github.com/ronanh/loki/tree/v1.0.0/docs/README.md)
 
 Commonly used sections:
 
@@ -67,7 +67,7 @@ If you have any questions or feedback regarding Loki:
 
 - Search existing thread in the Grafana Labs community forum for Loki: [https://community.grafana.com](https://community.grafana.com/c/grafana-loki/)
 - Ask a question on the Loki Slack channel. To invite yourself to the Grafana Slack, visit [https://slack.grafana.com/](https://slack.grafana.com/) and join the #loki channel.
-- [File an issue](https://github.com/grafana/loki/issues/new) for bugs, issues and feature suggestions.
+- [File an issue](https://github.com/ronanh/loki/issues/new) for bugs, issues and feature suggestions.
 - Send an email to [lokiproject@googlegroups.com](mailto:lokiproject@googlegroups.com), or use the [web interface](https://groups.google.com/forum/#!forum/lokiproject).
 - UI issues should be filed directly in [Grafana](https://github.com/grafana/grafana/issues/new).
 
@@ -100,12 +100,12 @@ Refer to [CONTRIBUTING.md](CONTRIBUTING.md)
 
 Loki can be run in a single host, no-dependencies mode using the following commands.
 
-You need `go`, we recommend using the version found in [our build Dockerfile](https://github.com/grafana/loki/blob/master/loki-build-image/Dockerfile)
+You need `go`, we recommend using the version found in [our build Dockerfile](https://github.com/ronanh/loki/blob/master/loki-build-image/Dockerfile)
 
 ```bash
 
-$ go get github.com/grafana/loki
-$ cd $GOPATH/src/github.com/grafana/loki # GOPATH is $HOME/go by default.
+$ go get github.com/ronanh/loki
+$ cd $GOPATH/src/github.com/ronanh/loki # GOPATH is $HOME/go by default.
 
 $ go build ./cmd/loki
 $ ./loki -config.file=./cmd/loki/loki-local-config.yaml

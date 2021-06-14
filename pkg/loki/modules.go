@@ -14,9 +14,9 @@ import (
 	"github.com/cortexproject/cortex/pkg/frontend/transport"
 	"github.com/cortexproject/cortex/pkg/frontend/v1/frontendv1pb"
 
-	"github.com/grafana/loki/pkg/ruler/manager"
-	"github.com/grafana/loki/pkg/storage/stores/shipper/compactor"
-	"github.com/grafana/loki/pkg/util/runtime"
+	"github.com/ronanh/loki/pkg/ruler/manager"
+	"github.com/ronanh/loki/pkg/storage/stores/shipper/compactor"
+	"github.com/ronanh/loki/pkg/util/runtime"
 
 	"github.com/cortexproject/cortex/pkg/chunk"
 	"github.com/cortexproject/cortex/pkg/chunk/cache"
@@ -40,18 +40,18 @@ import (
 	"github.com/weaveworks/common/server"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/grafana/loki/pkg/distributor"
-	"github.com/grafana/loki/pkg/ingester"
-	"github.com/grafana/loki/pkg/logproto"
-	"github.com/grafana/loki/pkg/logql"
-	"github.com/grafana/loki/pkg/querier"
-	"github.com/grafana/loki/pkg/querier/queryrange"
-	"github.com/grafana/loki/pkg/ruler"
-	loki_storage "github.com/grafana/loki/pkg/storage"
-	"github.com/grafana/loki/pkg/storage/stores/shipper"
-	"github.com/grafana/loki/pkg/storage/stores/shipper/uploads"
-	serverutil "github.com/grafana/loki/pkg/util/server"
-	"github.com/grafana/loki/pkg/util/validation"
+	"github.com/ronanh/loki/pkg/distributor"
+	"github.com/ronanh/loki/pkg/ingester"
+	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/querier"
+	"github.com/ronanh/loki/pkg/querier/queryrange"
+	"github.com/ronanh/loki/pkg/ruler"
+	loki_storage "github.com/ronanh/loki/pkg/storage"
+	"github.com/ronanh/loki/pkg/storage/stores/shipper"
+	"github.com/ronanh/loki/pkg/storage/stores/shipper/uploads"
+	serverutil "github.com/ronanh/loki/pkg/util/server"
+	"github.com/ronanh/loki/pkg/util/validation"
 )
 
 const maxChunkAgeForTableManager = 12 * time.Hour

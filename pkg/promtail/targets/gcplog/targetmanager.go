@@ -6,10 +6,10 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
-	"github.com/grafana/loki/pkg/logentry/stages"
-	"github.com/grafana/loki/pkg/promtail/api"
-	"github.com/grafana/loki/pkg/promtail/scrapeconfig"
-	"github.com/grafana/loki/pkg/promtail/targets/target"
+	"github.com/ronanh/loki/pkg/logentry/stages"
+	"github.com/ronanh/loki/pkg/promtail/api"
+	"github.com/ronanh/loki/pkg/promtail/scrapeconfig"
+	"github.com/ronanh/loki/pkg/promtail/targets/target"
 )
 
 // nolint: golint

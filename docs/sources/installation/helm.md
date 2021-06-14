@@ -27,37 +27,37 @@ helm repo update
 ### Deploy with default config
 
 ```bash
-helm upgrade --install loki grafana/loki-stack
+helm upgrade --install loki ronanh/loki-stack
 ```
 
 ### Deploy in a custom namespace
 
 ```bash
-helm upgrade --install loki --namespace=loki grafana/loki
+helm upgrade --install loki --namespace=loki ronanh/loki
 ```
 
 ### Deploy with custom config
 
 ```bash
-helm upgrade --install loki grafana/loki --set "key1=val1,key2=val2,..."
+helm upgrade --install loki ronanh/loki --set "key1=val1,key2=val2,..."
 ```
 
 ### Deploy Loki Stack (Loki, Promtail, Grafana, Prometheus)
 
 ```bash
-helm upgrade --install loki grafana/loki-stack  --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
+helm upgrade --install loki ronanh/loki-stack  --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
 ```
 
 ### Deploy Loki Stack (Loki, Promtail, Grafana, Prometheus) with persistent volume claim
 
 ```bash
-helm upgrade --install loki grafana/loki-stack  --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false,loki.persistence.enabled=true,loki.persistence.storageClassName=standard,loki.persistence.size=5Gi
+helm upgrade --install loki ronanh/loki-stack  --set grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false,loki.persistence.enabled=true,loki.persistence.storageClassName=standard,loki.persistence.size=5Gi
 ```
 
 ### Deploy Loki Stack (Loki, Fluent Bit, Grafana, Prometheus)
 
 ```bash
-helm upgrade --install loki grafana/loki-stack \
+helm upgrade --install loki ronanh/loki-stack \
   --set fluent-bit.enabled=true,promtail.enabled=false,grafana.enabled=true,prometheus.enabled=true,prometheus.alertmanager.persistentVolume.enabled=false,prometheus.server.persistentVolume.enabled=false
 ```
 

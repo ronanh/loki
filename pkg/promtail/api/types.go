@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/common/model"
 
-	"github.com/grafana/loki/pkg/logproto"
+	"github.com/ronanh/loki/pkg/logproto"
 )
 
 // Entry is a log entry with labels.

@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/grafana/loki/pkg/promtail/api"
+	"github.com/ronanh/loki/pkg/promtail/api"
 )
 
 // PipelineStages contains configuration for each stage within a pipeline

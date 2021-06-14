@@ -13,7 +13,7 @@ to a private Loki instance or [Grafana Cloud](https://grafana.com/oss/loki).
 Documentation on configuring the Loki Docker Driver can be found on the
 [configuration page](./configuration).
 
-If you have any questions or issues using the Docker plugin feel free to open an issue in this [repository](https://github.com/grafana/loki/issues).
+If you have any questions or issues using the Docker plugin feel free to open an issue in this [repository](https://github.com/ronanh/loki/issues).
 
 ## Installing
 
@@ -23,7 +23,7 @@ containers you want to collect logs from.
 Run the following command to install the plugin:
 
 ```bash
-docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+docker plugin install ronanh/loki-docker-driver:latest --alias loki --grant-all-permissions
 ```
 
 To check installed plugins, use the `docker plugin ls` command. Plugins that
@@ -44,7 +44,7 @@ re-enabling and restarting Docker:
 
 ```bash
 docker plugin disable loki --force
-docker plugin upgrade loki grafana/loki-docker-driver:latest --grant-all-permissions
+docker plugin upgrade loki ronanh/loki-docker-driver:latest --grant-all-permissions
 docker plugin enable loki
 systemctl restart docker
 ```

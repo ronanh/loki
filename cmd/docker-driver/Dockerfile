@@ -1,7 +1,7 @@
-ARG BUILD_IMAGE=grafana/loki-build-image:0.12.0
+ARG BUILD_IMAGE=ronanh/loki-build-image:0.12.0
 # Directories in this file are referenced from the root of the project not this folder
 # This file is intended to be called from the root like so:
-# docker build -t grafana/loki -f cmd/loki/Dockerfile .
+# docker build -t ronanh/loki -f cmd/loki/Dockerfile .
 
 # TODO: add cross-platform support
 FROM $BUILD_IMAGE as build
