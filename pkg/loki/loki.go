@@ -149,7 +149,7 @@ type Loki struct {
 	tenantConfigs   *runtime.TenantConfigs
 	distributor     *distributor.Distributor
 	ingester        *ingester.Ingester
-	querier         *querier.Querier
+	querier         *querier.HttpQuerier
 	ingesterQuerier *querier.IngesterQuerier
 	store           storage.Store
 	tableManager    *chunk.TableManager

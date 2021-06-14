@@ -192,7 +192,12 @@ func (t *Loki) initQuerier() (services.Service, error) {
 	if t.cfg.Ingester.QueryStoreMaxLookBackPeriod != 0 {
 		t.cfg.Querier.IngesterQueryStoreMaxLookback = t.cfg.Ingester.QueryStoreMaxLookBackPeriod
 	}
-	t.querier, err = querier.New(t.cfg.Querier, t.store, t.ingesterQuerier, t.overrides)
+	q, err := querier.New(t.cfg.Querier, t.store, t.ingesterQuerier, t.overrides)
+	if err != nil {
+		return nil, err
+	}
+
+	t.querier, err = querier.NewHttpQuerier(t.cfg.Querier, q, t.overrides)
 	if err != nil {
 		return nil, err
 	}

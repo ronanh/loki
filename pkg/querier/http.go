@@ -19,11 +19,30 @@ import (
 	"github.com/ronanh/loki/pkg/logql/marshal"
 	marshal_legacy "github.com/ronanh/loki/pkg/logql/marshal/legacy"
 	serverutil "github.com/ronanh/loki/pkg/util/server"
+	"github.com/ronanh/loki/pkg/util/validation"
 )
 
 const (
 	wsPingPeriod = 1 * time.Second
 )
+
+type HttpQuerier struct {
+	querier Querier
+	cfg     Config
+	engine  *logql.Engine
+	limits  *validation.Overrides
+}
+
+// NewHttpQuerier Create a new HttpQuerier
+func NewHttpQuerier(cfg Config, q Querier, limits *validation.Overrides) (*HttpQuerier, error) {
+	hq := HttpQuerier{
+		querier: q,
+		cfg:     cfg,
+		engine:  logql.NewEngine(cfg.Engine, q, limits),
+		limits:  limits,
+	}
+	return &hq, nil
+}
 
 type QueryResponse struct {
 	ResultType parser.ValueType `json:"resultType"`
@@ -31,7 +50,7 @@ type QueryResponse struct {
 }
 
 // RangeQueryHandler is a http.HandlerFunc for range queries.
-func (q *Querier) RangeQueryHandler(w http.ResponseWriter, r *http.Request) {
+func (q *HttpQuerier) RangeQueryHandler(w http.ResponseWriter, r *http.Request) {
 	// Enforce the query timeout while querying backends
 	ctx, cancel := context.WithDeadline(r.Context(), time.Now().Add(q.cfg.QueryTimeout))
 	defer cancel()
@@ -71,7 +90,7 @@ func (q *Querier) RangeQueryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // InstantQueryHandler is a http.HandlerFunc for instant queries.
-func (q *Querier) InstantQueryHandler(w http.ResponseWriter, r *http.Request) {
+func (q *HttpQuerier) InstantQueryHandler(w http.ResponseWriter, r *http.Request) {
 	// Enforce the query timeout while querying backends
 	ctx, cancel := context.WithDeadline(r.Context(), time.Now().Add(q.cfg.QueryTimeout))
 	defer cancel()
@@ -111,7 +130,7 @@ func (q *Querier) InstantQueryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // LogQueryHandler is a http.HandlerFunc for log only queries.
-func (q *Querier) LogQueryHandler(w http.ResponseWriter, r *http.Request) {
+func (q *HttpQuerier) LogQueryHandler(w http.ResponseWriter, r *http.Request) {
 	// Enforce the query timeout while querying backends
 	ctx, cancel := context.WithDeadline(r.Context(), time.Now().Add(q.cfg.QueryTimeout))
 	defer cancel()
@@ -169,14 +188,14 @@ func (q *Querier) LogQueryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // LabelHandler is a http.HandlerFunc for handling label queries.
-func (q *Querier) LabelHandler(w http.ResponseWriter, r *http.Request) {
+func (q *HttpQuerier) LabelHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := loghttp.ParseLabelQuery(r)
 	if err != nil {
 		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
 		return
 	}
 
-	resp, err := q.Label(r.Context(), req)
+	resp, err := q.querier.Label(r.Context(), req)
 	if err != nil {
 		serverutil.WriteError(err, w)
 		return
@@ -194,7 +213,7 @@ func (q *Querier) LabelHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TailHandler is a http.HandlerFunc for handling tail queries.
-func (q *Querier) TailHandler(w http.ResponseWriter, r *http.Request) {
+func (q *HttpQuerier) TailHandler(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
@@ -224,7 +243,7 @@ func (q *Querier) TailHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	tailer, err := q.Tail(r.Context(), req)
+	tailer, err := q.querier.Tail(r.Context(), req)
 	if err != nil {
 		if err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())); err != nil {
 			level.Error(logger).Log("msg", "Error connecting to ingesters for tailing", "err", err)
@@ -306,14 +325,14 @@ func (q *Querier) TailHandler(w http.ResponseWriter, r *http.Request) {
 
 // SeriesHandler returns the list of time series that match a certain label set.
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#finding-series-by-label-matchers
-func (q *Querier) SeriesHandler(w http.ResponseWriter, r *http.Request) {
+func (q *HttpQuerier) SeriesHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := loghttp.ParseSeriesQuery(r)
 	if err != nil {
 		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
 		return
 	}
 
-	resp, err := q.Series(r.Context(), req)
+	resp, err := q.querier.Series(r.Context(), req)
 	if err != nil {
 		serverutil.WriteError(err, w)
 		return
@@ -345,7 +364,7 @@ func parseRegexQuery(httpRequest *http.Request) (string, error) {
 	return query, nil
 }
 
-func (q *Querier) validateEntriesLimits(ctx context.Context, query string, limit uint32) error {
+func (q *HttpQuerier) validateEntriesLimits(ctx context.Context, query string, limit uint32) error {
 	userID, err := user.ExtractOrgID(ctx)
 	if err != nil {
 		return httpgrpc.Errorf(http.StatusBadRequest, err.Error())
