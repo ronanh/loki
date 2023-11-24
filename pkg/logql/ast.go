@@ -24,6 +24,10 @@ type Expr interface {
 	fmt.Stringer
 }
 
+type ExprNode interface {
+	Leaves() []Expr
+}
+
 type QueryParams interface {
 	LogSelector() (LogSelectorExpr, error)
 	GetStart() time.Time
@@ -152,6 +156,10 @@ func (e *matchersExpr) Matchers() []*labels.Matcher {
 	return e.matchers
 }
 
+func (e *matchersExpr) AddMatcher(matcher *labels.Matcher) {
+	e.matchers = append(e.matchers, matcher)
+}
+
 func (e *matchersExpr) Shardable() bool { return true }
 
 func (e *matchersExpr) String() string {
@@ -173,6 +181,11 @@ func (e *matchersExpr) Pipeline() (log.Pipeline, error) {
 
 func (e *matchersExpr) HasFilter() bool {
 	return false
+}
+
+type PipelineBuilder interface {
+	Matchers() []*labels.Matcher
+	AddMatcher(matcher *labels.Matcher)
 }
 
 type pipelineExpr struct {
@@ -199,6 +212,10 @@ func (e *pipelineExpr) Shardable() bool {
 
 func (e *pipelineExpr) Matchers() []*labels.Matcher {
 	return e.left.Matchers()
+}
+
+func (e *pipelineExpr) Leaves() []Expr {
+	return []Expr{e.left}
 }
 
 func (e *pipelineExpr) String() string {
@@ -253,6 +270,13 @@ func AddFilterExpr(expr LogSelectorExpr, ty labels.MatchType, match string) (Log
 	default:
 		return nil, fmt.Errorf("unknown LogSelector: %v+", expr)
 	}
+}
+
+func (e *lineFilterExpr) Leaves() []Expr {
+	if e.left == nil {
+		return []Expr{e}
+	}
+	return e.left.Leaves()
 }
 
 func (e *lineFilterExpr) Shardable() bool { return true }
@@ -661,6 +685,10 @@ func (e *rangeAggregationExpr) Selector() LogSelectorExpr {
 	return e.left.left
 }
 
+func (e *rangeAggregationExpr) Leaves() []Expr {
+	return []Expr{e.left.left}
+}
+
 func (e rangeAggregationExpr) validate() error {
 	if e.grouping != nil {
 		switch e.operation {
@@ -685,6 +713,18 @@ func (e rangeAggregationExpr) validate() error {
 	}
 }
 
+func (e *rangeAggregationExpr) Groups() []string {
+	return e.grouping.groups
+}
+
+func (e *rangeAggregationExpr) Without() bool {
+	return e.grouping.without
+}
+
+func (e *rangeAggregationExpr) AddGroup(group string) {
+	e.grouping.groups = append(e.grouping.groups, group)
+}
+
 // impls Stringer
 func (e *rangeAggregationExpr) String() string {
 	var sb strings.Builder
@@ -705,6 +745,12 @@ func (e *rangeAggregationExpr) String() string {
 // impl SampleExpr
 func (e *rangeAggregationExpr) Shardable() bool {
 	return shardableOps[e.operation] && e.left.Shardable()
+}
+
+type GroupBuilder interface {
+	Groups() []string
+	Without() bool
+	AddGroup(string)
 }
 
 type grouping struct {
@@ -783,6 +829,10 @@ func (e *vectorAggregationExpr) Extractor() (log.SampleExtractor, error) {
 	return e.left.Extractor()
 }
 
+func (e *vectorAggregationExpr) Leaves() []Expr {
+	return []Expr{e.left}
+}
+
 // canInjectVectorGrouping tells if a vector operation can inject grouping into the nested range vector.
 func canInjectVectorGrouping(vecOp, rangeOp string) bool {
 	if vecOp != OpTypeSum {
@@ -794,6 +844,18 @@ func canInjectVectorGrouping(vecOp, rangeOp string) bool {
 	default:
 		return false
 	}
+}
+
+func (e *vectorAggregationExpr) Groups() []string {
+	return e.grouping.groups
+}
+
+func (e *vectorAggregationExpr) Without() bool {
+	return e.grouping.without
+}
+
+func (e *vectorAggregationExpr) AddGroup(group string) {
+	e.grouping.groups = append(e.grouping.groups, group)
 }
 
 func (e *vectorAggregationExpr) String() string {
@@ -827,6 +889,10 @@ func (e *binOpExpr) String() string {
 		return fmt.Sprintf("(%s %s bool %s)", e.SampleExpr.String(), e.op, e.RHS.String())
 	}
 	return fmt.Sprintf("(%s %s %s)", e.SampleExpr.String(), e.op, e.RHS.String())
+}
+
+func (e *binOpExpr) Leaves() []Expr {
+	return []Expr{e.SampleExpr, e.RHS}
 }
 
 // impl SampleExpr
