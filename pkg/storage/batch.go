@@ -17,7 +17,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 
-	"github.com/ronanh/loki/pkg/chunkenc"
 	"github.com/ronanh/loki/pkg/iter"
 	"github.com/ronanh/loki/pkg/logproto"
 	"github.com/ronanh/loki/pkg/logql"
@@ -705,7 +704,7 @@ func fetchLazyChunks(ctx context.Context, chunks []*LazyChunk) error {
 func isInvalidChunkError(err error) bool {
 	err = errors.Cause(err)
 	if err, ok := err.(promql.ErrStorage); ok {
-		return err.Err == chunk.ErrInvalidChecksum || err.Err == chunkenc.ErrInvalidChecksum
+		return err.Err == chunk.ErrInvalidChecksum
 	}
 	return false
 }
