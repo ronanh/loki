@@ -520,6 +520,10 @@ func newUnwrapExpr(id string, operation string) *unwrapExpr {
 	return &unwrapExpr{identifier: id, operation: operation}
 }
 
+type LogRange interface {
+	Interval() time.Duration
+}
+
 type logRange struct {
 	left     LogSelectorExpr
 	interval time.Duration
@@ -687,6 +691,10 @@ func (e *rangeAggregationExpr) Selector() LogSelectorExpr {
 
 func (e *rangeAggregationExpr) Leaves() []Expr {
 	return []Expr{e.left.left}
+}
+
+func (e *rangeAggregationExpr) Interval() time.Duration {
+	return e.left.interval
 }
 
 func (e rangeAggregationExpr) validate() error {
