@@ -156,6 +156,10 @@ func (e *matchersExpr) Matchers() []*labels.Matcher {
 	return e.matchers
 }
 
+func (e *matchersExpr) AddMatcher(matcher *labels.Matcher) {
+	e.matchers = append(e.matchers, matcher)
+}
+
 func (e *matchersExpr) Shardable() bool { return true }
 
 func (e *matchersExpr) String() string {
@@ -180,9 +184,12 @@ func (e *matchersExpr) HasFilter() bool {
 }
 
 type PipelineBuilder interface {
+	AddLabelFilterer(labelFilterer log.LabelFilterer)
+}
+
+type MatchersBuilder interface {
 	Matchers() []*labels.Matcher
 	AddMatcher(matcher *labels.Matcher)
-	AddLabelFilterer(labelFilterer log.LabelFilterer)
 }
 
 type pipelineExpr struct {
@@ -211,9 +218,13 @@ func (e *pipelineExpr) Matchers() []*labels.Matcher {
 	return e.left.Matchers()
 }
 
-func (e *pipelineExpr) AddMatcher(matcher *labels.Matcher) {
-	e.left.matchers = append(e.left.matchers, matcher)
+func (e *pipelineExpr) Leaves() []Expr {
+	return []Expr{e.left}
 }
+
+// func (e *pipelineExpr) AddMatcher(matcher *labels.Matcher) {
+// 	e.left.matchers = append(e.left.matchers, matcher)
+// }
 
 func (e *pipelineExpr) AddLabelFilterer(labelFilterer log.LabelFilterer) {
 	e.pipeline = append(e.pipeline, &labelFilterExpr{LabelFilterer: labelFilterer})
