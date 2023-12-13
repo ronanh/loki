@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"io"
+	"sort"
 
 	"github.com/ronanh/loki/pkg/helpers"
 	"github.com/ronanh/loki/pkg/logproto"
@@ -40,7 +41,7 @@ type sampleWithLabels struct {
 	labels string
 }
 
-func NewPeekingSampleIterator(iter SampleIterator) PeekingSampleIterator {
+func NewPeekingSampleIteratorLoki(iter SampleIterator) PeekingSampleIterator {
 	// initialize the next entry so we can peek right from the start.
 	var cache *sampleWithLabels
 	next := &sampleWithLabels{}
@@ -153,7 +154,7 @@ type heapSampleIterator struct {
 
 // NewHeapSampleIterator returns a new iterator which uses a heap to merge together
 // entries for multiple iterators.
-func NewHeapSampleIterator(ctx context.Context, is []SampleIterator) SampleIterator {
+func NewHeapSampleIteratorLoki(ctx context.Context, is []SampleIterator) SampleIterator {
 	return &heapSampleIterator{
 		stats:  stats.GetChunkData(ctx),
 		is:     is,
@@ -279,6 +280,172 @@ func (i *heapSampleIterator) Close() error {
 	}
 	i.tuples = nil
 	return nil
+}
+
+type mergingSampleIterator struct {
+	ctx       context.Context
+	its       []SampleIterator
+	curSample logproto.Sample
+	curLabels string
+	err       error
+}
+
+var _ SampleIterator = (*mergingSampleIterator)(nil)
+var _ PeekingSampleIterator = (*mergingSampleIterator)(nil)
+
+func NewHeapSampleIterator(ctx context.Context, is []SampleIterator) SampleIterator {
+	return NewMergingSampleIterator(ctx, is)
+}
+
+func NewPeekingSampleIterator(iter SampleIterator) PeekingSampleIterator {
+	if pki, ok := iter.(PeekingSampleIterator); ok {
+		return pki
+	}
+	return NewMergingSampleIterator(context.Background(), []SampleIterator{iter})
+}
+
+func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) PeekingSampleIterator {
+	startedIts := make([]SampleIterator, 0, len(its))
+	for _, it := range its {
+		if it.Next() {
+			startedIts = append(startedIts, it)
+		}
+	}
+
+	mi := &mergingSampleIterator{
+		ctx: ctx,
+		its: startedIts,
+	}
+	sort.Slice(mi.its, mi.less)
+	mi.prepareNext()
+
+	return mi
+}
+
+// Close closes the iterator and frees associated ressources
+func (mi *mergingSampleIterator) Close() error {
+	for _, it := range mi.its {
+		if it != nil {
+			if err := it.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	mi.its = nil
+	return nil
+}
+
+// Error returns errors encountered by the iterator
+func (mi *mergingSampleIterator) Error() error {
+	if mi.err != nil {
+		return mi.err
+	}
+	return mi.ctx.Err()
+}
+
+func (mi *mergingSampleIterator) Peek() (string, logproto.Sample, bool) {
+	if len(mi.its) == 0 {
+		return "", logproto.Sample{}, false
+	}
+
+	return mi.its[0].Labels(), mi.its[0].Sample(), true
+}
+
+func (mi *mergingSampleIterator) Sample() logproto.Sample {
+	return mi.curSample
+}
+
+func (mi *mergingSampleIterator) Labels() string {
+	return mi.curLabels
+}
+
+func (mi *mergingSampleIterator) less(i, j int) bool {
+	s1, s2 := mi.its[i].Sample(), mi.its[j].Sample()
+	switch {
+	case s1.Timestamp < s2.Timestamp:
+		return true
+	case s1.Timestamp > s2.Timestamp:
+		return false
+	default:
+		lbls1, lbls2 := mi.its[i].Labels(), mi.its[j].Labels()
+		if lbls1 == lbls2 {
+			return s1.Hash < s2.Hash
+		}
+		return lbls1 < lbls2
+	}
+}
+
+func (mi *mergingSampleIterator) Next() bool {
+	if len(mi.its) == 0 {
+		return false
+	}
+
+	// set current sample to next sample
+	mi.curSample = mi.its[0].Sample()
+	mi.curLabels = mi.its[0].Labels()
+
+	// advance iterator
+	if !mi.its[0].Next() {
+		// stream finished: remove it
+		mi.its[0].Close()
+		mi.its[0] = nil
+		mi.its = mi.its[1:]
+	}
+	// Ensure streams sorted (only sort the stream that was advanced)
+	var firstItNewPos int
+	for firstItNewPos = 1; firstItNewPos < len(mi.its); firstItNewPos++ {
+		if mi.less(firstItNewPos-1, firstItNewPos) {
+			firstItNewPos--
+			break
+		}
+	}
+	switch firstItNewPos {
+	case 0:
+		// nothing to do
+	case 1:
+		// swap the first two elements
+		mi.its[0], mi.its[1] = mi.its[1], mi.its[0]
+	default:
+		// copy the first element and shift the rest
+		v := mi.its[0]
+		copy(mi.its, mi.its[1:firstItNewPos+1])
+		mi.its[firstItNewPos] = v
+	}
+
+	mi.prepareNext()
+
+	return true
+}
+
+func (mi *mergingSampleIterator) prepareNext() {
+	if len(mi.its) == 0 {
+		return
+	}
+	// Ensure no duplicates
+	for i := 1; i < len(mi.its); i++ {
+		if mi.its[i].Sample().Timestamp != mi.its[0].Sample().Timestamp || mi.its[i].Labels() != mi.its[0].Labels() || mi.its[i].Sample().Hash != mi.its[0].Sample().Hash {
+			break
+		}
+		// Duplicate -> advance to discard
+		if !mi.its[i].Next() {
+			// stream finished: remove it
+			mi.its[i].Close()
+			mi.its[i] = nil
+			mi.its = append(mi.its[:i], mi.its[i+1:]...)
+			// restart iteration from the same position
+			i--
+			continue
+		}
+		// Ensure sorted
+		for j := i + 1; j < len(mi.its); j++ {
+			if mi.less(j-1, j) {
+				break
+			}
+			mi.its[j-1], mi.its[j] = mi.its[j], mi.its[j-1]
+		}
+		// restart iteration from the same position
+		i--
+	}
 }
 
 type sampleQueryClientIterator struct {

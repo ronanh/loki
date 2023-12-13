@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
@@ -154,7 +155,7 @@ type heapIterator struct {
 
 // NewHeapIterator returns a new iterator which uses a heap to merge together
 // entries for multiple interators.
-func NewHeapIterator(ctx context.Context, is []EntryIterator, direction logproto.Direction) HeapIterator {
+func NewHeapIteratorLoki(ctx context.Context, is []EntryIterator, direction logproto.Direction) HeapIterator {
 	result := &heapIterator{is: is, stats: stats.GetChunkData(ctx)}
 	switch direction {
 	case logproto.BACKWARD:
@@ -310,6 +311,174 @@ func (i *heapIterator) Len() int {
 	i.prefetch()
 
 	return i.heap.Len()
+}
+
+type mergingIterator struct {
+	ctx       context.Context
+	its       []EntryIterator
+	curEntry  logproto.Entry
+	curLabels string
+	reversed  bool
+	err       error
+}
+
+var _ EntryIterator = (*mergingIterator)(nil)
+var _ HeapIterator = (*mergingIterator)(nil)
+
+func NewHeapIterator(ctx context.Context, is []EntryIterator, direction logproto.Direction) HeapIterator {
+	return NewMergingIterator(ctx, is, direction)
+}
+
+func NewMergingIterator(ctx context.Context, its []EntryIterator, direction logproto.Direction) HeapIterator {
+	startedIts := make([]EntryIterator, 0, len(its))
+	for _, it := range its {
+		if it.Next() {
+			startedIts = append(startedIts, it)
+		}
+	}
+
+	mi := &mergingIterator{
+		ctx:      ctx,
+		its:      startedIts,
+		reversed: direction == logproto.BACKWARD,
+	}
+	sort.Slice(mi.its, mi.less)
+	mi.prepareNext()
+
+	return mi
+}
+
+// Close closes the iterator and frees associated ressources
+func (mi *mergingIterator) Close() error {
+	for _, it := range mi.its {
+		if it != nil {
+			if err := it.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	mi.its = nil
+	return nil
+}
+
+// Error returns errors encountered by the iterator
+func (mi *mergingIterator) Error() error {
+	if mi.err != nil {
+		return mi.err
+	}
+	return mi.ctx.Err()
+}
+
+func (mi *mergingIterator) Len() int {
+	return len(mi.its)
+}
+
+func (mi *mergingIterator) Push(it EntryIterator) {
+	if it.Next() {
+		mi.its = append(mi.its, it)
+		sort.Slice(mi.its, mi.less)
+		mi.prepareNext()
+	}
+}
+
+func (mi *mergingIterator) Peek() time.Time {
+	if len(mi.its) == 0 {
+		return time.Time{}
+	}
+
+	return mi.its[0].Entry().Timestamp
+}
+
+func (mi *mergingIterator) Entry() logproto.Entry {
+	return mi.curEntry
+}
+
+func (mi *mergingIterator) Labels() string {
+	return mi.curLabels
+}
+
+func (mi *mergingIterator) less(i, j int) bool {
+	ts1, ts2 := mi.its[i].Entry().Timestamp.UnixNano(), mi.its[j].Entry().Timestamp.UnixNano()
+	if ts1 != ts2 {
+		return ts1 < ts2 != mi.reversed
+	}
+	if mi.its[i].Labels() != mi.its[j].Labels() {
+		return mi.its[i].Labels() < mi.its[j].Labels()
+	}
+	return mi.its[i].Entry().Line < mi.its[j].Entry().Line
+}
+
+func (mi *mergingIterator) Next() bool {
+	if len(mi.its) == 0 {
+		return false
+	}
+
+	// set current entry to next entry
+	mi.curEntry = mi.its[0].Entry()
+	mi.curLabels = mi.its[0].Labels()
+
+	// advance iterator
+	if !mi.its[0].Next() {
+		// stream finished: remove it
+		mi.its[0].Close()
+		mi.its[0] = nil
+		mi.its = mi.its[1:]
+	}
+	// Ensure streams sorted (only sort the stream that was advanced)
+	var firstItNewPos int
+	for firstItNewPos = 1; firstItNewPos < len(mi.its); firstItNewPos++ {
+		if mi.less(firstItNewPos-1, firstItNewPos) {
+			firstItNewPos--
+			break
+		}
+	}
+	switch firstItNewPos {
+	case 0:
+		// nothing to do
+	case 1:
+		// swap the first two elements
+		mi.its[0], mi.its[1] = mi.its[1], mi.its[0]
+	default:
+		// copy the first element and shift the rest
+		v := mi.its[0]
+		copy(mi.its, mi.its[1:firstItNewPos+1])
+		mi.its[firstItNewPos] = v
+	}
+
+	mi.prepareNext()
+
+	return true
+}
+
+func (mi *mergingIterator) prepareNext() {
+	if len(mi.its) == 0 {
+		return
+	}
+	// Ensure no duplicates
+	for i := 1; i < len(mi.its); i++ {
+		if mi.its[i].Entry().Timestamp != mi.its[0].Entry().Timestamp || mi.its[i].Labels() != mi.its[0].Labels() || mi.its[i].Entry().Line != mi.its[0].Entry().Line {
+			break
+		}
+		// Duplicate -> advance to discard
+		if !mi.its[i].Next() {
+			// stream finished: remove it
+			mi.its[i].Close()
+			mi.its[i] = nil
+			mi.its = append(mi.its[:i], mi.its[i+1:]...)
+			// restart iteration from the same position
+			i--
+			continue
+		}
+		// Ensure sorted
+		for j := i + 1; j < len(mi.its); j++ {
+			if mi.less(j-1, j) {
+				break
+			}
+			mi.its[j-1], mi.its[j] = mi.its[j], mi.its[j-1]
+		}
+		// restart iteration from the same position
+		i--
+	}
 }
 
 // NewStreamsIterator returns an iterator over logproto.Stream
