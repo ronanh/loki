@@ -161,7 +161,7 @@ func (ls Labels) Hash() uint64 {
 
 // HashForLabels returns a hash value for the labels matching the provided names.
 // 'names' have to be sorted in ascending order.
-func (ls Labels) HashForLabels(b []byte, names ...string) (uint64, []byte) {
+func (ls Labels) HashForLabelsLoki(b []byte, names ...string) (uint64, []byte) {
 	b = b[:0]
 	i, j := 0, 0
 	for i < len(ls) && j < len(names) {
@@ -176,6 +176,34 @@ func (ls Labels) HashForLabels(b []byte, names ...string) (uint64, []byte) {
 			b = append(b, seps[0])
 			i++
 			j++
+		}
+	}
+	return xxhash.Sum64(b), b
+}
+
+// HashForLabels returns a hash value for the labels matching the provided names.
+// 'names' have to be sorted in ascending order.
+func (ls Labels) HashForLabels(b []byte, names ...string) (uint64, []byte) {
+	b = b[:0]
+	if len(names) > 0 && len(ls) > 0 {
+		i, j := 0, 0
+		namei, namej := names[i], names[j]
+		for i < len(ls) && j < len(names) {
+			if namei == namej {
+				b = append(b, namei...)
+				b = append(b, seps[0])
+				b = append(b, ls[i].Value...)
+				b = append(b, seps[0])
+				i++
+				j++
+				namei, namej = names[i], names[j]
+			} else if namei < namej {
+				i++
+				namei = names[i]
+			} else {
+				j++
+				namej = names[j]
+			}
 		}
 	}
 	return xxhash.Sum64(b), b

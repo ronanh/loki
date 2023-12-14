@@ -248,23 +248,31 @@ func vectorAggEvaluator(
 			// Add a new group if it doesn't exist.
 			if !ok {
 				var m labels.Labels
-
+				groups := expr.grouping.groups
 				if expr.grouping.without {
 					lb.Reset(metric)
-					lb.Del(expr.grouping.groups...)
+					lb.Del(groups...)
 					lb.Del(labels.MetricName)
 					m = lb.Labels()
 				} else {
-					m = make(labels.Labels, 0, len(expr.grouping.groups))
+					m = make(labels.Labels, len(groups))
+					var (
+						startGroup int
+						ilabels    int
+					)
 					for _, l := range metric {
-						for _, n := range expr.grouping.groups {
-							if l.Name == n {
-								m = append(m, l)
+						for j := startGroup; j < len(groups); j++ {
+							if l.Name == groups[j] {
+								m[ilabels] = l
+								ilabels++
+								startGroup = j + 1
 								break
 							}
 						}
 					}
-					sort.Sort(m)
+					m = m[:ilabels]
+					// why sort?? metrics (Labels) are already sorted
+					// sort.Sort(m)
 				}
 				result[groupingKey] = &groupedAggregation{
 					labels:     m,
