@@ -414,15 +414,19 @@ func (mi *mergingIterator) Next() bool {
 	}
 
 	// set current entry to next entry
-	mi.curEntry = mi.its[0].Entry()
-	mi.curLabels = mi.its[0].Labels()
+	mi0 := mi.its[0]
+	mi.curEntry, mi.curLabels = mi0.Entry(), mi0.Labels()
 
 	// advance iterator
-	if !mi.its[0].Next() {
+	if !mi0.Next() {
 		// stream finished: remove it
-		mi.its[0].Close()
+		mi0.Close()
 		mi.its[0] = nil
+		mi0 = nil
 		mi.its = mi.its[1:]
+		if len(mi.its) > 0 {
+			mi0 = mi.its[0]
+		}
 	}
 	if len(mi.its) == 0 {
 		return true
@@ -443,12 +447,11 @@ func (mi *mergingIterator) Next() bool {
 		// nothing to do
 	case 1:
 		// swap the first two elements
-		mi.its[0], mi.its[1] = mi.its[1], mi.its[0]
+		mi.its[0], mi.its[1] = mi.its[1], mi0
 	default:
 		// copy the first element and shift the rest
-		v := mi.its[0]
 		copy(mi.its, mi.its[1:firstItNewPos+1])
-		mi.its[firstItNewPos] = v
+		mi.its[firstItNewPos] = mi0
 	}
 
 	mi.prepareNext()

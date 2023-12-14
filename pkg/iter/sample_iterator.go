@@ -381,15 +381,19 @@ func (mi *mergingSampleIterator) Next() bool {
 	}
 
 	// set current sample to next sample
-	mi.curSample = mi.its[0].Sample()
-	mi.curLabels = mi.its[0].Labels()
+	msi0 := mi.its[0]
+	mi.curSample, mi.curLabels = msi0.Sample(), msi0.Labels()
 
 	// advance iterator
-	if !mi.its[0].Next() {
+	if !msi0.Next() {
 		// stream finished: remove it
-		mi.its[0].Close()
+		msi0.Close()
 		mi.its[0] = nil
+		msi0 = nil
 		mi.its = mi.its[1:]
+		if len(mi.its) > 0 {
+			msi0 = mi.its[0]
+		}
 	}
 	if len(mi.its) == 0 {
 		return true
@@ -410,12 +414,11 @@ func (mi *mergingSampleIterator) Next() bool {
 		// nothing to do
 	case 1:
 		// swap the first two elements
-		mi.its[0], mi.its[1] = mi.its[1], mi.its[0]
+		mi.its[0], mi.its[1] = mi.its[1], msi0
 	default:
 		// copy the first element and shift the rest
-		v := mi.its[0]
 		copy(mi.its, mi.its[1:firstItNewPos+1])
-		mi.its[firstItNewPos] = v
+		mi.its[firstItNewPos] = msi0
 	}
 
 	mi.prepareNext()
