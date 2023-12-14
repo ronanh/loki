@@ -424,6 +424,9 @@ func (mi *mergingIterator) Next() bool {
 		mi.its[0] = nil
 		mi.its = mi.its[1:]
 	}
+	if len(mi.its) == 0 {
+		return true
+	}
 	// Ensure streams sorted (only sort the stream that was advanced)
 	var firstItNewPos int
 	for firstItNewPos = 1; firstItNewPos < len(mi.its); firstItNewPos++ {
@@ -431,6 +434,9 @@ func (mi *mergingIterator) Next() bool {
 			firstItNewPos--
 			break
 		}
+	}
+	if firstItNewPos == len(mi.its) {
+		firstItNewPos--
 	}
 	switch firstItNewPos {
 	case 0:
