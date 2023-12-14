@@ -116,11 +116,16 @@ func (r *rangeVectorIterator) load(start, end int64) {
 		if !ok {
 			var metric labels.Labels
 			if metric, ok = r.metrics[lbs]; !ok {
-				var err error
-				metric, err = promql_parser.ParseMetric(lbs)
-				if err != nil {
-					_ = r.iter.Next()
-					continue
+				if ppl, ok := r.iter.(iter.PeekPromLabels); ok {
+					metric = ppl.PeekPromLabels()
+				}
+				if len(metric) == 0 {
+					var err error
+					metric, err = promql_parser.ParseMetric(lbs)
+					if err != nil {
+						_ = r.iter.Next()
+						continue
+					}
 				}
 				r.metrics[lbs] = metric
 			}

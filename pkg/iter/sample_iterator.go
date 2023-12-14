@@ -6,6 +6,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/pkg/helpers"
 	"github.com/ronanh/loki/pkg/logproto"
 	"github.com/ronanh/loki/pkg/logql/stats"
@@ -21,6 +22,14 @@ type SampleIterator interface {
 	Labels() string
 	Error() error
 	Close() error
+}
+
+type PromLabels interface {
+	PromLabels() labels.Labels
+}
+
+type PeekPromLabels interface {
+	PeekPromLabels() labels.Labels
 }
 
 // PeekingSampleIterator is a sample iterator that can peek sample without moving the current sample.
@@ -322,6 +331,9 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 	return mi
 }
 
+var _ SampleIterator = (*mergingSampleIterator)(nil)
+var _ PeekPromLabels = (*mergingSampleIterator)(nil)
+
 // Close closes the iterator and frees associated ressources
 func (mi *mergingSampleIterator) Close() error {
 	for _, it := range mi.its {
@@ -357,6 +369,16 @@ func (mi *mergingSampleIterator) Sample() logproto.Sample {
 
 func (mi *mergingSampleIterator) Labels() string {
 	return mi.curLabels
+}
+
+func (mi *mergingSampleIterator) PeekPromLabels() labels.Labels {
+	if len(mi.its) == 0 {
+		return nil
+	}
+	if pl, ok := mi.its[0].(PromLabels); ok {
+		return pl.PromLabels()
+	}
+	return nil
 }
 
 func (mi *mergingSampleIterator) less(i, j int) bool {
