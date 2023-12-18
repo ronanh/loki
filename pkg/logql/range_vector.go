@@ -65,6 +65,9 @@ func (r *rangeVectorIterator) Next() bool {
 }
 
 func (r *rangeVectorIterator) Close() error {
+	for _, s := range r.window {
+		putSeries(s)
+	}
 	return r.iter.Close()
 }
 
@@ -75,22 +78,20 @@ func (r *rangeVectorIterator) Error() error {
 // popBack removes all entries out of the current window from the back.
 func (r *rangeVectorIterator) popBack(newStart int64) {
 	// possible improvement: if there is no overlap we can just remove all.
-	for fp := range r.window {
-		lastPoint := 0
-		remove := false
-		for i, p := range r.window[fp].Points {
-			if p.T <= newStart {
-				lastPoint = i
-				remove = true
-				continue
+	for fp, s := range r.window {
+		nbPointsRemoved := 0
+		for _, p := range r.window[fp].Points {
+			if p.T > newStart {
+				break
 			}
-			break
+			nbPointsRemoved++
 		}
-		if remove {
-			r.window[fp].Points = r.window[fp].Points[lastPoint+1:]
+		if nbPointsRemoved > 0 {
+			// copy + truncate
+			copy(s.Points, s.Points[nbPointsRemoved:])
+			s.Points = s.Points[:len(s.Points)-nbPointsRemoved]
 		}
-		if len(r.window[fp].Points) == 0 {
-			s := r.window[fp]
+		if len(s.Points) == 0 {
 			delete(r.window, fp)
 			putSeries(s)
 		}
