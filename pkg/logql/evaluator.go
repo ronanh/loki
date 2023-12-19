@@ -890,7 +890,7 @@ func literalStepEvaluator(
 		func() (bool, int64, promql.Vector) {
 			ok, ts, vec := eval.Next()
 
-			results := make(promql.Vector, 0, len(vec))
+			results := make(promql.Vector, len(vec))
 			var literalPoint promql.Sample
 			var iResults int
 			for i := range vec {
