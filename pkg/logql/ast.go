@@ -977,14 +977,16 @@ func mustNewBinOpExpr(op string, opts BinOpOptions, lhs, rhs Expr) SampleExpr {
 // This is because literals need match all labels, which is currently difficult to encode into StepEvaluators.
 // Therefore, we ensure a binop can be reduced/simplified, maintaining the invariant that it does not have two literal legs.
 func reduceBinOp(op string, left, right *literalExpr) *literalExpr {
-	merged := mergeBinOp(
+	var res promql.Sample
+	mergeBinOp(
 		op,
 		&promql.Sample{Point: promql.Point{V: left.value}},
 		&promql.Sample{Point: promql.Point{V: right.value}},
 		false,
 		false,
+		&res,
 	)
-	return &literalExpr{value: merged.V}
+	return &literalExpr{value: res.V}
 }
 
 type literalExpr struct {

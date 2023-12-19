@@ -9,8 +9,8 @@ import (
 )
 
 func TestDefaultEvaluator_DivideByZero(t *testing.T) {
-
-	require.Equal(t, true, math.IsNaN(mergeBinOp(OpTypeDiv,
+	var res promql.Sample
+	mergeBinOp(OpTypeDiv,
 		&promql.Sample{
 			Point: promql.Point{T: 1, V: 1},
 		},
@@ -19,9 +19,11 @@ func TestDefaultEvaluator_DivideByZero(t *testing.T) {
 		},
 		false,
 		false,
-	).Point.V))
+		&res,
+	)
+	require.Equal(t, true, math.IsNaN(res.Point.V))
 
-	require.Equal(t, true, math.IsNaN(mergeBinOp(OpTypeMod,
+	mergeBinOp(OpTypeMod,
 		&promql.Sample{
 			Point: promql.Point{T: 1, V: 1},
 		},
@@ -30,7 +32,9 @@ func TestDefaultEvaluator_DivideByZero(t *testing.T) {
 		},
 		false,
 		false,
-	).Point.V))
+		&res,
+	)
+	require.Equal(t, true, math.IsNaN(res.Point.V))
 }
 
 func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
@@ -200,28 +204,35 @@ func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			// comparing a binop should yield the unfiltered (non-nil variant) regardless
 			// of whether this is a vector-vector comparison or not.
-			require.Equal(t, tc.expected, mergeBinOp(tc.op, tc.lhs, tc.rhs, false, false))
-			require.Equal(t, tc.expected, mergeBinOp(tc.op, tc.lhs, tc.rhs, false, true))
+			var res promql.Sample
+			mergeBinOp(tc.op, tc.lhs, tc.rhs, false, false, &res)
+			require.Equal(t, tc.expected, &res)
+			mergeBinOp(tc.op, tc.lhs, tc.rhs, false, true, &res)
+			require.Equal(t, tc.expected, &res)
 
 			// vector-vector comparing when not filtering should propagate the labels for nil right hand side matches,
 			// but set the value to zero.
+			mergeBinOp(tc.op, tc.lhs, nil, false, true, &res)
 			require.Equal(
 				t,
 				&promql.Sample{
 					Point: promql.Point{V: 0},
 				},
-				mergeBinOp(tc.op, tc.lhs, nil, false, true),
+				&res,
 			)
 
 			//  test filtered variants
 			if tc.expected.V == 0 {
 				//  ensure zeroed predicates are filtered out
-				require.Nil(t, mergeBinOp(tc.op, tc.lhs, tc.rhs, true, false))
-				require.Nil(t, mergeBinOp(tc.op, tc.lhs, tc.rhs, true, true))
+				merged := mergeBinOp(tc.op, tc.lhs, tc.rhs, true, false, &res)
+				require.False(t, merged)
+				merged = mergeBinOp(tc.op, tc.lhs, tc.rhs, true, true, &res)
+				require.False(t, merged)
 
 				// for vector-vector comparisons, ensure that nil right hand sides
 				// translate into nil results
-				require.Nil(t, mergeBinOp(tc.op, tc.lhs, nil, true, true))
+				merged = mergeBinOp(tc.op, tc.lhs, nil, true, true, &res)
+				require.False(t, merged)
 
 			}
 
@@ -230,7 +241,8 @@ func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
 }
 
 func Test_MergeBinOpVectors_Filter(t *testing.T) {
-	res := mergeBinOp(
+	var res promql.Sample
+	mergeBinOp(
 		OpTypeGT,
 		&promql.Sample{
 			Point: promql.Point{V: 2},
@@ -240,11 +252,12 @@ func Test_MergeBinOpVectors_Filter(t *testing.T) {
 		},
 		true,
 		true,
+		&res,
 	)
 
 	// ensure we return the left hand side's value (2) instead of the
 	// comparison operator's result (1: the truthy answer)
 	require.Equal(t, &promql.Sample{
 		Point: promql.Point{V: 2},
-	}, res)
+	}, &res)
 }
