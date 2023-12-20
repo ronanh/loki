@@ -43,7 +43,7 @@ require (
 )
 
 // for gRPC >= 1.3.0
-replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v2.4.0+incompatible
+//replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v2.4.0+incompatible
 
 replace github.com/hpcloud/tail => github.com/grafana/tail v0.0.0-20201004203643-7aa4e4a91f03
 
