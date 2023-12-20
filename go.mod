@@ -7,43 +7,43 @@ require (
 	github.com/bitly/go-hostpool v0.1.0 // indirect
 	github.com/c2h5oh/datasize v0.0.0-20200112174442-28bbd4740fee
 	github.com/cespare/xxhash/v2 v2.1.1
-	github.com/containerd/containerd v1.4.1 // indirect
-	github.com/cortexproject/cortex v1.6.1-0.20210204145131-7dac81171c66
+	github.com/cortexproject/cortex v1.7.1-0.20210310133228-161f103ed5ba
 	github.com/davecgh/go-spew v1.1.1
 	github.com/drone/envsubst v1.0.2
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.10.0
-	github.com/gogo/protobuf v1.3.1 // remember to update loki-build-image/Dockerfile too
+	github.com/gogo/protobuf v1.3.2 // remember to update loki-build-image/Dockerfile too
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.2
-	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0
+	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/json-iterator/go v1.1.10
 	github.com/klauspost/compress v1.11.3
-	github.com/kr/text v0.2.0 // indirect
 	github.com/modern-go/reflect2 v1.0.1
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	// github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/pierrec/lz4/v4 v4.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
-	github.com/prometheus/common v0.15.0
-	github.com/prometheus/prometheus v1.8.2-0.20210124145330-b5dfa2414b9e
+	github.com/prometheus/common v0.18.0
+	github.com/prometheus/prometheus v1.8.2-0.20210215121130-6f488061dfb4
 	github.com/segmentio/fasthash v1.0.2
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/weaveworks/common v0.0.0-20210112142934-23c8d7fa6120
-	go.etcd.io/bbolt v1.3.5-0.20200615073812-232d8fc87f50
+	go.etcd.io/bbolt v1.3.5
 	go.uber.org/atomic v1.7.0
-	google.golang.org/grpc v1.33.2
+	google.golang.org/grpc v1.34.0
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+// for gRPC >= 1.3.0
+replace github.com/sercand/kuberesolver => github.com/sercand/kuberesolver v2.4.0+incompatible
 
 replace github.com/hpcloud/tail => github.com/grafana/tail v0.0.0-20201004203643-7aa4e4a91f03
 
@@ -63,7 +63,7 @@ replace github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
 replace github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915-ba5dc39ece85
 
 // Same as Cortex, we can't upgrade to grpc 1.30.0 until go.etcd.io/etcd will support it.
-replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
+//replace google.golang.org/grpc => google.golang.org/grpc v1.29.1
 
 // Same as Cortex
 // Using a 3rd-party branch for custom dialer - see https://github.com/bradfitz/gomemcache/pull/86
