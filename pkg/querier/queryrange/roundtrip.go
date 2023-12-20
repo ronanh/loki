@@ -11,7 +11,6 @@ import (
 	"github.com/cortexproject/cortex/pkg/chunk/cache"
 	"github.com/cortexproject/cortex/pkg/querier/queryrange"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/weaveworks/common/httpgrpc"
@@ -341,9 +340,9 @@ func NewMetricTripperware(
 	}
 
 	// SplitQueriesByDay is deprecated use SplitQueriesByInterval.
-	if cfg.SplitQueriesByDay {
-		level.Warn(log).Log("msg", "flag querier.split-queries-by-day (or config split_queries_by_day) is deprecated, use querier.split-queries-by-interval instead.")
-	}
+	// if cfg.SplitQueriesByDay {
+	// 	level.Warn(log).Log("msg", "flag querier.split-queries-by-day (or config split_queries_by_day) is deprecated, use querier.split-queries-by-interval instead.")
+	// }
 
 	queryRangeMiddleware = append(
 		queryRangeMiddleware,

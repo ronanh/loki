@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cortexproject/cortex/pkg/ingester/client"
+	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/querier/queryrange"
 	"github.com/opentracing/opentracing-go"
 	"github.com/weaveworks/common/httpgrpc"
@@ -50,9 +50,9 @@ func WithDefaultLimits(l Limits, conf queryrange.Config) Limits {
 		overrides: true,
 	}
 
-	if conf.SplitQueriesByDay {
-		res.splitDuration = 24 * time.Hour
-	}
+	// if conf.SplitQueriesByDay {
+	// 	res.splitDuration = 24 * time.Hour
+	// }
 
 	if conf.SplitQueriesByInterval != 0 {
 		res.splitDuration = conf.SplitQueriesByInterval
@@ -130,7 +130,7 @@ func (sl *seriesLimiter) Do(ctx context.Context, req queryrange.Request) (queryr
 	sl.rw.Lock()
 	var hash uint64
 	for _, s := range promResponse.Response.Data.Result {
-		lbs := client.FromLabelAdaptersToLabels(s.Labels)
+		lbs := cortexpb.FromLabelAdaptersToLabels(s.Labels)
 		hash, sl.buf = lbs.HashWithoutLabels(sl.buf, []string(nil)...)
 		sl.hashes[hash] = struct{}{}
 	}

@@ -31,14 +31,13 @@ func TestLimits(t *testing.T) {
 	require.Equal(t, l.QuerySplitDuration("b"), time.Duration(0))
 
 	wrapped := WithDefaultLimits(l, queryrange.Config{
-		SplitQueriesByDay: true,
+		SplitQueriesByInterval: time.Hour,
 	})
 
 	require.Equal(t, wrapped.QuerySplitDuration("a"), time.Minute)
 	require.Equal(t, wrapped.QuerySplitDuration("b"), 24*time.Hour)
 
 	wrapped = WithDefaultLimits(l, queryrange.Config{
-		SplitQueriesByDay:      true, // should be overridden by SplitQueriesByInterval
 		SplitQueriesByInterval: time.Hour,
 	})
 
