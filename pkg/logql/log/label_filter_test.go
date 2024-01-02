@@ -156,7 +156,7 @@ func TestBinary_Filter(t *testing.T) {
 			_, got := tt.f.Process(nil, b)
 			require.Equal(t, tt.want, got)
 			sort.Sort(tt.wantLbs)
-			require.Equal(t, tt.wantLbs, b.Labels())
+			require.Equal(t, tt.wantLbs, b.LabelsResult().Labels())
 		})
 	}
 }
@@ -190,7 +190,7 @@ func TestBytes_Filter(t *testing.T) {
 			_, got := f.Process(nil, b)
 			require.Equal(t, tt.want, got)
 			wantLbs := labels.Labels{{Name: "bar", Value: tt.wantLabel}}
-			require.Equal(t, wantLbs, b.Labels())
+			require.Equal(t, wantLbs, b.LabelsResult().Labels())
 		})
 	}
 }
@@ -271,7 +271,7 @@ func TestErrorFiltering(t *testing.T) {
 			_, got := tt.f.Process(nil, b)
 			require.Equal(t, tt.want, got)
 			sort.Sort(tt.wantLbs)
-			require.Equal(t, tt.wantLbs, b.Labels())
+			require.Equal(t, tt.wantLbs, b.LabelsResult().Labels())
 		})
 	}
 }

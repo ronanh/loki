@@ -36,7 +36,7 @@ func TestLabelsBuilder_LabelsError(t *testing.T) {
 	b := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
 	b.Reset()
 	b.SetErr("err")
-	lbsWithErr := b.Labels()
+	lbsWithErr := b.LabelsResult().Labels()
 	require.Equal(
 		t,
 		labels.Labels{

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sort"
 	"strconv"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -181,6 +182,8 @@ type BaseLabelsBuilder struct {
 // LabelsBuilder is the same as labels.Builder but tailored for this package.
 type LabelsBuilder struct {
 	base          labels.Labels
+	baseMap       map[string]string
+	buf           labels.Labels
 	currentResult LabelsResult
 	groupedResult LabelsResult
 
@@ -310,19 +313,33 @@ func (b *LabelsBuilder) Set(n, v string) *LabelsBuilder {
 
 // Labels returns the labels from the builder. If no modifications
 // were made, the original labels are returned.
-func (b *LabelsBuilder) Labels() labels.Labels {
+func (b *LabelsBuilder) labels() labels.Labels {
+	b.buf = b.unsortedLabels(b.buf)
+	sort.Sort(b.buf)
+	return b.buf
+}
+
+func (b *LabelsBuilder) unsortedLabels(buf labels.Labels) labels.Labels {
 	if len(b.del) == 0 && len(b.add) == 0 {
-		if b.err == "" {
-			return b.base
+		if buf == nil {
+			buf = make(labels.Labels, 0, len(b.base)+1)
+		} else {
+			buf = buf[:0]
 		}
-		res := append(b.base.Copy(), labels.Label{Name: ErrorLabel, Value: b.err})
-		sort.Sort(res)
-		return res
+		buf = append(buf, b.base...)
+		if b.err != "" {
+			buf = append(buf, labels.Label{Name: ErrorLabel, Value: b.err})
+		}
+		return buf
 	}
 
 	// In the general case, labels are removed, modified or moved
 	// rather than added.
-	res := make(labels.Labels, 0, len(b.base))
+	if buf == nil {
+		buf = make(labels.Labels, 0, len(b.base)+len(b.add)+1)
+	} else {
+		buf = buf[:0]
+	}
 Outer:
 	for _, l := range b.base {
 		for _, n := range b.del {
@@ -335,14 +352,73 @@ Outer:
 				continue Outer
 			}
 		}
-		res = append(res, l)
+		buf = append(buf, l)
 	}
-	res = append(res, b.add...)
+	buf = append(buf, b.add...)
 	if b.err != "" {
-		res = append(res, labels.Label{Name: ErrorLabel, Value: b.err})
+		buf = append(buf, labels.Label{Name: ErrorLabel, Value: b.err})
 	}
-	sort.Sort(res)
+	return buf
+}
 
+type stringMapPool struct {
+	pool sync.Pool
+}
+
+func newStringMapPool() *stringMapPool {
+	return &stringMapPool{
+		pool: sync.Pool{
+			New: func() interface{} {
+				return make(map[string]string)
+			},
+		},
+	}
+}
+
+func (s *stringMapPool) Get() map[string]string {
+	m := s.pool.Get().(map[string]string)
+	clear(m)
+	return m
+}
+
+func (s *stringMapPool) Put(m map[string]string) {
+	s.pool.Put(m)
+}
+
+var smp = newStringMapPool()
+
+// puts labels entries into an existing map, it is up to the caller to
+// properly clear the map if it is going to be reused
+func (b *LabelsBuilder) IntoMap(m map[string]string) {
+	if len(b.del) == 0 && len(b.add) == 0 && !b.HasErr() {
+		if b.baseMap == nil {
+			b.baseMap = b.base.Map()
+			for k, v := range b.baseMap {
+				m[k] = v
+			}
+		}
+		return
+	}
+	b.buf = b.unsortedLabels(b.buf)
+	// todo should we also cache maps since limited by the result ?
+	// Maps also don't create a copy of the labels.
+	for _, l := range b.buf {
+		m[l.Name] = l.Value
+	}
+}
+
+func (b *LabelsBuilder) Map() map[string]string {
+	if len(b.del) == 0 && len(b.add) == 0 && b.err == "" {
+		if b.baseMap == nil {
+			b.baseMap = b.base.Map()
+		}
+		return b.baseMap
+	}
+	b.buf = b.unsortedLabels(b.buf)
+	res := smp.Get()
+	for _, l := range b.buf {
+		res[l.Name] = l.Value
+	}
 	return res
 }
 
@@ -353,15 +429,15 @@ func (b *LabelsBuilder) LabelsResult() LabelsResult {
 	if len(b.del) == 0 && len(b.add) == 0 && b.err == "" {
 		return b.currentResult
 	}
-	return b.toResult(b.Labels())
+	return b.toResult(b.labels())
 }
 
-func (b *BaseLabelsBuilder) toResult(lbs labels.Labels) LabelsResult {
-	hash := b.hasher.Hash(lbs)
+func (b *BaseLabelsBuilder) toResult(buf labels.Labels) LabelsResult {
+	hash := b.hasher.Hash(buf)
 	if cached, ok := b.resultCache[hash]; ok {
 		return cached
 	}
-	res := NewLabelsResult(lbs, hash)
+	res := NewLabelsResult(buf.Copy(), hash)
 	b.resultCache[hash] = res
 	return res
 }
@@ -395,7 +471,11 @@ func (b *LabelsBuilder) GroupedLabels() LabelsResult {
 }
 
 func (b *LabelsBuilder) withResult() LabelsResult {
-	res := make(labels.Labels, 0, len(b.groups))
+	if b.buf == nil {
+		b.buf = make(labels.Labels, 0, len(b.groups))
+	} else {
+		b.buf = b.buf[:0]
+	}
 Outer:
 	for _, g := range b.groups {
 		for _, n := range b.del {
@@ -405,26 +485,30 @@ Outer:
 		}
 		for _, la := range b.add {
 			if g == la.Name {
-				res = append(res, la)
+				b.buf = append(b.buf, la)
 				continue Outer
 			}
 		}
 		for _, l := range b.base {
 			if g == l.Name {
-				res = append(res, l)
+				b.buf = append(b.buf, l)
 				continue Outer
 			}
 		}
 	}
-	return b.toResult(res)
+	return b.toResult(b.buf)
 }
 
 func (b *LabelsBuilder) withoutResult() LabelsResult {
-	size := len(b.base) + len(b.add) - len(b.del) - len(b.groups)
-	if size < 0 {
-		size = 0
+	if b.buf == nil {
+		size := len(b.base) + len(b.add) - len(b.del) - len(b.groups)
+		if size < 0 {
+			size = 0
+		}
+		b.buf = make(labels.Labels, 0, size)
+	} else {
+		b.buf = b.buf[:0]
 	}
-	res := make(labels.Labels, 0, size)
 Outer:
 	for _, l := range b.base {
 		for _, n := range b.del {
@@ -442,7 +526,7 @@ Outer:
 				continue Outer
 			}
 		}
-		res = append(res, l)
+		b.buf = append(b.buf, l)
 	}
 OuterAdd:
 	for _, la := range b.add {
@@ -451,10 +535,10 @@ OuterAdd:
 				continue OuterAdd
 			}
 		}
-		res = append(res, la)
+		b.buf = append(b.buf, la)
 	}
-	sort.Sort(res)
-	return b.toResult(res)
+	sort.Sort(b.buf)
+	return b.toResult(b.buf)
 }
 
 func (b *LabelsBuilder) toBaseGroup() LabelsResult {

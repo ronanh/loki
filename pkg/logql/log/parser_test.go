@@ -83,7 +83,7 @@ func Test_jsonParser_Parse(t *testing.T) {
 			b.Reset()
 			_, _ = j.Process(tt.line, b)
 			sort.Sort(tt.want)
-			require.Equal(t, tt.want, b.Labels())
+			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
 	}
 }
@@ -333,7 +333,7 @@ func TestJSONExpressionParser(t *testing.T) {
 			b.Reset()
 			_, _ = j.Process(tt.line, b)
 			sort.Sort(tt.want)
-			require.Equal(t, tt.want, b.Labels())
+			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
 	}
 }
@@ -518,7 +518,7 @@ func Test_regexpParser_Parse(t *testing.T) {
 			b.Reset()
 			_, _ = tt.parser.Process(tt.line, b)
 			sort.Sort(tt.want)
-			require.Equal(t, tt.want, b.Labels())
+			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
 	}
 }
@@ -630,7 +630,7 @@ func Test_logfmtParser_Parse(t *testing.T) {
 			b.Reset()
 			_, _ = p.Process(tt.line, b)
 			sort.Sort(tt.want)
-			require.Equal(t, tt.want, b.Labels())
+			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
 	}
 }
@@ -724,7 +724,7 @@ func Test_unpackParser_Parse(t *testing.T) {
 			copy := string(tt.line)
 			l, _ := j.Process(tt.line, b)
 			sort.Sort(tt.wantLbs)
-			require.Equal(t, tt.wantLbs, b.Labels())
+			require.Equal(t, tt.wantLbs, b.LabelsResult().Labels())
 			require.Equal(t, tt.wantLine, l)
 			require.Equal(t, string(tt.wantLine), string(l))
 			require.Equal(t, copy, string(tt.line), "the original log line should not be mutated")

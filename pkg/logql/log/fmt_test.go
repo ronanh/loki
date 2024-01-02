@@ -157,7 +157,7 @@ func Test_lineFormatter_Format(t *testing.T) {
 			builder.Reset()
 			outLine, _ := tt.fmter.Process(nil, builder)
 			require.Equal(t, tt.want, outLine)
-			require.Equal(t, tt.wantLbs, builder.Labels())
+			require.Equal(t, tt.wantLbs, builder.LabelsResult().Labels())
 		})
 	}
 }
@@ -210,7 +210,7 @@ func Test_labelsFormatter_Format(t *testing.T) {
 			builder.Reset()
 			_, _ = tt.fmter.Process(nil, builder)
 			sort.Sort(tt.want)
-			require.Equal(t, tt.want, builder.Labels())
+			require.Equal(t, tt.want, builder.LabelsResult().Labels())
 		})
 	}
 }
