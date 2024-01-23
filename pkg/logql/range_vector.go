@@ -100,6 +100,9 @@ func (r *rangeVectorIterator) popBack(newStart int64) {
 
 // load the next sample range window.
 func (r *rangeVectorIterator) load(start, end int64) {
+	if s, ok := r.iter.(iter.Seekable); ok {
+		s.Seek(start)
+	}
 	for lbs, sample, hasNext := r.iter.Peek(); hasNext; lbs, sample, hasNext = r.iter.Peek() {
 		if sample.Timestamp > end {
 			// not consuming the iterator as this belong to another range.

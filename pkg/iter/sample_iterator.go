@@ -24,6 +24,10 @@ type SampleIterator interface {
 	Close() error
 }
 
+type Seekable interface {
+	Seek(t int64) bool
+}
+
 type PromLabels interface {
 	PromLabels() labels.Labels
 }
@@ -333,6 +337,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 
 var _ SampleIterator = (*mergingSampleIterator)(nil)
 var _ PeekPromLabels = (*mergingSampleIterator)(nil)
+var _ Seekable = (*mergingSampleIterator)(nil)
 
 // Close closes the iterator and frees associated ressources
 func (mi *mergingSampleIterator) Close() error {
@@ -477,6 +482,57 @@ func (mi *mergingSampleIterator) prepareNext() {
 		// restart iteration from the same position
 		i--
 	}
+}
+
+func (mi *mergingSampleIterator) Seek(t int64) bool {
+	var (
+		j        int
+		needSort bool
+	)
+	for i := 0; i < len(mi.its); i++ {
+		if s, ok := mi.its[i].(Seekable); ok {
+			prevSample := mi.its[i].Sample()
+			if !s.Seek(t) {
+				// stream finished: remove it
+				mi.its[i].Close()
+				mi.its[i] = nil
+				continue
+			}
+			mi.its[j] = mi.its[i]
+			if i > 0 && mi.its[i].Sample() != prevSample {
+				needSort = true
+			}
+			j++
+		} else {
+			// Seek not supported: use Next() to advance
+			var advanced bool
+			for mi.its[i].Sample().Timestamp < t {
+				if !mi.its[i].Next() {
+					// stream finished: remove it
+					mi.its[i].Close()
+					mi.its[i] = nil
+					break
+				}
+				advanced = true
+			}
+			if mi.its[i] != nil {
+				if advanced && i > 0 {
+					needSort = true
+				}
+				mi.its[j] = mi.its[i]
+				j++
+			}
+		}
+	}
+	mi.its = mi.its[:j]
+	if len(mi.its) == 0 {
+		return false
+	}
+	if needSort {
+		sort.Slice(mi.its, mi.less)
+		mi.prepareNext()
+	}
+	return true
 }
 
 type sampleQueryClientIterator struct {
