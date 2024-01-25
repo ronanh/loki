@@ -103,6 +103,10 @@ func (r *rangeVectorIterator) load(start, end int64) {
 	if s, ok := r.iter.(iter.Seekable); ok {
 		s.Seek(start)
 	}
+	var (
+		cacheLbs    string
+		cacheSeries *promql.Series
+	)
 	for lbs, sample, hasNext := r.iter.Peek(); hasNext; lbs, sample, hasNext = r.iter.Peek() {
 		if sample.Timestamp > end {
 			// not consuming the iterator as this belong to another range.
@@ -116,7 +120,12 @@ func (r *rangeVectorIterator) load(start, end int64) {
 		// adds the sample.
 		var series *promql.Series
 		var ok bool
-		series, ok = r.window[lbs]
+		if cacheLbs == lbs {
+			series = cacheSeries
+			ok = true
+		} else {
+			series, ok = r.window[lbs]
+		}
 		if !ok {
 			var metric labels.Labels
 			if metric, ok = r.metrics[lbs]; !ok {
@@ -138,6 +147,8 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			series.Metric = metric
 			r.window[lbs] = series
 		}
+		cacheLbs = lbs
+		cacheSeries = series
 		p := promql.Point{
 			T: sample.Timestamp,
 			V: sample.Value,
