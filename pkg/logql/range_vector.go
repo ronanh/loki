@@ -79,19 +79,18 @@ func (r *rangeVectorIterator) Error() error {
 func (r *rangeVectorIterator) popBack(newStart int64) {
 	// possible improvement: if there is no overlap we can just remove all.
 	for fp, s := range r.window {
-		nbPointsRemoved := 0
-		for _, p := range r.window[fp].Points {
-			if p.T > newStart {
+		points := s.Points
+		allRemoved := true
+		for i := range points {
+			if points[i].T > newStart {
+				if i > 0 {
+					s.Points = points[i:]
+				}
+				allRemoved = false
 				break
 			}
-			nbPointsRemoved++
 		}
-		if nbPointsRemoved > 0 {
-			// copy + truncate
-			copy(s.Points, s.Points[nbPointsRemoved:])
-			s.Points = s.Points[:len(s.Points)-nbPointsRemoved]
-		}
-		if len(s.Points) == 0 {
+		if allRemoved {
 			delete(r.window, fp)
 			putSeries(s)
 		}
@@ -191,5 +190,9 @@ func getSeries() *promql.Series {
 }
 
 func putSeries(s *promql.Series) {
+	if cap(s.Points) < 64 {
+		return // avoid pooling small slices.
+	}
+	s.Metric = nil
 	seriesPool.Put(s)
 }
