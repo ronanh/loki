@@ -6,6 +6,7 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
+	"github.com/ronanh/loki/pkg/logql/log"
 
 	"github.com/ronanh/loki/pkg/iter"
 )
@@ -19,7 +20,7 @@ type RangeVectorAggregator func([]promql.Point) float64
 // To fetch the current vector use `At` with a `RangeVectorAggregator`.
 type RangeVectorIterator interface {
 	Next() bool
-	At(aggregator RangeVectorAggregator) (int64, promql.Vector)
+	At(aggregator RangeVectorAggregator) (int64, promql.Vector, bool)
 	Close() error
 	Error() error
 }
@@ -27,9 +28,19 @@ type RangeVectorIterator interface {
 type rangeVectorIterator struct {
 	iter                         iter.PeekingSampleIterator
 	selRange, step, end, current int64
-	window                       map[string]*promql.Series
-	metrics                      map[string]labels.Labels
+	window                       map[string]*wrappedSeries
+	metrics                      map[string]wrappedLabels
 	at                           []promql.Sample
+}
+
+type wrappedLabels struct {
+	labels.Labels
+	hasErrorLabel bool
+}
+
+type wrappedSeries struct {
+	promql.Series
+	hasErrorLabel bool
 }
 
 func newRangeVectorIterator(
@@ -45,8 +56,8 @@ func newRangeVectorIterator(
 		end:      end,
 		selRange: selRange,
 		current:  start - step, // first loop iteration will set it to start
-		window:   map[string]*promql.Series{},
-		metrics:  map[string]labels.Labels{},
+		window:   map[string]*wrappedSeries{},
+		metrics:  map[string]wrappedLabels{},
 	}
 }
 
@@ -104,7 +115,7 @@ func (r *rangeVectorIterator) load(start, end int64) {
 	}
 	var (
 		cacheLbs    string
-		cacheSeries *promql.Series
+		cacheSeries *wrappedSeries
 	)
 	for lbs, sample, hasNext := r.iter.Peek(); hasNext; lbs, sample, hasNext = r.iter.Peek() {
 		if sample.Timestamp > end {
@@ -117,7 +128,7 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			continue
 		}
 		// adds the sample.
-		var series *promql.Series
+		var series *wrappedSeries
 		var ok bool
 		if cacheLbs == lbs {
 			series = cacheSeries
@@ -126,24 +137,26 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			series, ok = r.window[lbs]
 		}
 		if !ok {
-			var metric labels.Labels
+			var metric wrappedLabels
 			if metric, ok = r.metrics[lbs]; !ok {
 				if ppl, ok := r.iter.(iter.PeekPromLabels); ok {
-					metric = ppl.PeekPromLabels()
+					metric = wrappedLabels{ppl.PeekPromLabels(), false}
 				}
-				if len(metric) == 0 {
+				if len(metric.Labels) == 0 {
 					var err error
-					metric, err = promql_parser.ParseMetric(lbs)
+					metric.Labels, err = promql_parser.ParseMetric(lbs)
 					if err != nil {
 						_ = r.iter.Next()
 						continue
 					}
 				}
+				metric.hasErrorLabel = metric.Labels.Has(log.ErrorLabel)
 				r.metrics[lbs] = metric
 			}
 
 			series = getSeries()
-			series.Metric = metric
+			series.Metric = metric.Labels
+			series.hasErrorLabel = metric.hasErrorLabel
 			r.window[lbs] = series
 		}
 		cacheLbs = lbs
@@ -157,13 +170,14 @@ func (r *rangeVectorIterator) load(start, end int64) {
 	}
 }
 
-func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promql.Vector) {
+func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promql.Vector, bool) {
 	if r.at == nil {
 		r.at = make([]promql.Sample, 0, len(r.window))
 	}
 	r.at = r.at[:0]
 	// convert ts from nano to milli seconds as the iterator work with nanoseconds
 	ts := r.current / 1e+6
+	var hasErrorLabel bool
 	for _, series := range r.window {
 		r.at = append(r.at, promql.Sample{
 			Point: promql.Point{
@@ -172,24 +186,27 @@ func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promq
 			},
 			Metric: series.Metric,
 		})
+		hasErrorLabel = hasErrorLabel || series.hasErrorLabel
 	}
-	return ts, r.at
+	return ts, r.at, hasErrorLabel
 }
 
 var seriesPool sync.Pool
 
-func getSeries() *promql.Series {
+func getSeries() *wrappedSeries {
 	if r := seriesPool.Get(); r != nil {
-		s := r.(*promql.Series)
+		s := r.(*wrappedSeries)
 		s.Points = s.Points[:0]
 		return s
 	}
-	return &promql.Series{
-		Points: make([]promql.Point, 0, 1024),
+	return &wrappedSeries{
+		Series: promql.Series{
+			Points: make([]promql.Point, 0, 1024),
+		},
 	}
 }
 
-func putSeries(s *promql.Series) {
+func putSeries(s *wrappedSeries) {
 	if cap(s.Points) < 64 {
 		return // avoid pooling small slices.
 	}

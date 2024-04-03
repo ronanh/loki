@@ -450,12 +450,14 @@ func (r *rangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	if !next {
 		return false, 0, promql.Vector{}
 	}
-	ts, vec := r.iter.At(r.agg)
-	for _, s := range vec {
-		// Errors are not allowed in metrics.
-		if s.Metric.Has(log.ErrorLabel) {
-			r.err = newPipelineErr(s.Metric)
-			return false, 0, promql.Vector{}
+	ts, vec, hasErrorLabel := r.iter.At(r.agg)
+	if hasErrorLabel {
+		for _, s := range vec {
+			// Errors are not allowed in metrics.
+			if s.Metric.Has(log.ErrorLabel) {
+				r.err = newPipelineErr(s.Metric)
+				return false, 0, promql.Vector{}
+			}
 		}
 	}
 	return true, ts, vec
@@ -482,12 +484,14 @@ func (r *absentRangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	if !next {
 		return false, 0, promql.Vector{}
 	}
-	ts, vec := r.iter.At(one)
-	for _, s := range vec {
-		// Errors are not allowed in metrics.
-		if s.Metric.Has(log.ErrorLabel) {
-			r.err = newPipelineErr(s.Metric)
-			return false, 0, promql.Vector{}
+	ts, vec, hasErrorLabel := r.iter.At(one)
+	if hasErrorLabel {
+		for _, s := range vec {
+			// Errors are not allowed in metrics.
+			if s.Metric.Has(log.ErrorLabel) {
+				r.err = newPipelineErr(s.Metric)
+				return false, 0, promql.Vector{}
+			}
 		}
 	}
 	if len(vec) > 0 {
