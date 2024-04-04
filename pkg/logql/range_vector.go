@@ -140,7 +140,7 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			var metric wrappedLabels
 			if metric, ok = r.metrics[lbs]; !ok {
 				if ppl, ok := r.iter.(iter.PeekPromLabels); ok {
-					metric = wrappedLabels{ppl.PeekPromLabels(), false}
+					metric.Labels = ppl.PeekPromLabels()
 				}
 				if len(metric.Labels) == 0 {
 					var err error
