@@ -153,6 +153,10 @@ func sumOverTime(samples []promql.Point) float64 {
 }
 
 func avgOverTime(samples []promql.Point) float64 {
+	return sumOverTime(samples) / float64(len(samples))
+}
+
+func avgOverTimeLoki(samples []promql.Point) float64 {
 	var mean float64
 	for i := range samples {
 		if math.IsInf(mean, 0) {
