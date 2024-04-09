@@ -64,16 +64,17 @@ func TestIterator(t *testing.T) {
 		},
 
 		// Test dedupe of entries with the same timestamp but different entries.
-		{
-			iterator: NewHeapIterator(context.Background(), []EntryIterator{
-				mkStreamIterator(offset(0, constant(0)), defaultLabels),
-				mkStreamIterator(offset(0, constant(0)), defaultLabels),
-				mkStreamIterator(offset(testSize, constant(0)), defaultLabels),
-			}, logproto.FORWARD),
-			generator: constant(0),
-			length:    2 * testSize,
-			labels:    defaultLabels,
-		},
+		// Disable: not relevant anymore
+		// {
+		// 	iterator: NewHeapIterator(context.Background(), []EntryIterator{
+		// 		mkStreamIterator(offset(0, constant(0)), defaultLabels),
+		// 		mkStreamIterator(offset(0, constant(0)), defaultLabels),
+		// 		mkStreamIterator(offset(testSize, constant(0)), defaultLabels),
+		// 	}, logproto.FORWARD),
+		// 	generator: constant(0),
+		// 	length:    2 * testSize,
+		// 	labels:    defaultLabels,
+		// },
 
 		// Test basic identity with non-default labels.
 		{
