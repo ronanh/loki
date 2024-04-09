@@ -345,7 +345,6 @@ func NewMergingIterator(ctx context.Context, its []EntryIterator, direction logp
 		reversed: direction == logproto.BACKWARD,
 	}
 	sort.Slice(mi.its, mi.less)
-	// mi.prepareNext()
 
 	return mi
 }
@@ -379,7 +378,6 @@ func (mi *mergingIterator) Push(it EntryIterator) {
 	if it.Next() {
 		mi.its = append(mi.its, it)
 		sort.Slice(mi.its, mi.less)
-		mi.prepareNext()
 	}
 }
 
@@ -462,8 +460,6 @@ func (mi *mergingIterator) Next() bool {
 		}
 	}
 
-	// mi.prepareNext()
-
 	return true
 }
 
@@ -488,61 +484,6 @@ func (mi *mergingIterator) dedup() bool {
 		needSort = true
 	}
 	return needSort
-}
-
-func (mi *mergingIterator) prepareNext() {
-	if len(mi.its) == 0 {
-		return
-	}
-	// Ensure no duplicates
-	var needSort bool
-	for i := 1; i < len(mi.its); i++ {
-		if mi.its[i].Entry().Timestamp != mi.its[0].Entry().Timestamp || mi.its[i].Labels() != mi.its[0].Labels() {
-			break
-		}
-		// Duplicate -> advance to discard
-		mi.stats.TotalDuplicates++
-		if !mi.its[i].Next() {
-			// stream finished: remove it
-			mi.its[i].Close()
-			mi.its[i] = nil
-			mi.its = append(mi.its[:i], mi.its[i+1:]...)
-			// restart iteration from the same position
-			i--
-			continue
-		}
-		needSort = true
-	}
-	if needSort {
-		sort.Slice(mi.its, mi.less)
-	}
-
-	// // Ensure no duplicates
-	// for i := 1; i < len(mi.its); i++ {
-	// 	if mi.its[i].Entry().Timestamp != mi.its[0].Entry().Timestamp || mi.its[i].Labels() != mi.its[0].Labels() || mi.its[i].Entry().Line != mi.its[0].Entry().Line {
-	// 		break
-	// 	}
-	// 	// Duplicate -> advance to discard
-	// 	mi.stats.TotalDuplicates++
-	// 	if !mi.its[i].Next() {
-	// 		// stream finished: remove it
-	// 		mi.its[i].Close()
-	// 		mi.its[i] = nil
-	// 		mi.its = append(mi.its[:i], mi.its[i+1:]...)
-	// 		// restart iteration from the same position
-	// 		i--
-	// 		continue
-	// 	}
-	// 	// Ensure sorted
-	// 	for j := i + 1; j < len(mi.its); j++ {
-	// 		if !mi.less(j, j-1) {
-	// 			break
-	// 		}
-	// 		mi.its[j-1], mi.its[j] = mi.its[j], mi.its[j-1]
-	// 	}
-	// 	// restart iteration from the same position
-	// 	i--
-	// }
 }
 
 // NewStreamsIterator returns an iterator over logproto.Stream
