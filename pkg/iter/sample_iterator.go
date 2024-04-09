@@ -305,7 +305,7 @@ type mergingSampleIterator struct {
 	}
 	curSample logproto.Sample
 	curLabels string
-	err       error
+	errs      []error
 }
 
 var _ SampleIterator = (*mergingSampleIterator)(nil)
@@ -329,8 +329,13 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 		labels string
 	}, 0, len(its))
 	iActiveIts := make([]int, 0, len(its))
+	var errs []error
 	for _, it := range its {
-		if it.Next() {
+		hasNext := it.Next()
+		if err := it.Error(); err != nil {
+			errs = append(errs, err)
+		}
+		if hasNext {
 			sample := it.Sample()
 			startedIts = append(startedIts, struct {
 				SampleIterator
@@ -345,9 +350,9 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 		ctx:        ctx,
 		its:        startedIts,
 		iActiveIts: iActiveIts,
+		errs:       errs,
 	}
 	sort.Slice(mi.iActiveIts, mi.less)
-	mi.dedup()
 
 	return mi
 }
@@ -372,10 +377,14 @@ func (mi *mergingSampleIterator) Close() error {
 
 // Error returns errors encountered by the iterator
 func (mi *mergingSampleIterator) Error() error {
-	if mi.err != nil {
-		return mi.err
+	switch len(mi.errs) {
+	case 0:
+		return nil
+	case 1:
+		return mi.errs[0]
+	default:
+		return util.MultiError(mi.errs)
 	}
-	return mi.ctx.Err()
 }
 
 func (mi *mergingSampleIterator) Peek() (string, logproto.Sample, bool) {
@@ -425,13 +434,18 @@ func (mi *mergingSampleIterator) Next() bool {
 		mi.curSample, mi.curLabels = logproto.Sample{}, ""
 		return false
 	}
+	mi.dedup()
 
 	its0 := &mi.its[mi.iActiveIts[0]]
 	// set current sample to next sample
 	mi.curSample, mi.curLabels = *its0.Sample, its0.labels
 
 	// advance iterator
-	if !its0.SampleIterator.Next() {
+	hasNext := its0.SampleIterator.Next()
+	if err := its0.SampleIterator.Error(); err != nil {
+		mi.errs = append(mi.errs, err)
+	}
+	if !hasNext {
 		// stream finished: remove it
 		its0.SampleIterator.Close()
 		its0.SampleIterator = nil
@@ -467,7 +481,6 @@ func (mi *mergingSampleIterator) Next() bool {
 			copy(mi.iActiveIts, mi.iActiveIts[1:firstItNewPos+1])
 			mi.iActiveIts[firstItNewPos] = msi0
 		}
-		mi.dedup()
 	}
 	return true
 }
@@ -484,7 +497,11 @@ func (mi *mergingSampleIterator) dedup() {
 			break
 		}
 		// Duplicate -> advance to discard
-		if !itsi.Next() {
+		hasNext := itsi.SampleIterator.Next()
+		if err := its0.SampleIterator.Error(); err != nil {
+			mi.errs = append(mi.errs, err)
+		}
+		if !hasNext {
 			// stream finished: remove it
 			itsi.Close()
 			itsi.SampleIterator = nil
@@ -493,6 +510,8 @@ func (mi *mergingSampleIterator) dedup() {
 			i--
 			continue
 		}
+		*itsi.Sample = itsi.SampleIterator.Sample()
+		itsi.labels = itsi.SampleIterator.Labels()
 		// Ensure sorted
 		for j := i + 1; j < len(mi.iActiveIts); j++ {
 			if !mi.less(j, j-1) {
@@ -518,7 +537,11 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 	for i := 0; i < len(mi.iActiveIts); i++ {
 		itsi := &mi.its[mi.iActiveIts[i]]
 		if s, ok := itsi.SampleIterator.(Seekable); ok {
-			if !s.Seek(t) {
+			hasNext := s.Seek(t)
+			if err := itsi.SampleIterator.Error(); err != nil {
+				mi.errs = append(mi.errs, err)
+			}
+			if !hasNext {
 				// stream finished: remove it
 				itsi.Close()
 				itsi.SampleIterator = nil
@@ -536,12 +559,18 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 			// Seek not supported: use Next() to advance
 			var advanced bool
 			for itsi.Sample.Timestamp < t {
-				if !itsi.Next() {
+				hasNext := itsi.SampleIterator.Next()
+				if err := itsi.SampleIterator.Error(); err != nil {
+					mi.errs = append(mi.errs, err)
+				}
+				if !hasNext {
 					// stream finished: remove it
 					itsi.Close()
 					itsi.SampleIterator = nil
 					break
 				}
+				*itsi.Sample = itsi.SampleIterator.Sample()
+				itsi.labels = itsi.SampleIterator.Labels()
 				advanced = true
 			}
 			if itsi.SampleIterator != nil {
@@ -556,11 +585,17 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 		}
 	}
 	mi.iActiveIts = mi.iActiveIts[:j]
+	if len(mi.iActiveIts) == 0 {
+		mi.curSample, mi.curLabels = logproto.Sample{}, ""
+		return false
+	}
 	if needSort {
 		sort.Slice(mi.iActiveIts, mi.less)
-		mi.dedup()
 	}
-	return mi.Next()
+
+	// set current sample to next sample
+	mi.curSample, mi.curLabels = *mi.its[mi.iActiveIts[0]].Sample, mi.its[mi.iActiveIts[0]].labels
+	return true
 }
 
 type sampleQueryClientIterator struct {
