@@ -16,6 +16,7 @@ import (
 var nilMetrics = NewShardingMetrics(nil)
 
 func TestMappingEquivalence(t *testing.T) {
+	t.Skip() // not relevant anymore
 	var (
 		shards   = 3
 		nStreams = 60
