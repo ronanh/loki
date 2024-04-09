@@ -296,6 +296,7 @@ func (i *heapSampleIterator) Close() error {
 }
 
 type mergingSampleIterator struct {
+	stats      *stats.ChunkData
 	ctx        context.Context
 	iActiveIts []int
 	its        []struct {
@@ -347,6 +348,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 	}
 
 	mi := &mergingSampleIterator{
+		stats:      stats.GetChunkData(ctx),
 		ctx:        ctx,
 		its:        startedIts,
 		iActiveIts: iActiveIts,
@@ -497,6 +499,7 @@ func (mi *mergingSampleIterator) dedup() {
 			break
 		}
 		// Duplicate -> advance to discard
+		mi.stats.TotalDuplicates++
 		hasNext := itsi.SampleIterator.Next()
 		if err := its0.SampleIterator.Error(); err != nil {
 			mi.errs = append(mi.errs, err)
