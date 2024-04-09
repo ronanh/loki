@@ -877,6 +877,7 @@ func mergeBinOp(op string, left, right *promql.Sample, filter, isVectorCompariso
 	if !res && left != nil && right == nil {
 		*out = *left
 		out.Point.V = 0
+		res = true
 	}
 	return res
 }
