@@ -77,8 +77,10 @@ func NewFormatter(tmpl string) (*LineFormatter, error) {
 
 func (lf *LineFormatter) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	lf.buf.Reset()
-	m := lbs.Map()
-	defer smp.Put(m)
+	m, tmpMap := lbs.Map()
+	if tmpMap {
+		defer smp.Put(m)
+	}
 	if err := lf.Template.Execute(lf.buf, m); err != nil {
 		lbs.SetErr(errTemplateFormat)
 		return line, true
@@ -222,6 +224,7 @@ func validate(fmts []LabelFmt) error {
 }
 
 func (lf *LabelsFormatter) Process(l []byte, lbs *LabelsBuilder) ([]byte, bool) {
+	var tmpMap bool
 	var m map[string]string
 	for _, f := range lf.formats {
 		if f.Rename {
@@ -235,7 +238,7 @@ func (lf *LabelsFormatter) Process(l []byte, lbs *LabelsBuilder) ([]byte, bool) 
 		lf.buf.Reset()
 		if m == nil {
 			// map is retrieved from pool
-			m = lbs.Map()
+			m, tmpMap = lbs.Map()
 		}
 		if err := f.tmpl.Execute(lf.buf, m); err != nil {
 			lbs.SetErr(errTemplateFormat)
@@ -243,7 +246,7 @@ func (lf *LabelsFormatter) Process(l []byte, lbs *LabelsBuilder) ([]byte, bool) 
 		}
 		lbs.Set(f.Name, lf.buf.String())
 	}
-	if m != nil {
+	if m != nil && tmpMap {
 		// return map to pool
 		smp.Put(m)
 	}

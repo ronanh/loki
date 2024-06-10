@@ -379,11 +379,11 @@ func newStringMapPool() *stringMapPool {
 
 func (s *stringMapPool) Get() map[string]string {
 	m := s.pool.Get().(map[string]string)
-	clear(m)
 	return m
 }
 
 func (s *stringMapPool) Put(m map[string]string) {
+	clear(m)
 	s.pool.Put(m)
 }
 
@@ -409,19 +409,19 @@ func (b *LabelsBuilder) IntoMap(m map[string]string) {
 	}
 }
 
-func (b *LabelsBuilder) Map() map[string]string {
+func (b *LabelsBuilder) Map() (map[string]string, bool) {
 	if len(b.del) == 0 && len(b.add) == 0 && b.err == "" {
 		if b.baseMap == nil {
 			b.baseMap = b.base.Map()
 		}
-		return b.baseMap
+		return b.baseMap, false
 	}
 	b.buf = b.unsortedLabels(b.buf)
 	res := smp.Get()
 	for _, l := range b.buf {
 		res[l.Name] = l.Value
 	}
-	return res
+	return res, true
 }
 
 // LabelsResult returns the LabelsResult from the builder.
