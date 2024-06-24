@@ -59,6 +59,9 @@ var tokens = map[string]int{
 	// fmt
 	OpFmtLabel: LABEL_FMT,
 	OpFmtLine:  LINE_FMT,
+
+	// drop
+	OpDrop: DROP,
 }
 
 // functionTokens are tokens that needs to be suffixes with parenthesis

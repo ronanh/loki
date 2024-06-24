@@ -50,6 +50,9 @@ import (
   JSONExpression          log.JSONExpression
   JSONExpressionList      []log.JSONExpression
   UnwrapExpr              *unwrapExpr
+  DropLabel               log.DropLabel
+  DropLabels              []log.DropLabel
+  DropLabelsExpr          *DropLabelsExpr 
 }
 
 %start root
@@ -81,6 +84,9 @@ import (
 %type <DurationFilter>        durationFilter
 %type <LabelFilter>           labelFilter
 %type <LineFilters>           lineFilters
+%type <DropLabelsExpr>        dropLabelsExpr
+%type <DropLabels>            dropLabels
+%type <DropLabel>             dropLabel
 %type <LineFormatExpr>        lineFormatExpr
 %type <LabelFormatExpr>       labelFormatExpr
 %type <LabelFormat>           labelFormat
@@ -98,7 +104,7 @@ import (
                   OPEN_PARENTHESIS CLOSE_PARENTHESIS BY WITHOUT COUNT_OVER_TIME RATE SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK
                   BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                   MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV
-                  ABSENT_OVER_TIME LABEL_REPLACE UNPACK
+                  ABSENT_OVER_TIME LABEL_REPLACE UNPACK DROP
 
 // Operators are listed with increasing precedence.
 %left <binOp> OR
@@ -221,6 +227,7 @@ pipelineStage:
   | PIPE labelFilter             { $$ = &labelFilterExpr{LabelFilterer: $2 }}
   | PIPE lineFormatExpr          { $$ = $2 }
   | PIPE labelFormatExpr         { $$ = $2 }
+  | PIPE dropLabelsExpr          { $$ = $2 }
   ;
 
 lineFilters:
@@ -304,6 +311,17 @@ numberFilter:
     | IDENTIFIER EQ NUMBER      { $$ = log.NewNumericLabelFilter(log.LabelFilterEqual, $1, mustNewFloat($3))}
     | IDENTIFIER CMP_EQ NUMBER  { $$ = log.NewNumericLabelFilter(log.LabelFilterEqual, $1, mustNewFloat($3))}
     ;
+
+dropLabel: 
+      IDENTIFIER { $$ = log.NewDropLabel(nil, $1) }
+    | matcher { $$ = log.NewDropLabel($1, "") }
+
+dropLabels:
+      dropLabel                  { $$ = []log.DropLabel{$1}}
+    | dropLabels COMMA dropLabel { $$ = append($1, $3) }
+    ;
+
+dropLabelsExpr: DROP dropLabels { $$ = newDropLabelsExpr($2) }
 
 // TODO(owen-d): add (on,ignoring) clauses to binOpExpr
 // Operator precedence only works if each of these is listed separately.
