@@ -39,9 +39,15 @@ type wrappedLabels struct {
 }
 
 type wrappedSeries struct {
-	promql.Series
-	hasErrorLabel bool
+	Points      []promql.Point
+	allocPoints []promql.Point
+	wrappedLabels
 }
+
+// type wrappedSeries struct {
+// 	promql.Series
+// 	hasErrorLabel bool
+// }
 
 func newRangeVectorIterator(
 	it iter.PeekingSampleIterator,
@@ -88,24 +94,36 @@ func (r *rangeVectorIterator) Error() error {
 
 // popBack removes all entries out of the current window from the back.
 func (r *rangeVectorIterator) popBack(newStart int64) {
-	// possible improvement: if there is no overlap we can just remove all.
-	for fp, s := range r.window {
-		points := s.Points
-		allRemoved := true
-		for i := range points {
-			if points[i].T > newStart {
-				if i > 0 {
-					s.Points = points[i:]
-				}
-				allRemoved = false
-				break
-			}
+	for _, s := range r.window {
+		if len(s.Points) == 0 || s.Points[len(s.Points)-1].T <= newStart {
+			// no overlap, remove all points.
+			s.Points = nil
+			continue
 		}
-		if allRemoved {
-			delete(r.window, fp)
-			putSeries(s)
+		// search the first point that is greater than the new start.
+		i := sortSearch(s.Points, newStart)
+		// remove all points before the new start.
+		s.Points = s.Points[i:]
+		if 2*cap(s.Points) < cap(s.allocPoints) {
+			s.Points = append(s.allocPoints, s.Points...)
 		}
 	}
+}
+
+// sortSearch returns the index of the first point that is greater than the given ts.
+func sortSearch(points []promql.Point, ts int64) int {
+	return sortSearchRec(points, ts, 0, len(points))
+}
+
+func sortSearchRec(points []promql.Point, ts int64, start, end int) int {
+	if start == end {
+		return start
+	}
+	mid := (start + end) / 2
+	if points[mid].T <= ts {
+		return sortSearchRec(points, ts, mid+1, end)
+	}
+	return sortSearchRec(points, ts, start, mid)
 }
 
 // load the next sample range window.
@@ -135,6 +153,9 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			ok = true
 		} else {
 			series, ok = r.window[lbs]
+			if ok && series.Points == nil {
+				series.Points = series.allocPoints
+			}
 		}
 		if !ok {
 			var metric wrappedLabels
@@ -155,17 +176,29 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			}
 
 			series = getSeries()
-			series.Metric = metric.Labels
-			series.hasErrorLabel = metric.hasErrorLabel
+			series.wrappedLabels = metric
 			r.window[lbs] = series
 		}
 		cacheLbs = lbs
 		cacheSeries = series
-		p := promql.Point{
+		if len(series.Points) == cap(series.Points) {
+			if cap(series.allocPoints) <= 2*len(series.Points) {
+				// double the capacity.
+				newCap := cap(series.allocPoints) * 2
+				if newCap == 0 {
+					newCap = 64
+				}
+				series.allocPoints = make([]promql.Point, 0, newCap)
+				series.Points = append(series.allocPoints, series.Points...)
+			} else {
+				// reuse the allocated points
+				series.Points = append(series.allocPoints, series.Points...)
+			}
+		}
+		series.Points = append(series.Points, promql.Point{
 			T: sample.Timestamp,
 			V: sample.Value,
-		}
-		series.Points = append(series.Points, p)
+		})
 		_ = r.iter.Next()
 	}
 }
@@ -179,12 +212,15 @@ func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promq
 	ts := r.current / 1e+6
 	var hasErrorLabel bool
 	for _, series := range r.window {
+		if series.Points == nil { // removed by popBack
+			continue
+		}
 		r.at = append(r.at, promql.Sample{
 			Point: promql.Point{
 				V: aggregator(series.Points),
 				T: ts,
 			},
-			Metric: series.Metric,
+			Metric: series.Labels,
 		})
 		hasErrorLabel = hasErrorLabel || series.hasErrorLabel
 	}
@@ -196,20 +232,18 @@ var seriesPool sync.Pool
 func getSeries() *wrappedSeries {
 	if r := seriesPool.Get(); r != nil {
 		s := r.(*wrappedSeries)
-		s.Points = s.Points[:0]
+		s.Points = s.allocPoints
 		return s
 	}
+	allocPoints := make([]promql.Point, 0, 64)
 	return &wrappedSeries{
-		Series: promql.Series{
-			Points: make([]promql.Point, 0, 1024),
-		},
+		Points:      allocPoints,
+		allocPoints: allocPoints,
 	}
 }
 
 func putSeries(s *wrappedSeries) {
-	if cap(s.Points) < 64 {
-		return // avoid pooling small slices.
-	}
-	s.Metric = nil
+	s.Points = s.allocPoints
+	s.wrappedLabels = wrappedLabels{}
 	seriesPool.Put(s)
 }
