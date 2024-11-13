@@ -416,14 +416,19 @@ func (mi *mergingSampleIterator) PeekPromLabels() labels.Labels {
 }
 
 func (mi *mergingSampleIterator) less(i, j int) bool {
-	s1, s2 := mi.its[mi.iActiveIts[i]].Sample, mi.its[mi.iActiveIts[j]].Sample
+	ii, ij := mi.iActiveIts[i], mi.iActiveIts[j]
+	s1, s2 := mi.its[ii].Sample, mi.its[ij].Sample
 	switch {
 	case s1.Timestamp < s2.Timestamp:
 		return true
 	case s1.Timestamp > s2.Timestamp:
 		return false
 	default:
-		lbls1, lbls2 := mi.its[mi.iActiveIts[i]].labels, mi.its[mi.iActiveIts[j]].labels
+		lbls1, lbls2 := mi.its[ii].labels, mi.its[ij].labels
+		if len(lbls1) != len(lbls2) {
+			// fast path for different lengths
+			return lbls1 < lbls2
+		}
 		if lbls1 == lbls2 {
 			return s1.Hash < s2.Hash
 		}
@@ -454,15 +459,18 @@ func (mi *mergingSampleIterator) Next() bool {
 		mi.iActiveIts = mi.iActiveIts[1:]
 	} else {
 		*its0.Sample = its0.SampleIterator.Sample()
+		ts0 := its0.Timestamp
 		its0.labels = its0.SampleIterator.Labels()
 
 		// Ensure streams sorted (only sort the stream that was advanced)
 		var firstItNewPos int
 		for firstItNewPos = 1; firstItNewPos < len(mi.iActiveIts); firstItNewPos++ {
-			if mi.its[mi.iActiveIts[firstItNewPos]].Timestamp < its0.Timestamp { // fast path for less
+			firstItNewPosVal := mi.iActiveIts[firstItNewPos]
+			ts := mi.its[firstItNewPosVal].Timestamp
+			if ts < ts0 { // fast path for less
 				continue
 			}
-			if mi.its[mi.iActiveIts[firstItNewPos]].Timestamp > its0.Timestamp || // fast path for greater
+			if ts > ts0 || // fast path for greater
 				!mi.less(firstItNewPos, 0) {
 				firstItNewPos--
 				break
