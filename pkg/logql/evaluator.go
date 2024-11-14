@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -210,6 +211,14 @@ func (ev *DefaultEvaluator) StepEvaluator(
 	}
 }
 
+var (
+	resultPool = sync.Pool{
+		New: func() interface{} {
+			return make(map[uint64]groupedAggregation)
+		},
+	}
+)
+
 func vectorAggEvaluator(
 	ctx context.Context,
 	ev SampleEvaluator,
@@ -229,7 +238,8 @@ func vectorAggEvaluator(
 		if !next {
 			return false, 0, promql.Vector{}
 		}
-		result := map[uint64]*groupedAggregation{}
+		result := resultPool.Get().(map[uint64]groupedAggregation)
+
 		if expr.operation == OpTypeTopK || expr.operation == OpTypeBottomK {
 			if expr.params < 1 {
 				return next, ts, promql.Vector{}
@@ -274,12 +284,10 @@ func vectorAggEvaluator(
 					// why sort?? metrics (Labels) are already sorted
 					// sort.Sort(m)
 				}
-				result[groupingKey] = &groupedAggregation{
-					labels:     m,
-					value:      s.V,
-					mean:       s.V,
-					groupCount: 1,
-				}
+				group.labels = m
+				group.value = s.V
+				group.mean = s.V
+				group.groupCount = 1
 
 				inputVecLen := len(vec)
 				resultSize := expr.params
@@ -287,20 +295,23 @@ func vectorAggEvaluator(
 					resultSize = inputVecLen
 				}
 				if expr.operation == OpTypeStdvar || expr.operation == OpTypeStddev {
-					result[groupingKey].value = 0.0
+					group.value = 0.0
 				} else if expr.operation == OpTypeTopK {
-					result[groupingKey].heap = make(vectorByValueHeap, 0, resultSize)
-					heap.Push(&result[groupingKey].heap, &promql.Sample{
+					groupHeap := make(vectorByValueHeap, 0, resultSize)
+					heap.Push(&groupHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
+					group.heap = groupHeap
 				} else if expr.operation == OpTypeBottomK {
-					result[groupingKey].reverseHeap = make(vectorByReverseValueHeap, 0, resultSize)
-					heap.Push(&result[groupingKey].reverseHeap, &promql.Sample{
+					groupReverseHeap := make(vectorByReverseValueHeap, 0, resultSize)
+					heap.Push(&groupReverseHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
+					group.reverseHeap = groupReverseHeap
 				}
+				result[groupingKey] = group
 				continue
 			}
 			switch expr.operation {
@@ -332,28 +343,33 @@ func vectorAggEvaluator(
 
 			case OpTypeTopK:
 				if len(group.heap) < expr.params || group.heap[0].V < s.V || math.IsNaN(group.heap[0].V) {
-					if len(group.heap) == expr.params {
-						heap.Pop(&group.heap)
+					groupHeap := group.heap
+					if len(groupHeap) == expr.params {
+						heap.Pop(&groupHeap)
 					}
-					heap.Push(&group.heap, &promql.Sample{
+					heap.Push(&groupHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
+					group.heap = groupHeap
 				}
 
 			case OpTypeBottomK:
 				if len(group.reverseHeap) < expr.params || group.reverseHeap[0].V > s.V || math.IsNaN(group.reverseHeap[0].V) {
-					if len(group.reverseHeap) == expr.params {
-						heap.Pop(&group.reverseHeap)
+					groupReverseHeap := group.reverseHeap
+					if len(groupReverseHeap) == expr.params {
+						heap.Pop(&groupReverseHeap)
 					}
-					heap.Push(&group.reverseHeap, &promql.Sample{
+					heap.Push(&groupReverseHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
+					group.reverseHeap = groupReverseHeap
 				}
 			default:
 				panic(errors.Errorf("expected aggregation operator but got %q", expr.operation))
 			}
+			result[groupingKey] = group
 		}
 		vec = vec[:0]
 		for _, aggr := range result {
@@ -372,8 +388,9 @@ func vectorAggEvaluator(
 
 			case OpTypeTopK:
 				// The heap keeps the lowest value on top, so reverse it.
-				sort.Sort(sort.Reverse(aggr.heap))
-				for _, v := range aggr.heap {
+				aggrHeap := aggr.heap
+				sort.Sort(sort.Reverse(aggrHeap))
+				for _, v := range aggrHeap {
 					vec = append(vec, promql.Sample{
 						Metric: v.Metric,
 						Point: promql.Point{
@@ -386,8 +403,9 @@ func vectorAggEvaluator(
 
 			case OpTypeBottomK:
 				// The heap keeps the lowest value on top, so reverse it.
-				sort.Sort(sort.Reverse(aggr.reverseHeap))
-				for _, v := range aggr.reverseHeap {
+				aggrReverseHeap := aggr.reverseHeap
+				sort.Sort(sort.Reverse(aggrReverseHeap))
+				for _, v := range aggrReverseHeap {
 					vec = append(vec, promql.Sample{
 						Metric: v.Metric,
 						Point: promql.Point{
@@ -407,6 +425,8 @@ func vectorAggEvaluator(
 				},
 			})
 		}
+		clear(result)
+		resultPool.Put(result)
 		return next, ts, vec
 	}, nextEvaluator.Close, nextEvaluator.Error)
 }
