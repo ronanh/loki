@@ -217,7 +217,40 @@ var (
 			return make(map[uint64]groupedAggregation)
 		},
 	}
+	labelsCachePool = sync.Pool{
+		New: func() interface{} {
+			return make(map[uint64]labels.Labels)
+		},
+	}
 )
+
+const (
+	maxLabelsCacheSize = 8192
+)
+
+func takeLabelsCachePool() map[uint64]labels.Labels {
+	return labelsCachePool.Get().(map[uint64]labels.Labels)
+}
+
+func returnLabelsCachePool(l map[uint64]labels.Labels) {
+	labelsCachePool.Put(l)
+}
+
+func getLabelsFromCache(labelsCache map[uint64]labels.Labels, hash uint64) (labels.Labels, bool) {
+	res, ok := labelsCache[hash]
+	return res, ok
+}
+
+func putLabelsToCache(labelsCache map[uint64]labels.Labels, hash uint64, l labels.Labels) {
+	if len(labelsCache) > maxLabelsCacheSize {
+		for k := range labelsCache {
+			// remove the first element (randomly)
+			delete(labelsCache, k)
+			break
+		}
+	}
+	labelsCache[hash] = l
+}
 
 func vectorAggEvaluator(
 	ctx context.Context,
@@ -258,31 +291,37 @@ func vectorAggEvaluator(
 			// Add a new group if it doesn't exist.
 			if !ok {
 				var m labels.Labels
-				groups := expr.grouping.groups
-				if expr.grouping.without {
-					lb.Reset(metric)
-					lb.Del(groups...)
-					lb.Del(labels.MetricName)
-					m = lb.Labels()
-				} else {
-					m = make(labels.Labels, len(groups))
-					var (
-						startGroup int
-						ilabels    int
-					)
-					for _, l := range metric {
-						for j := startGroup; j < len(groups); j++ {
-							if l.Name == groups[j] {
-								m[ilabels] = l
-								ilabels++
-								startGroup = j + 1
-								break
+				labelsCache := takeLabelsCachePool()
+				m, ok = getLabelsFromCache(labelsCache, groupingKey)
+				if !ok {
+					groups := expr.grouping.groups
+					if expr.grouping.without {
+						lb.Reset(metric)
+						lb.Del(groups...)
+						lb.Del(labels.MetricName)
+						m = lb.Labels()
+					} else {
+						m = make(labels.Labels, len(groups))
+						var (
+							startGroup int
+							ilabels    int
+						)
+						for _, l := range metric {
+							for j := startGroup; j < len(groups); j++ {
+								if l.Name == groups[j] {
+									m[ilabels] = l
+									ilabels++
+									startGroup = j + 1
+									break
+								}
 							}
 						}
+						m = m[:ilabels]
+						// why sort?? metrics (Labels) are already sorted
+						// sort.Sort(m)
 					}
-					m = m[:ilabels]
-					// why sort?? metrics (Labels) are already sorted
-					// sort.Sort(m)
+					putLabelsToCache(labelsCache, groupingKey, m)
+					returnLabelsCachePool(labelsCache)
 				}
 				group.labels = m
 				group.value = s.V
