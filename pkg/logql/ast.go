@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -180,7 +181,8 @@ func (e *matchersExpr) String() string {
 		case labels.MatchNotRegexp:
 			sb.WriteString("!~")
 		}
-		sb.WriteString(strconv.Quote(m.Value))
+		StringBuilderQuoteTo(&sb, m.Value)
+		// sb.WriteString(strconv.Quote(m.Value))
 		if i+1 != len(e.matchers) {
 			sb.WriteString(", ")
 		}
@@ -309,6 +311,7 @@ func (e *lineFilterExpr) Shardable() bool { return true }
 
 func (e *lineFilterExpr) String() string {
 	var sb strings.Builder
+	sb.Grow(32)
 	if e.left != nil {
 		sb.WriteString(e.left.String())
 		sb.WriteString(" ")
@@ -324,7 +327,8 @@ func (e *lineFilterExpr) String() string {
 		sb.WriteString("!=")
 	}
 	sb.WriteString(" ")
-	sb.WriteString(strconv.Quote(e.match))
+	StringBuilderQuoteTo(&sb, e.match)
+	// sb.WriteString(strconv.Quote(e.match))
 	return sb.String()
 }
 
@@ -386,12 +390,14 @@ func (e *labelParserExpr) Stage() (log.Stage, error) {
 
 func (e *labelParserExpr) String() string {
 	var sb strings.Builder
+	sb.Grow(32)
 	sb.WriteString(OpPipe)
 	sb.WriteString(" ")
 	sb.WriteString(e.op)
 	if e.param != "" {
 		sb.WriteString(" ")
-		sb.WriteString(strconv.Quote(e.param))
+		StringBuilderQuoteTo(&sb, e.param)
+		// sb.WriteString(strconv.Quote(e.param))
 	}
 	return sb.String()
 }
@@ -463,7 +469,7 @@ func (e *lineFmtExpr) Stage() (log.Stage, error) {
 }
 
 func (e *lineFmtExpr) String() string {
-	return fmt.Sprintf("%s %s %s", OpPipe, OpFmtLine, strconv.Quote(e.value))
+	return OpPipe + " " + OpFmtLine + " " + strconv.Quote(e.value)
 }
 
 type labelFmtExpr struct {
@@ -486,14 +492,20 @@ func (e *labelFmtExpr) Stage() (log.Stage, error) {
 
 func (e *labelFmtExpr) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%s %s ", OpPipe, OpFmtLabel))
+	sb.Grow(32)
+	sb.WriteString(OpPipe)
+	sb.WriteString(" ")
+	sb.WriteString(OpFmtLabel)
+	sb.WriteString(" ")
+	// sb.WriteString(fmt.Sprintf("%s %s ", OpPipe, OpFmtLabel))
 	for i, f := range e.formats {
 		sb.WriteString(f.Name)
 		sb.WriteString("=")
 		if f.Rename {
 			sb.WriteString(f.Value)
 		} else {
-			sb.WriteString(strconv.Quote(f.Value))
+			StringBuilderQuoteTo(&sb, f.Value)
+			// sb.WriteString(strconv.Quote(f.Value))
 		}
 		if i+1 != len(e.formats) {
 			sb.WriteString(",")
@@ -522,11 +534,17 @@ func (j *jsonExpressionParser) Stage() (log.Stage, error) {
 
 func (j *jsonExpressionParser) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%s %s ", OpPipe, OpParserTypeJSON))
+	sb.Grow(32)
+	sb.WriteString(OpPipe)
+	sb.WriteString(" ")
+	sb.WriteString(OpParserTypeJSON)
+	sb.WriteString(" ")
+	// sb.WriteString(fmt.Sprintf("%s %s ", OpPipe, OpParserTypeJSON))
 	for i, exp := range j.expressions {
 		sb.WriteString(exp.Identifier)
 		sb.WriteString("=")
-		sb.WriteString(strconv.Quote(exp.Expression))
+		StringBuilderQuoteTo(&sb, exp.Expression)
+		// sb.WriteString(strconv.Quote(exp.Expression))
 
 		if i+1 != len(j.expressions) {
 			sb.WriteString(",")
@@ -831,7 +849,11 @@ type grouping struct {
 
 // impls Stringer
 func (g grouping) String() string {
+	if len(g.groups) == 0 && !g.without {
+		return ""
+	}
 	var sb strings.Builder
+	sb.Grow(16 + len(g.groups)*16)
 	if g.without {
 		sb.WriteString(" without")
 	} else if len(g.groups) > 0 {
@@ -840,7 +862,13 @@ func (g grouping) String() string {
 
 	if len(g.groups) > 0 {
 		sb.WriteString("(")
-		sb.WriteString(strings.Join(g.groups, ","))
+		for i, group := range g.groups {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString(group)
+		}
+		// sb.WriteString(strings.Join(g.groups, ","))
 		sb.WriteString(")")
 	}
 
@@ -1140,17 +1168,98 @@ func (e *labelReplaceExpr) Shardable() bool {
 
 func (e *labelReplaceExpr) String() string {
 	var sb strings.Builder
+	sb.Grow(64)
 	sb.WriteString(OpLabelReplace)
 	sb.WriteString("(")
 	sb.WriteString(e.left.String())
 	sb.WriteString(",")
-	sb.WriteString(strconv.Quote(e.dst))
+	StringBuilderQuoteTo(&sb, e.dst)
+	// sb.WriteString(strconv.Quote(e.dst))
 	sb.WriteString(",")
-	sb.WriteString(strconv.Quote(e.replacement))
+	StringBuilderQuoteTo(&sb, e.replacement)
+	// sb.WriteString(strconv.Quote(e.replacement))
 	sb.WriteString(",")
-	sb.WriteString(strconv.Quote(e.src))
+	StringBuilderQuoteTo(&sb, e.src)
+	// sb.WriteString(strconv.Quote(e.src))
 	sb.WriteString(",")
-	sb.WriteString(strconv.Quote(e.regex))
+	StringBuilderQuoteTo(&sb, e.regex)
+	// sb.WriteString(strconv.Quote(e.regex))
 	sb.WriteString(")")
 	return sb.String()
+}
+
+const (
+	lowerhex = "0123456789abcdef"
+)
+
+func StringBuilderQuoteTo(b *strings.Builder, s string) {
+	_ = b.WriteByte('"')
+	for i, r := range s {
+		if 0x20 <= r && r <= 0x7E && r != '\\' && r != '"' {
+			// fast path for common case
+			_ = b.WriteByte(byte(r))
+			continue
+		}
+
+		width := 1
+		if r >= utf8.RuneSelf {
+			width = utf8.RuneLen(r)
+		}
+		if r == utf8.RuneError && width == 1 {
+			_, _ = b.WriteString(`\x`)
+			_ = b.WriteByte(lowerhex[s[i]>>4])
+			_ = b.WriteByte(lowerhex[s[i]&0xF])
+			continue
+		}
+		{
+			var runeTmp [utf8.UTFMax]byte
+			if r == '"' || r == '\\' {
+				_ = b.WriteByte('\\')
+				_ = b.WriteByte('"')
+				continue
+			}
+			if strconv.IsPrint(r) {
+				n := utf8.EncodeRune(runeTmp[:], r)
+				_, _ = b.Write(runeTmp[:n])
+				continue
+			}
+			switch r {
+			case '\a':
+				_, _ = b.WriteString(`\a`)
+			case '\b':
+				_, _ = b.WriteString(`\b`)
+			case '\f':
+				_, _ = b.WriteString(`\f`)
+			case '\n':
+				_, _ = b.WriteString(`\n`)
+			case '\r':
+				_, _ = b.WriteString(`\r`)
+			case '\t':
+				_, _ = b.WriteString(`\t`)
+			case '\v':
+				_, _ = b.WriteString(`\v`)
+			default:
+				switch {
+				case r < ' ' || r == 0x7f:
+					_, _ = b.WriteString(`\x`)
+					_ = b.WriteByte(lowerhex[byte(r)>>4])
+					_ = b.WriteByte(lowerhex[byte(r)&0xF])
+				case !utf8.ValidRune(r):
+					r = 0xFFFD
+					fallthrough
+				case r < 0x10000:
+					_, _ = b.WriteString(`\u`)
+					for s := 12; s >= 0; s -= 4 {
+						_ = b.WriteByte(lowerhex[r>>uint(s)&0xF])
+					}
+				default:
+					_, _ = b.WriteString(`\U`)
+					for s := 28; s >= 0; s -= 4 {
+						_ = b.WriteByte(lowerhex[r>>uint(s)&0xF])
+					}
+				}
+			}
+		}
+	}
+	_ = b.WriteByte('"')
 }
