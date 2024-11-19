@@ -839,7 +839,6 @@ type vectorAggregationExpr struct {
 	grouping  *grouping
 	params    int
 	operation string
-	str       string
 	implicit
 }
 
@@ -917,16 +916,13 @@ func (e *vectorAggregationExpr) AddGroup(group string) {
 }
 
 func (e *vectorAggregationExpr) String() string {
-	if e.str == "" {
-		var params []string
-		if e.params != 0 {
-			params = []string{fmt.Sprintf("%d", e.params), e.left.String()}
-		} else {
-			params = []string{e.left.String()}
-		}
-		e.str = formatOperation(e.operation, e.grouping, params...)
+	var params []string
+	if e.params != 0 {
+		params = []string{fmt.Sprintf("%d", e.params), e.left.String()}
+	} else {
+		params = []string{e.left.String()}
 	}
-	return e.str
+	return formatOperation(e.operation, e.grouping, params...)
 }
 
 // impl SampleExpr
