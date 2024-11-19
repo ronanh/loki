@@ -75,12 +75,14 @@ type EngineOpts struct {
 	// only used for instant log queries.
 	MaxLookBackPeriod time.Duration `yaml:"max_look_back_period"`
 	RecordMetrics     bool          `yaml:"record_metrics"`
+	LogStats          bool          `yaml:"log_stats"`
 }
 
 func (opts *EngineOpts) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.DurationVar(&opts.Timeout, prefix+".engine.timeout", 5*time.Minute, "Timeout for query execution.")
 	f.DurationVar(&opts.MaxLookBackPeriod, prefix+".engine.max-lookback-period", 30*time.Second, "The maximum amount of time to look back for log lines. Used only for instant log queries.")
 	f.BoolVar(&opts.RecordMetrics, prefix+".engine.record-metrics", true, "Record metrics for queries.")
+	f.BoolVar(&opts.LogStats, prefix+".engine.log-stats", true, "Log query statistics.")
 }
 
 func (opts *EngineOpts) applyDefault() {
@@ -120,8 +122,9 @@ func (ng *Engine) Query(params Params) Query {
 		parse: func(_ context.Context, query string) (Expr, error) {
 			return ParseExpr(query)
 		},
-		record: ng.opts.RecordMetrics,
-		limits: ng.limits,
+		record:   ng.opts.RecordMetrics,
+		logStats: ng.opts.LogStats,
+		limits:   ng.limits,
 	}
 }
 
@@ -138,12 +141,18 @@ type query struct {
 	limits    Limits
 	evaluator Evaluator
 	record    bool
+	logStats  bool
 }
 
 // Exec Implements `Query`. It handles instrumentation & defers to Eval.
 func (q *query) Exec(ctx context.Context) (Result, error) {
-	log, ctx := spanlogger.New(ctx, "query.Exec")
-	defer log.Finish()
+	var (
+		log *spanlogger.SpanLogger
+	)
+	if q.logStats {
+		log, ctx = spanlogger.New(ctx, "query.Exec")
+		defer log.Finish()
+	}
 
 	rangeType := GetRangeType(q.params)
 	timer := prometheus.NewTimer(queryTime.WithLabelValues(string(rangeType)))
@@ -152,12 +161,17 @@ func (q *query) Exec(ctx context.Context) (Result, error) {
 	// records query statistics
 	var statResult stats.Result
 	start := time.Now()
-	ctx = stats.NewContext(ctx)
-
+	if q.logStats || q.record {
+		ctx = stats.NewContext(ctx)
+	}
 	data, err := q.Eval(ctx)
 
-	statResult = stats.Snapshot(ctx, time.Since(start))
-	statResult.Log(level.Debug(log))
+	if q.logStats || q.record {
+		statResult = stats.Snapshot(ctx, time.Since(start))
+	}
+	if q.logStats {
+		statResult.Log(level.Debug(log))
+	}
 
 	status := "200"
 	if err != nil {

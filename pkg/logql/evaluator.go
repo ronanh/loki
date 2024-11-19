@@ -219,7 +219,7 @@ var (
 	}
 	labelsCachePool = sync.Pool{
 		New: func() interface{} {
-			return make(map[uint64]labels.Labels)
+			return make(map[uint64]labels.Labels, maxLabelsCacheSize)
 		},
 	}
 )
@@ -321,8 +321,8 @@ func vectorAggEvaluator(
 						// sort.Sort(m)
 					}
 					putLabelsToCache(labelsCache, groupingKey, m)
-					returnLabelsCachePool(labelsCache)
 				}
+				returnLabelsCachePool(labelsCache)
 				group.labels = m
 				group.value = s.V
 				group.mean = s.V

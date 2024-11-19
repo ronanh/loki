@@ -1762,7 +1762,7 @@ func (statsQuerier) SelectSamples(ctx context.Context, p SelectSampleParams) (it
 }
 
 func TestEngine_Stats(t *testing.T) {
-	eng := NewEngine(EngineOpts{}, &statsQuerier{}, NoLimits)
+	eng := NewEngine(EngineOpts{LogStats: true}, &statsQuerier{}, NoLimits)
 
 	q := eng.Query(LiteralParams{
 		qs:        `{foo="bar"}`,
