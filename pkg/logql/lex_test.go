@@ -114,7 +114,7 @@ func Test_isFunction(t *testing.T) {
 		t.Run(tt.next, func(t *testing.T) {
 			sc := scanner.Scanner{}
 			sc.Init(strings.NewReader(tt.next))
-			if got := isFunction(sc); got != tt.want {
+			if got := isFunction(&sc, false); got != tt.want {
 				t.Errorf("isFunction() = %v, want %v", got, tt.want)
 			}
 		})

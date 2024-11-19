@@ -146,10 +146,11 @@ func (l *lexer) Lex(lval *exprSymType) int {
 
 	// scanning duration tokens
 	if r == '[' {
-		d := ""
+		var sb strings.Builder
+		sb.Grow(8)
 		for r := l.Next(); r != scanner.EOF; r = l.Next() {
-			if string(r) == "]" {
-				i, err := model.ParseDuration(d)
+			if r == ']' {
+				i, err := model.ParseDuration(sb.String())
 				if err != nil {
 					l.Error(err.Error())
 					return 0
@@ -157,7 +158,7 @@ func (l *lexer) Lex(lval *exprSymType) int {
 				lval.duration = time.Duration(i)
 				return RANGE
 			}
-			d += string(r)
+			_, _ = sb.WriteRune(r)
 		}
 		l.Error("missing closing ']' in duration")
 		return 0
@@ -166,16 +167,13 @@ func (l *lexer) Lex(lval *exprSymType) int {
 	tokenText := l.TokenText()
 	tokenNext := tokenText + string(l.Peek())
 	if tok, ok := functionTokens[tokenNext]; ok {
-		// create a copy to advance to the entire token for testing suffix
-		sc := l.Scanner
-		sc.Next()
-		if isFunction(sc) {
+		if isFunction(&l.Scanner, true) {
 			l.Next()
 			return tok
 		}
 	}
 
-	if tok, ok := functionTokens[tokenText]; ok && isFunction(l.Scanner) {
+	if tok, ok := functionTokens[tokenText]; ok && isFunction(&l.Scanner, false) {
 		return tok
 	}
 
@@ -197,31 +195,29 @@ func (l *lexer) Error(msg string) {
 }
 
 func tryScanDuration(number string, l *scanner.Scanner) (time.Duration, bool) {
+	r := l.Peek()
+	if !unicode.IsNumber(r) && !isDurationRune(r) && r != '.' {
+		// fast path, the number is not a duration
+		return 0, false
+	}
 	var sb strings.Builder
+	sb.Grow(len(number) + 8)
 	sb.WriteString(number)
 	// copy the scanner to avoid advancing it in case it's not a duration.
-	s := *l
-	consumed := 0
-	for r := s.Peek(); r != scanner.EOF && !unicode.IsSpace(r); r = s.Peek() {
+	lCopy := *l
+	for ; r != scanner.EOF && !unicode.IsSpace(r); r = l.Peek() {
 		if !unicode.IsNumber(r) && !isDurationRune(r) && r != '.' {
 			break
 		}
 		_, _ = sb.WriteRune(r)
-		_ = s.Next()
-		consumed++
+		_ = l.Next()
 	}
 
-	if consumed == 0 {
-		return 0, false
-	}
 	// we've found more characters before a whitespace or the end
 	d, err := time.ParseDuration(sb.String())
 	if err != nil {
+		*l = lCopy // reset the scanner, it was not a duration
 		return 0, false
-	}
-	// we need to consume the scanner, now that we know this is a duration.
-	for i := 0; i < consumed; i++ {
-		_ = l.Next()
 	}
 	return d, true
 }
@@ -237,31 +233,28 @@ func isDurationRune(r rune) bool {
 }
 
 func tryScanBytes(number string, l *scanner.Scanner) (uint64, bool) {
+	r := l.Peek()
+	if !unicode.IsNumber(r) && !isBytesSizeRune(r) && r != '.' {
+		return 0, false
+	}
 	var sb strings.Builder
 	sb.WriteString(number)
+	sb.Grow(len(number) + 8)
 	// copy the scanner to avoid advancing it in case it's not a duration.
-	s := *l
-	consumed := 0
-	for r := s.Peek(); r != scanner.EOF && !unicode.IsSpace(r); r = s.Peek() {
+	lCopy := *l
+	for ; r != scanner.EOF && !unicode.IsSpace(r); r = l.Peek() {
 		if !unicode.IsNumber(r) && !isBytesSizeRune(r) && r != '.' {
 			break
 		}
 		_, _ = sb.WriteRune(r)
-		_ = s.Next()
-		consumed++
+		_ = l.Next()
 	}
 
-	if consumed == 0 {
-		return 0, false
-	}
 	// we've found more characters before a whitespace or the end
 	b, err := humanize.ParseBytes(sb.String())
 	if err != nil {
+		*l = lCopy // reset the scanner, it was not bytes
 		return 0, false
-	}
-	// we need to consume the scanner, now that we know this is a duration.
-	for i := 0; i < consumed; i++ {
-		_ = l.Next()
 	}
 	return b, true
 }
@@ -279,29 +272,39 @@ func isBytesSizeRune(r rune) bool {
 
 // isFunction check if the next runes are either an open parenthesis
 // or by/without tokens. This allows to dissociate functions and identifier correctly.
-func isFunction(sc scanner.Scanner) bool {
+func isFunction(sc *scanner.Scanner, advance bool) bool {
+	scCopy := *sc
+	if advance {
+		sc.Next()
+	}
+	trimSpace(sc)
+	r := sc.Next()
+	if r == '(' {
+		*sc = scCopy
+		return true
+	}
 	var sb strings.Builder
-	sc = trimSpace(sc)
-	for r := sc.Next(); r != scanner.EOF; r = sc.Next() {
+	sb.Grow(16)
+	for ; r != scanner.EOF; r = sc.Next() {
 		sb.WriteRune(r)
 		switch sb.String() {
-		case "(":
-			return true
 		case "by", "without":
-			sc = trimSpace(sc)
-			return sc.Next() == '('
+			trimSpace(sc)
+			next := sc.Next()
+			*sc = scCopy
+			return next == '('
 		}
 	}
+	*sc = scCopy
 	return false
 }
 
-func trimSpace(l scanner.Scanner) scanner.Scanner {
+func trimSpace(l *scanner.Scanner) {
 	for n := l.Peek(); n != scanner.EOF; n = l.Peek() {
 		if unicode.IsSpace(n) {
 			l.Next()
 			continue
 		}
-		return l
+		return
 	}
-	return l
 }
