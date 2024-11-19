@@ -593,13 +593,13 @@ type logRange struct {
 
 // impls Stringer
 func (r logRange) String() string {
-	var sb strings.Builder
-	sb.WriteString(r.left.String())
+	left := r.left.String()
+	interval := model.Duration(r.interval).String()
 	if r.unwrap != nil {
-		sb.WriteString(r.unwrap.String())
+		unwrap := r.unwrap.String()
+		return left + unwrap + "[" + interval + "]"
 	}
-	sb.WriteString(fmt.Sprintf("[%v]", model.Duration(r.interval)))
-	return sb.String()
+	return left + "[" + interval + "]"
 }
 
 func (r *logRange) Shardable() bool { return r.left.Shardable() }
@@ -798,19 +798,19 @@ func (e *rangeAggregationExpr) AddGroup(group string) {
 
 // impls Stringer
 func (e *rangeAggregationExpr) String() string {
-	var sb strings.Builder
-	sb.WriteString(e.operation)
-	sb.WriteString("(")
-	if e.params != nil {
-		sb.WriteString(strconv.FormatFloat(*e.params, 'f', -1, 64))
-		sb.WriteString(",")
+	left := e.left.String()
+	if e.params != nil && e.grouping != nil {
+		grouping := e.grouping.String()
+		params := strconv.FormatFloat(*e.params, 'f', -1, 64)
+		return e.operation + "(" + params + "," + left + ")" + grouping
+	} else if e.params != nil {
+		params := strconv.FormatFloat(*e.params, 'f', -1, 64)
+		return e.operation + "(" + params + "," + left + ")"
+	} else if e.grouping != nil {
+		grouping := e.grouping.String()
+		return e.operation + "(" + left + ")" + grouping
 	}
-	sb.WriteString(e.left.String())
-	sb.WriteString(")")
-	if e.grouping != nil {
-		sb.WriteString(e.grouping.String())
-	}
-	return sb.String()
+	return e.operation + "(" + left + ")"
 }
 
 // impl SampleExpr
@@ -930,13 +930,16 @@ func (e *vectorAggregationExpr) AddGroup(group string) {
 }
 
 func (e *vectorAggregationExpr) String() string {
-	var params []string
 	if e.params != 0 {
-		params = []string{fmt.Sprintf("%d", e.params), e.left.String()}
-	} else {
-		params = []string{e.left.String()}
+		if e.grouping != nil {
+			return e.operation + e.grouping.String() + "(" + strconv.Itoa(e.params) + "," + e.left.String() + ")"
+		}
+		return e.operation + "(" + strconv.Itoa(e.params) + "," + e.left.String() + ")"
 	}
-	return formatOperation(e.operation, e.grouping, params...)
+	if e.grouping != nil {
+		return e.operation + e.grouping.String() + "(" + e.left.String() + ")"
+	}
+	return e.operation + "(" + e.left.String() + ")"
 }
 
 // impl SampleExpr
@@ -956,10 +959,12 @@ type binOpExpr struct {
 }
 
 func (e *binOpExpr) String() string {
+	expr := e.SampleExpr.String()
+	rhs := e.RHS.String()
 	if e.opts.ReturnBool {
-		return fmt.Sprintf("(%s %s bool %s)", e.SampleExpr.String(), e.op, e.RHS.String())
+		return "(" + expr + " " + e.op + " bool " + rhs + ")"
 	}
-	return fmt.Sprintf("(%s %s %s)", e.SampleExpr.String(), e.op, e.RHS.String())
+	return "(" + expr + " " + e.op + " " + rhs + ")"
 }
 
 func (e *binOpExpr) Leaves() []Expr {
