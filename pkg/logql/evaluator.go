@@ -203,7 +203,7 @@ func (ev *DefaultEvaluator) StepEvaluator(
 		}
 		return rangeAggEvaluator(iter.NewPeekingSampleIterator(it), e, q)
 	case *binOpExpr:
-		return binOpStepEvaluator(ctx, nextEv, e, q)
+		return newBinOpStepEvaluator(ctx, nextEv, e, q)
 	case *labelReplaceExpr:
 		return labelReplaceEvaluator(ctx, nextEv, e, q)
 	default:
@@ -538,9 +538,113 @@ func (r absentRangeVectorEvaluator) Error() error {
 	return r.iter.Error()
 }
 
-// binOpExpr explicitly does not handle when both legs are literals as
+type binOpStepEvaluator struct {
+	ev   SampleEvaluator
+	expr *binOpExpr
+	lhs  StepEvaluator
+	rhs  StepEvaluator
+	// q Params
+}
+
+func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
+	pairs := map[uint64][2]*promql.Sample{}
+	var ts int64
+
+	// populate pairs
+	{
+		// lhs
+
+		next, timestamp, vec := b.lhs.Next()
+
+		ts = timestamp
+
+		// These should _always_ happen at the same step on each evaluator.
+		if !next {
+			return next, ts, nil
+		}
+
+		for _, sample := range vec {
+			// TODO(owen-d): this seems wildly inefficient: we're calculating
+			// the hash on each sample & step per evaluator.
+			// We seem limited to this approach due to using the StepEvaluator ifc.
+			hash := sample.Metric.Hash()
+			pair := pairs[hash]
+			pair[0] = &promql.Sample{
+				Metric: sample.Metric,
+				Point:  sample.Point,
+			}
+			pairs[hash] = pair
+		}
+	}
+	{
+		// rhs
+		next, timestamp, vec := b.rhs.Next()
+
+		ts = timestamp
+
+		// These should _always_ happen at the same step on each evaluator.
+		if !next {
+			return next, ts, nil
+		}
+
+		for _, sample := range vec {
+			// TODO(owen-d): this seems wildly inefficient: we're calculating
+			// the hash on each sample & step per evaluator.
+			// We seem limited to this approach due to using the StepEvaluator ifc.
+			hash := sample.Metric.Hash()
+			pair := pairs[hash]
+			pair[1] = &promql.Sample{
+				Metric: sample.Metric,
+				Point:  sample.Point,
+			}
+			pairs[hash] = pair
+		}
+	}
+
+	results := make(promql.Vector, len(pairs))
+	var iResults int
+	for _, pair := range pairs {
+		// merge
+		if merged := mergeBinOp(b.expr.op, pair[0], pair[1], !b.expr.opts.ReturnBool, IsComparisonOperator(b.expr.op), &results[iResults]); merged {
+			iResults++
+		}
+	}
+	results = results[:iResults]
+
+	return true, ts, results
+}
+
+func (b *binOpStepEvaluator) Close() (lastError error) {
+	if err := b.lhs.Close(); err != nil {
+		lastError = err
+	}
+	if err := b.rhs.Close(); err != nil {
+		lastError = err
+	}
+	return lastError
+}
+
+func (b *binOpStepEvaluator) Error() error {
+	var errs []error
+	if err := b.lhs.Error(); err != nil {
+		errs = append(errs, err)
+	}
+	if err := b.rhs.Error(); err != nil {
+		errs = append(errs, err)
+	}
+	switch len(errs) {
+	case 0:
+		return nil
+	case 1:
+		return errs[0]
+	default:
+		return util.MultiError(errs)
+	}
+}
+
+// newBinOpStepEvaluator explicitly does not handle when both legs are literals as
 // it makes the type system simpler and these are reduced in mustNewBinOpExpr
-func binOpStepEvaluator(
+func newBinOpStepEvaluator(
 	ctx context.Context,
 	ev SampleEvaluator,
 	expr *binOpExpr,
@@ -556,7 +660,7 @@ func binOpStepEvaluator(
 		if err != nil {
 			return nil, err
 		}
-		return literalStepEvaluator(
+		return newLiteralStepEvaluator(
 			expr.op,
 			leftLit,
 			rhs,
@@ -569,7 +673,7 @@ func binOpStepEvaluator(
 		if err != nil {
 			return nil, err
 		}
-		return literalStepEvaluator(
+		return newLiteralStepEvaluator(
 			expr.op,
 			rightLit,
 			lhs,
@@ -588,69 +692,12 @@ func binOpStepEvaluator(
 		return nil, err
 	}
 
-	return newStepEvaluator(func() (bool, int64, promql.Vector) {
-		pairs := map[uint64][2]*promql.Sample{}
-		var ts int64
-
-		// populate pairs
-		for i, eval := range []StepEvaluator{lhs, rhs} {
-			next, timestamp, vec := eval.Next()
-
-			ts = timestamp
-
-			// These should _always_ happen at the same step on each evaluator.
-			if !next {
-				return next, ts, nil
-			}
-
-			for _, sample := range vec {
-				// TODO(owen-d): this seems wildly inefficient: we're calculating
-				// the hash on each sample & step per evaluator.
-				// We seem limited to this approach due to using the StepEvaluator ifc.
-				hash := sample.Metric.Hash()
-				pair := pairs[hash]
-				pair[i] = &promql.Sample{
-					Metric: sample.Metric,
-					Point:  sample.Point,
-				}
-				pairs[hash] = pair
-			}
-		}
-
-		results := make(promql.Vector, len(pairs))
-		var iResults int
-		for _, pair := range pairs {
-			// merge
-			if merged := mergeBinOp(expr.op, pair[0], pair[1], !expr.opts.ReturnBool, IsComparisonOperator(expr.op), &results[iResults]); merged {
-				iResults++
-			}
-		}
-		results = results[:iResults]
-
-		return true, ts, results
-	}, func() (lastError error) {
-		for _, ev := range []StepEvaluator{lhs, rhs} {
-			if err := ev.Close(); err != nil {
-				lastError = err
-			}
-		}
-		return lastError
-	}, func() error {
-		var errs []error
-		for _, ev := range []StepEvaluator{lhs, rhs} {
-			if err := ev.Error(); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		switch len(errs) {
-		case 0:
-			return nil
-		case 1:
-			return errs[0]
-		default:
-			return util.MultiError(errs)
-		}
-	})
+	return &binOpStepEvaluator{
+		ev:   ev,
+		expr: expr,
+		lhs:  lhs,
+		rhs:  rhs,
+	}, nil
 }
 
 func mergeBinOp(op string, left, right *promql.Sample, filter, isVectorComparison bool, out *promql.Sample) bool {
@@ -902,49 +949,72 @@ func mergeBinOp(op string, left, right *promql.Sample, filter, isVectorCompariso
 	return res
 }
 
-// literalStepEvaluator merges a literal with a StepEvaluator. Since order matters in
+type literalStepEvaluator struct {
+	op           string
+	lit          *literalExpr
+	eval         StepEvaluator
+	inverted     bool
+	returnBool   bool
+	literalPoint promql.Sample
+}
+
+// newLiteralStepEvaluator merges a literal with a StepEvaluator. Since order matters in
 // non commutative operations, inverted should be true when the literalExpr is not the left argument.
-func literalStepEvaluator(
+func newLiteralStepEvaluator(
 	op string,
 	lit *literalExpr,
 	eval StepEvaluator,
 	inverted bool,
 	returnBool bool,
 ) (StepEvaluator, error) {
-	return newStepEvaluator(
-		func() (bool, int64, promql.Vector) {
-			ok, ts, vec := eval.Next()
+	if eval == nil {
+		return nil, nilStepEvaluatorFnErr
+	}
+	return &literalStepEvaluator{
+		op:         op,
+		lit:        lit,
+		eval:       eval,
+		inverted:   inverted,
+		returnBool: returnBool,
+	}, nil
+}
 
-			results := make(promql.Vector, len(vec))
-			var literalPoint promql.Sample
-			var iResults int
-			for i := range vec {
-				literalPoint.Metric = vec[i].Metric
-				literalPoint.Point = promql.Point{T: ts, V: lit.value}
+func (e *literalStepEvaluator) Next() (bool, int64, promql.Vector) {
+	ok, ts, vec := e.eval.Next()
 
-				left, right := &literalPoint, &vec[i]
-				if inverted {
-					left, right = right, left
-				}
+	results := make(promql.Vector, len(vec))
+	var iResults int
+	for i := range vec {
+		e.literalPoint.Metric = vec[i].Metric
+		e.literalPoint.Point = promql.Point{T: ts, V: e.lit.value}
 
-				if merged := mergeBinOp(
-					op,
-					left,
-					right,
-					!returnBool,
-					IsComparisonOperator(op),
-					&results[iResults],
-				); merged {
-					iResults++
-				}
-			}
-			results = results[:iResults]
+		left, right := &e.literalPoint, &vec[i]
+		if e.inverted {
+			left, right = right, left
+		}
 
-			return ok, ts, results
-		},
-		eval.Close,
-		eval.Error,
-	)
+		if merged := mergeBinOp(
+			e.op,
+			left,
+			right,
+			!e.returnBool,
+			IsComparisonOperator(e.op),
+			&results[iResults],
+		); merged {
+			iResults++
+		}
+	}
+	results = results[:iResults]
+
+	return ok, ts, results
+}
+
+func (e *literalStepEvaluator) Close() error {
+	return e.eval.Close()
+}
+
+func (e *literalStepEvaluator) Error() error {
+	return e.eval.Error()
 }
 
 func labelReplaceEvaluator(
