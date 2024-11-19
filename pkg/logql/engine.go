@@ -74,11 +74,13 @@ type EngineOpts struct {
 	// MaxLookBackPeriod is the maximum amount of time to look back for log lines.
 	// only used for instant log queries.
 	MaxLookBackPeriod time.Duration `yaml:"max_look_back_period"`
+	RecordMetrics     bool          `yaml:"record_metrics"`
 }
 
 func (opts *EngineOpts) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.DurationVar(&opts.Timeout, prefix+".engine.timeout", 5*time.Minute, "Timeout for query execution.")
 	f.DurationVar(&opts.MaxLookBackPeriod, prefix+".engine.max-lookback-period", 30*time.Second, "The maximum amount of time to look back for log lines. Used only for instant log queries.")
+	f.BoolVar(&opts.RecordMetrics, prefix+".engine.record-metrics", true, "Record metrics for queries.")
 }
 
 func (opts *EngineOpts) applyDefault() {
@@ -95,6 +97,7 @@ type Engine struct {
 	timeout   time.Duration
 	evaluator Evaluator
 	limits    Limits
+	opts      EngineOpts
 }
 
 // NewEngine creates a new LogQL Engine.
@@ -104,6 +107,7 @@ func NewEngine(opts EngineOpts, q Querier, l Limits) *Engine {
 		timeout:   opts.Timeout,
 		evaluator: NewDefaultEvaluator(q, opts.MaxLookBackPeriod),
 		limits:    l,
+		opts:      opts,
 	}
 }
 
@@ -116,7 +120,7 @@ func (ng *Engine) Query(params Params) Query {
 		parse: func(_ context.Context, query string) (Expr, error) {
 			return ParseExpr(query)
 		},
-		record: true,
+		record: ng.opts.RecordMetrics,
 		limits: ng.limits,
 	}
 }
