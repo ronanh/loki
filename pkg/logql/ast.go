@@ -164,9 +164,23 @@ func (e *matchersExpr) Shardable() bool { return true }
 
 func (e *matchersExpr) String() string {
 	var sb strings.Builder
+	sb.Grow(len(e.matchers) * 32)
 	sb.WriteString("{")
 	for i, m := range e.matchers {
-		sb.WriteString(m.String())
+		// labels.Matcher.String() is slow, so we avoid it here.
+		// sb.WriteString(m.String())
+		sb.WriteString(m.Name)
+		switch m.Type {
+		case labels.MatchEqual:
+			sb.WriteString("=")
+		case labels.MatchNotEqual:
+			sb.WriteString("!=")
+		case labels.MatchRegexp:
+			sb.WriteString("=~")
+		case labels.MatchNotRegexp:
+			sb.WriteString("!~")
+		}
+		sb.WriteString(strconv.Quote(m.Value))
 		if i+1 != len(e.matchers) {
 			sb.WriteString(", ")
 		}
