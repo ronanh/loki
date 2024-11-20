@@ -583,10 +583,12 @@ type binOpStepEvaluator struct {
 	lhs  StepEvaluator
 	rhs  StepEvaluator
 	// q Params
+	results promql.Vector
+	pairs   map[uint64][2]*promql.Sample
 }
 
 func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
-	pairs := map[uint64][2]*promql.Sample{}
+	// pairs := map[uint64][2]*promql.Sample{}
 	var ts int64
 
 	// populate pairs
@@ -607,12 +609,12 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 			// the hash on each sample & step per evaluator.
 			// We seem limited to this approach due to using the StepEvaluator ifc.
 			hash := sample.Metric.Hash()
-			pair := pairs[hash]
+			pair := b.pairs[hash]
 			pair[0] = &promql.Sample{
 				Metric: sample.Metric,
 				Point:  sample.Point,
 			}
-			pairs[hash] = pair
+			b.pairs[hash] = pair
 		}
 	}
 	{
@@ -631,24 +633,35 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 			// the hash on each sample & step per evaluator.
 			// We seem limited to this approach due to using the StepEvaluator ifc.
 			hash := sample.Metric.Hash()
-			pair := pairs[hash]
+			pair := b.pairs[hash]
 			pair[1] = &promql.Sample{
 				Metric: sample.Metric,
 				Point:  sample.Point,
 			}
-			pairs[hash] = pair
+			b.pairs[hash] = pair
 		}
 	}
 
-	results := make(promql.Vector, len(pairs))
+	if cap(b.results) < len(b.pairs) {
+		capResults := 8 * len(b.pairs)
+		if capResults < 1024 {
+			capResults = 1024
+		}
+		b.results = make(promql.Vector, len(b.pairs), capResults)
+	} else {
+		b.results = b.results[:len(b.pairs)]
+	}
+	// results := make(promql.Vector, len(pairs))
 	var iResults int
-	for _, pair := range pairs {
+	for _, pair := range b.pairs {
 		// merge
-		if merged := mergeBinOp(b.expr.op, pair[0], pair[1], !b.expr.opts.ReturnBool, IsComparisonOperator(b.expr.op), &results[iResults]); merged {
+		if merged := mergeBinOp(b.expr.op, pair[0], pair[1], !b.expr.opts.ReturnBool, IsComparisonOperator(b.expr.op), &b.results[iResults]); merged {
 			iResults++
 		}
 	}
-	results = results[:iResults]
+	results := b.results[:iResults]
+	b.results = b.results[iResults:]
+	clear(b.pairs)
 
 	return true, ts, results
 }
@@ -660,6 +673,8 @@ func (b *binOpStepEvaluator) Close() (lastError error) {
 	if err := b.rhs.Close(); err != nil {
 		lastError = err
 	}
+	b.results = nil
+	b.pairs = nil
 	return lastError
 }
 
@@ -732,10 +747,11 @@ func newBinOpStepEvaluator(
 	}
 
 	return &binOpStepEvaluator{
-		ev:   ev,
-		expr: expr,
-		lhs:  lhs,
-		rhs:  rhs,
+		ev:    ev,
+		expr:  expr,
+		lhs:   lhs,
+		rhs:   rhs,
+		pairs: make(map[uint64][2]*promql.Sample),
 	}, nil
 }
 
@@ -995,6 +1011,7 @@ type literalStepEvaluator struct {
 	inverted     bool
 	returnBool   bool
 	literalPoint promql.Sample
+	results      promql.Vector
 }
 
 // newLiteralStepEvaluator merges a literal with a StepEvaluator. Since order matters in
@@ -1021,7 +1038,16 @@ func newLiteralStepEvaluator(
 func (e *literalStepEvaluator) Next() (bool, int64, promql.Vector) {
 	ok, ts, vec := e.eval.Next()
 
-	results := make(promql.Vector, len(vec))
+	if cap(e.results) < len(vec) {
+		capResults := 8 * len(vec)
+		if capResults < 1024 {
+			capResults = 1024
+		}
+		e.results = make(promql.Vector, len(vec), capResults)
+	} else {
+		e.results = e.results[:len(vec)]
+	}
+	// results := make(promql.Vector, len(vec))
 	var iResults int
 	for i := range vec {
 		e.literalPoint.Metric = vec[i].Metric
@@ -1038,17 +1064,19 @@ func (e *literalStepEvaluator) Next() (bool, int64, promql.Vector) {
 			right,
 			!e.returnBool,
 			IsComparisonOperator(e.op),
-			&results[iResults],
+			&e.results[iResults],
 		); merged {
 			iResults++
 		}
 	}
-	results = results[:iResults]
+	results := e.results[:iResults]
+	e.results = e.results[iResults:]
 
 	return ok, ts, results
 }
 
 func (e *literalStepEvaluator) Close() error {
+	e.results = nil
 	return e.eval.Close()
 }
 
