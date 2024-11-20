@@ -2,6 +2,7 @@ package logql
 
 import (
 	"sync"
+	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -42,6 +43,7 @@ type wrappedSeries struct {
 	Points      []promql.Point
 	allocPoints []promql.Point
 	wrappedLabels
+	createdAt int64
 }
 
 // type wrappedSeries struct {
@@ -85,6 +87,8 @@ func (r *rangeVectorIterator) Close() error {
 	for _, s := range r.window {
 		putSeries(s)
 	}
+	r.window = nil
+	r.metrics = nil
 	return r.iter.Close()
 }
 
@@ -239,10 +243,15 @@ func getSeries() *wrappedSeries {
 	return &wrappedSeries{
 		Points:      allocPoints,
 		allocPoints: allocPoints,
+		createdAt:   time.Now().UnixNano(),
 	}
 }
 
 func putSeries(s *wrappedSeries) {
+	const maxSeriesCacheDuration = 15 * time.Minute
+	if time.Now().UnixNano()-s.createdAt > maxSeriesCacheDuration.Nanoseconds() {
+		return
+	}
 	s.Points = s.allocPoints
 	s.wrappedLabels = wrappedLabels{}
 	seriesPool.Put(s)
