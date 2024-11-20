@@ -249,7 +249,7 @@ func getSeries() *wrappedSeries {
 
 func putSeries(s *wrappedSeries) {
 	const maxSeriesCacheDuration = 15 * time.Minute
-	if time.Now().UnixNano()-s.createdAt > maxSeriesCacheDuration.Nanoseconds() {
+	if cap(s.allocPoints) > 1<<20 && time.Since(time.Unix(0, s.createdAt)) > maxSeriesCacheDuration {
 		return
 	}
 	s.Points = s.allocPoints
