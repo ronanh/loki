@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -222,6 +223,11 @@ var (
 			return make(map[uint64]labels.Labels, maxLabelsCacheSize)
 		},
 	}
+	metricTreePool = sync.Pool{
+		New: func() interface{} {
+			return newMetricsTree()
+		},
+	}
 )
 
 const (
@@ -252,6 +258,150 @@ func putLabelsToCache(labelsCache map[uint64]labels.Labels, hash uint64, l label
 	labelsCache[hash] = l
 }
 
+type metricsTree struct {
+	keys        []metricTreeKeyNode
+	values      []metricTreeValueNode
+	groups      []metricGroup
+	nbAddLabels int
+	nbGetLabels int
+	hitCnt      int
+	missCnt     int
+	cache       map[uint64]int
+	// temporary variables
+	groupLbls   labels.Labels
+	stepResults []stepResult
+	labelsAlloc labels.Labels
+	hasher      *xxhash.Digest
+}
+
+func newMetricsTree() *metricsTree {
+	return &metricsTree{
+		keys:   make([]metricTreeKeyNode, 0, 128),
+		values: make([]metricTreeValueNode, 0, 512),
+	}
+}
+
+type metricTreeKeyNode struct {
+	key        string
+	valuesHead int
+	nextKey    int
+}
+
+type metricTreeValueNode struct {
+	value     string
+	keysHead  int
+	nextValue int
+	group     int
+}
+
+type metricGroup struct {
+	labels     labels.Labels
+	stepResult int
+}
+
+type stepResult struct {
+	iGroup      int
+	value       float64
+	mean        float64
+	groupCount  int
+	heap        vectorByValueHeap
+	reverseHeap vectorByReverseValueHeap
+}
+
+func (t *metricsTree) getOrAddLabels(lbls labels.Labels) int {
+	var hash uint64
+	if t.cache != nil {
+		t.hasher.Reset()
+		for _, lbl := range lbls {
+			t.hasher.WriteString(lbl.Name)
+			t.hasher.WriteString(lbl.Value)
+		}
+		hash = t.hasher.Sum64()
+		if iValue, ok := t.cache[hash]; ok {
+			return iValue
+		}
+	}
+	var iKey, iValue, lastKey, lastValue int
+	var newValue bool
+
+	if len(t.keys) == 0 {
+		// add a fake value node for tree head
+		t.values = append(t.values, metricTreeValueNode{
+			value:     "",
+			group:     -1,
+			keysHead:  -1,
+			nextValue: -1,
+		})
+	}
+
+	for _, lbl := range lbls {
+		// find the key node
+		for iKey = t.values[iValue].keysHead; iKey != -1; iKey = t.keys[iKey].nextKey {
+			if t.keys[iKey].key == lbl.Name {
+				t.hitCnt++
+				break
+			}
+			t.missCnt++
+			lastKey = iKey
+		}
+		if iKey == -1 {
+			// add a new key node
+			iKey = len(t.keys)
+			t.keys = append(t.keys, metricTreeKeyNode{
+				key:        lbl.Name,
+				valuesHead: -1,
+				nextKey:    -1,
+			})
+		}
+		if t.values[iValue].keysHead == -1 {
+			t.values[iValue].keysHead = iKey
+		} else {
+			t.keys[lastKey].nextKey = iKey
+		}
+		// find the value node
+		iValue = -1
+		for iValue = t.keys[iKey].valuesHead; iValue != -1; iValue = t.values[iValue].nextValue {
+			if t.values[iValue].value == lbl.Value {
+				t.hitCnt++
+				break
+			}
+			t.missCnt++
+			lastValue = iValue
+		}
+		if iValue == -1 {
+			// add a new value node
+			iValue = len(t.values)
+			t.values = append(t.values, metricTreeValueNode{
+				value:     lbl.Value,
+				group:     -1,
+				keysHead:  -1,
+				nextValue: -1,
+			})
+			newValue = true
+		}
+		if t.keys[iKey].valuesHead == -1 {
+			t.keys[iKey].valuesHead = iValue
+		} else {
+			t.values[lastValue].nextValue = iValue
+		}
+	}
+	if newValue {
+		t.nbAddLabels++
+	} else {
+		t.nbGetLabels++
+	}
+
+	if t.cache != nil {
+		t.cache[hash] = iValue
+	} else if t.nbGetLabels > t.nbAddLabels && t.missCnt > t.hitCnt {
+		t.cache = make(map[uint64]int, 2*t.nbAddLabels)
+		if t.hasher == nil {
+			t.hasher = xxhash.New()
+		}
+	}
+	return iValue
+}
+
 func vectorAggEvaluator(
 	ctx context.Context,
 	ev SampleEvaluator,
@@ -262,16 +412,15 @@ func vectorAggEvaluator(
 	if err != nil {
 		return nil, err
 	}
-	lb := labels.NewBuilder(nil)
-	buf := make([]byte, 0, 1024)
 	sort.Strings(expr.grouping.groups)
+	mt := metricTreePool.Get().(*metricsTree)
 	return newStepEvaluator(func() (bool, int64, promql.Vector) {
 		next, ts, vec := nextEvaluator.Next()
 
 		if !next {
 			return false, 0, promql.Vector{}
 		}
-		result := resultPool.Get().(map[uint64]groupedAggregation)
+		mt.stepResults = mt.stepResults[:0]
 
 		if expr.operation == OpTypeTopK || expr.operation == OpTypeBottomK {
 			if expr.params < 1 {
@@ -280,154 +429,180 @@ func vectorAggEvaluator(
 		}
 		for _, s := range vec {
 			metric := s.Metric
+			iValueNode := mt.getOrAddLabels(metric)
+			if mt.values[iValueNode].group == -1 {
+				// new metric, compute group labels
+				var (
+					groups = expr.grouping.groups
+					maxLen int
+				)
+				if expr.grouping.without {
+					maxLen = len(metric)
+				} else {
+					maxLen = len(expr.grouping.groups)
+				}
+				if cap(mt.groupLbls) < maxLen {
+					mt.groupLbls = make(labels.Labels, maxLen)
+				} else {
+					mt.groupLbls = mt.groupLbls[:maxLen]
+				}
 
-			var groupingKey uint64
-			if expr.grouping.without {
-				groupingKey, buf = metric.HashWithoutLabels(buf, expr.grouping.groups...)
-			} else {
-				groupingKey, buf = metric.HashForLabels(buf, expr.grouping.groups...)
-			}
-			group, ok := result[groupingKey]
-			// Add a new group if it doesn't exist.
-			if !ok {
-				var m labels.Labels
-				labelsCache := takeLabelsCachePool()
-				m, ok = getLabelsFromCache(labelsCache, groupingKey)
-				if !ok {
-					groups := expr.grouping.groups
-					if expr.grouping.without {
-						lb.Reset(metric)
-						lb.Del(groups...)
-						lb.Del(labels.MetricName)
-						m = lb.Labels()
-					} else {
-						m = make(labels.Labels, len(groups))
-						var (
-							startGroup int
-							ilabels    int
-						)
-						for _, l := range metric {
-							for j := startGroup; j < len(groups); j++ {
-								if l.Name == groups[j] {
-									m[ilabels] = l
-									ilabels++
-									startGroup = j + 1
-									break
-								}
+				var ilabels int
+				if expr.grouping.without {
+					var startGroup int
+					for _, l := range metric {
+						var found bool
+						for j := startGroup; j < len(groups); j++ {
+							if l.Name == groups[j] {
+								startGroup = j + 1
+								found = true
+								continue
 							}
 						}
-						m = m[:ilabels]
-						// why sort?? metrics (Labels) are already sorted
-						// sort.Sort(m)
+						if !found {
+							mt.groupLbls[ilabels] = l
+							ilabels++
+						}
 					}
-					putLabelsToCache(labelsCache, groupingKey, m)
+				} else {
+					var startMetric int
+					for _, g := range groups {
+						for j := startMetric; j < len(metric); j++ {
+							if metric[j].Name == g {
+								mt.groupLbls[ilabels] = metric[j]
+								ilabels++
+								startMetric = j + 1
+								break
+							}
+						}
+					}
 				}
-				returnLabelsCachePool(labelsCache)
-				group.labels = m
-				group.value = s.V
-				group.mean = s.V
-				group.groupCount = 1
+				mt.groupLbls = mt.groupLbls[:ilabels]
+				iGroupValueNode := mt.getOrAddLabels(mt.groupLbls)
+				if mt.values[iGroupValueNode].group == -1 {
+					if len(mt.groupLbls) > len(mt.labelsAlloc) || len(mt.labelsAlloc) == 0 {
+						mt.labelsAlloc = make(labels.Labels, max(len(mt.groupLbls), 1024))
+					}
+					groupLbls := mt.labelsAlloc[:len(mt.groupLbls)]
+					mt.labelsAlloc = mt.labelsAlloc[len(mt.groupLbls):]
+					copy(groupLbls, mt.groupLbls)
+					// new group
+					mt.groups = append(mt.groups, metricGroup{
+						labels:     groupLbls,
+						stepResult: -1,
+					})
+					mt.values[iGroupValueNode].group = len(mt.groups) - 1
+				}
+				mt.values[iValueNode].group = mt.values[iGroupValueNode].group
+			}
+			group := &mt.groups[mt.values[iValueNode].group]
 
-				inputVecLen := len(vec)
-				resultSize := expr.params
-				if expr.params > inputVecLen {
-					resultSize = inputVecLen
-				}
+			if group.stepResult == -1 {
+				// new step result
+				group.stepResult = len(mt.stepResults)
+				mt.stepResults = append(mt.stepResults, stepResult{
+					iGroup:     mt.values[iValueNode].group,
+					value:      s.V,
+					mean:       s.V,
+					groupCount: 1,
+				})
+				result := &mt.stepResults[group.stepResult]
+
+				resultSize := min(expr.params, len(vec))
 				if expr.operation == OpTypeStdvar || expr.operation == OpTypeStddev {
-					group.value = 0.0
+					result.value = 0.0
 				} else if expr.operation == OpTypeTopK {
 					groupHeap := make(vectorByValueHeap, 0, resultSize)
 					heap.Push(&groupHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
-					group.heap = groupHeap
+					result.heap = groupHeap
 				} else if expr.operation == OpTypeBottomK {
 					groupReverseHeap := make(vectorByReverseValueHeap, 0, resultSize)
 					heap.Push(&groupReverseHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
-					group.reverseHeap = groupReverseHeap
+					result.reverseHeap = groupReverseHeap
 				}
-				result[groupingKey] = group
-				continue
-			}
-			switch expr.operation {
-			case OpTypeSum:
-				group.value += s.V
+			} else {
+				result := &mt.stepResults[group.stepResult]
+				// aggregate step result
+				switch expr.operation {
+				case OpTypeSum:
+					result.value += s.V
 
-			case OpTypeAvg:
-				group.groupCount++
-				group.mean += (s.V - group.mean) / float64(group.groupCount)
+				case OpTypeAvg:
+					result.groupCount++
+					result.mean += (s.V - result.mean) / float64(result.groupCount)
 
-			case OpTypeMax:
-				if group.value < s.V || math.IsNaN(group.value) {
-					group.value = s.V
-				}
-
-			case OpTypeMin:
-				if group.value > s.V || math.IsNaN(group.value) {
-					group.value = s.V
-				}
-
-			case OpTypeCount:
-				group.groupCount++
-
-			case OpTypeStddev, OpTypeStdvar:
-				group.groupCount++
-				delta := s.V - group.mean
-				group.mean += delta / float64(group.groupCount)
-				group.value += delta * (s.V - group.mean)
-
-			case OpTypeTopK:
-				if len(group.heap) < expr.params || group.heap[0].V < s.V || math.IsNaN(group.heap[0].V) {
-					groupHeap := group.heap
-					if len(groupHeap) == expr.params {
-						heap.Pop(&groupHeap)
+				case OpTypeMax:
+					if result.value < s.V || math.IsNaN(result.value) {
+						result.value = s.V
 					}
-					heap.Push(&groupHeap, &promql.Sample{
-						Point:  promql.Point{V: s.V},
-						Metric: s.Metric,
-					})
-					group.heap = groupHeap
-				}
 
-			case OpTypeBottomK:
-				if len(group.reverseHeap) < expr.params || group.reverseHeap[0].V > s.V || math.IsNaN(group.reverseHeap[0].V) {
-					groupReverseHeap := group.reverseHeap
-					if len(groupReverseHeap) == expr.params {
-						heap.Pop(&groupReverseHeap)
+				case OpTypeMin:
+					if result.value > s.V || math.IsNaN(result.value) {
+						result.value = s.V
 					}
-					heap.Push(&groupReverseHeap, &promql.Sample{
-						Point:  promql.Point{V: s.V},
-						Metric: s.Metric,
-					})
-					group.reverseHeap = groupReverseHeap
+
+				case OpTypeCount:
+					result.groupCount++
+
+				case OpTypeStddev, OpTypeStdvar:
+					result.groupCount++
+					delta := s.V - result.mean
+					result.mean += delta / float64(result.groupCount)
+					result.value += delta * (s.V - result.mean)
+
+				case OpTypeTopK:
+					if len(result.heap) < expr.params || result.heap[0].V < s.V || math.IsNaN(result.heap[0].V) {
+						groupHeap := result.heap
+						if len(groupHeap) == expr.params {
+							heap.Pop(&groupHeap)
+						}
+						heap.Push(&groupHeap, &promql.Sample{
+							Point:  promql.Point{V: s.V},
+							Metric: s.Metric,
+						})
+						result.heap = groupHeap
+					}
+
+				case OpTypeBottomK:
+					if len(result.reverseHeap) < expr.params || result.reverseHeap[0].V > s.V || math.IsNaN(result.reverseHeap[0].V) {
+						groupReverseHeap := result.reverseHeap
+						if len(groupReverseHeap) == expr.params {
+							heap.Pop(&groupReverseHeap)
+						}
+						heap.Push(&groupReverseHeap, &promql.Sample{
+							Point:  promql.Point{V: s.V},
+							Metric: s.Metric,
+						})
+						result.reverseHeap = groupReverseHeap
+					}
+				default:
+					panic(errors.Errorf("expected aggregation operator but got %q", expr.operation))
 				}
-			default:
-				panic(errors.Errorf("expected aggregation operator but got %q", expr.operation))
 			}
-			result[groupingKey] = group
 		}
 		vec = vec[:0]
-		for _, aggr := range result {
+		for i := range mt.stepResults {
+			result := &mt.stepResults[i]
+			// reset step result for next step
+			mt.groups[result.iGroup].stepResult = -1
 			switch expr.operation {
 			case OpTypeAvg:
-				aggr.value = aggr.mean
-
+				result.value = result.mean
 			case OpTypeCount:
-				aggr.value = float64(aggr.groupCount)
-
+				result.value = float64(result.groupCount)
 			case OpTypeStddev:
-				aggr.value = math.Sqrt(aggr.value / float64(aggr.groupCount))
-
+				result.value = math.Sqrt(result.value / float64(result.groupCount))
 			case OpTypeStdvar:
-				aggr.value = aggr.value / float64(aggr.groupCount)
-
+				result.value = result.value / float64(result.groupCount)
 			case OpTypeTopK:
 				// The heap keeps the lowest value on top, so reverse it.
-				aggrHeap := aggr.heap
+				aggrHeap := result.heap
 				sort.Sort(sort.Reverse(aggrHeap))
 				for _, v := range aggrHeap {
 					vec = append(vec, promql.Sample{
@@ -442,7 +617,7 @@ func vectorAggEvaluator(
 
 			case OpTypeBottomK:
 				// The heap keeps the lowest value on top, so reverse it.
-				aggrReverseHeap := aggr.reverseHeap
+				aggrReverseHeap := result.reverseHeap
 				sort.Sort(sort.Reverse(aggrReverseHeap))
 				for _, v := range aggrReverseHeap {
 					vec = append(vec, promql.Sample{
@@ -454,20 +629,30 @@ func vectorAggEvaluator(
 					})
 				}
 				continue // Bypass default append.
-			default:
 			}
 			vec = append(vec, promql.Sample{
-				Metric: aggr.labels,
+				Metric: mt.groups[result.iGroup].labels,
 				Point: promql.Point{
 					T: ts,
-					V: aggr.value,
+					V: result.value,
 				},
 			})
 		}
-		clear(result)
-		resultPool.Put(result)
 		return next, ts, vec
-	}, nextEvaluator.Close, nextEvaluator.Error)
+	}, func() error {
+		mt.keys = mt.keys[:0]
+		mt.values = mt.values[:0]
+		mt.groups = mt.groups[:0]
+		mt.stepResults = mt.stepResults[:0]
+		mt.groupLbls = mt.groupLbls[:0]
+		mt.hitCnt = 0
+		mt.missCnt = 0
+		mt.nbAddLabels = 0
+		mt.nbGetLabels = 0
+		mt.cache = nil
+		metricTreePool.Put(mt)
+		return nextEvaluator.Close()
+	}, nextEvaluator.Error)
 }
 
 func rangeAggEvaluator(
