@@ -213,94 +213,41 @@ func (ev *DefaultEvaluator) StepEvaluator(
 }
 
 var (
-	resultPool = sync.Pool{
+	evaluatorGroupsPool = sync.Pool{
 		New: func() interface{} {
-			return make(map[uint64]groupedAggregation)
-		},
-	}
-	labelsCachePool = sync.Pool{
-		New: func() interface{} {
-			return make(map[uint64]labels.Labels, maxLabelsCacheSize)
-		},
-	}
-	metricTreePool = sync.Pool{
-		New: func() interface{} {
-			return newMetricsTree()
+			return newEvaluatorGroups()
 		},
 	}
 )
 
 const (
-	maxLabelsCacheSize = 8192
+	maxUnsortedGroups = 8
 )
 
-func takeLabelsCachePool() map[uint64]labels.Labels {
-	return labelsCachePool.Get().(map[uint64]labels.Labels)
-}
-
-func returnLabelsCachePool(l map[uint64]labels.Labels) {
-	labelsCachePool.Put(l)
-}
-
-func getLabelsFromCache(labelsCache map[uint64]labels.Labels, hash uint64) (labels.Labels, bool) {
-	res, ok := labelsCache[hash]
-	return res, ok
-}
-
-func putLabelsToCache(labelsCache map[uint64]labels.Labels, hash uint64, l labels.Labels) {
-	if len(labelsCache) > maxLabelsCacheSize {
-		for k := range labelsCache {
-			// remove the first element (randomly)
-			delete(labelsCache, k)
-			break
-		}
-	}
-	labelsCache[hash] = l
-}
-
-type metricsTree struct {
-	keys        []metricTreeKeyNode
-	values      []metricTreeValueNode
-	groups      []metricGroup
-	nbAddLabels int
-	nbGetLabels int
-	hitCnt      int
-	missCnt     int
-	cache       map[uint64]int
+type evaluatorGroups struct {
+	groups []metricGroup
+	hasher *xxhash.Digest
+	sorted bool
 	// temporary variables
-	groupLbls   labels.Labels
 	stepResults []stepResult
 	labelsAlloc labels.Labels
-	hasher      *xxhash.Digest
 }
 
-func newMetricsTree() *metricsTree {
-	return &metricsTree{
-		keys:   make([]metricTreeKeyNode, 0, 128),
-		values: make([]metricTreeValueNode, 0, 512),
+func newEvaluatorGroups() *evaluatorGroups {
+	return &evaluatorGroups{
+		groups: make([]metricGroup, 0, 8),
+		hasher: xxhash.New(),
 	}
-}
-
-type metricTreeKeyNode struct {
-	key        string
-	valuesHead int
-	nextKey    int
-}
-
-type metricTreeValueNode struct {
-	value     string
-	keysHead  int
-	nextValue int
-	group     int
 }
 
 type metricGroup struct {
+	hash       uint64
 	labels     labels.Labels
 	stepResult int
 }
 
 type stepResult struct {
-	iGroup      int
+	labels      labels.Labels
 	value       float64
 	mean        float64
 	groupCount  int
@@ -308,98 +255,124 @@ type stepResult struct {
 	reverseHeap vectorByReverseValueHeap
 }
 
-func (t *metricsTree) getOrAddLabels(lbls labels.Labels) int {
-	var hash uint64
-	if t.cache != nil {
-		t.hasher.Reset()
-		for _, lbl := range lbls {
-			t.hasher.WriteString(lbl.Name)
-			t.hasher.WriteString(lbl.Value)
+func (eg *evaluatorGroups) searchLabels(hash uint64) int {
+	// find the value node
+	if eg.sorted {
+		// implement custom binary search algorithm to find the value node
+		// as the values are sorted by hash
+		i, j := 0, len(eg.groups)
+		for i < j {
+			h := int(uint(i+j) >> 1) // avoid overflow when computing h
+			if eg.groups[h].hash < hash {
+				i = h + 1
+			} else {
+				j = h
+			}
 		}
-		hash = t.hasher.Sum64()
-		if iValue, ok := t.cache[hash]; ok {
-			return iValue
+		return i
+	}
+	// find the value node using linear search
+	for i := range eg.groups {
+		if eg.groups[i].hash == hash {
+			return i
 		}
 	}
-	var iKey, iValue, lastKey, lastValue int
-	var newValue bool
+	return len(eg.groups)
+}
 
-	if len(t.keys) == 0 {
-		// add a fake value node for tree head
-		t.values = append(t.values, metricTreeValueNode{
-			value:     "",
-			group:     -1,
-			keysHead:  -1,
-			nextValue: -1,
+func (eg *evaluatorGroups) getLabelsGroup(lbls labels.Labels, groups []string, without bool) *metricGroup {
+	// switch to sorted mode if the number of groups is greater than maxUnsortedLabels
+	if !eg.sorted && len(eg.groups) > maxUnsortedGroups {
+		eg.sorted = true
+		sort.Slice(eg.groups, func(i, j int) bool {
+			return eg.groups[i].hash < eg.groups[j].hash
 		})
 	}
 
-	for _, lbl := range lbls {
-		// find the key node
-		for iKey = t.values[iValue].keysHead; iKey != -1; iKey = t.keys[iKey].nextKey {
-			if t.keys[iKey].key == lbl.Name {
-				t.hitCnt++
-				break
+	// hash the grouped labels
+	var hash uint64
+	eg.hasher.Reset()
+	if without {
+		var iStartGroup int
+		for _, lbl := range lbls {
+			var found bool
+			for i := iStartGroup; i < len(groups); i++ {
+				if lbl.Name == groups[i] {
+					found = true
+					break
+				}
 			}
-			t.missCnt++
-			lastKey = iKey
-		}
-		if iKey == -1 {
-			// add a new key node
-			iKey = len(t.keys)
-			t.keys = append(t.keys, metricTreeKeyNode{
-				key:        lbl.Name,
-				valuesHead: -1,
-				nextKey:    -1,
-			})
-		}
-		if t.values[iValue].keysHead == -1 {
-			t.values[iValue].keysHead = iKey
-		} else {
-			t.keys[lastKey].nextKey = iKey
-		}
-		// find the value node
-		iValue = -1
-		for iValue = t.keys[iKey].valuesHead; iValue != -1; iValue = t.values[iValue].nextValue {
-			if t.values[iValue].value == lbl.Value {
-				t.hitCnt++
-				break
+			if !found {
+				eg.hasher.WriteString(lbl.Name)
+				eg.hasher.WriteString(lbl.Value)
 			}
-			t.missCnt++
-			lastValue = iValue
 		}
-		if iValue == -1 {
-			// add a new value node
-			iValue = len(t.values)
-			t.values = append(t.values, metricTreeValueNode{
-				value:     lbl.Value,
-				group:     -1,
-				keysHead:  -1,
-				nextValue: -1,
-			})
-			newValue = true
-		}
-		if t.keys[iKey].valuesHead == -1 {
-			t.keys[iKey].valuesHead = iValue
-		} else {
-			t.values[lastValue].nextValue = iValue
+	} else {
+		var iStartLabels int
+		for _, g := range groups {
+			for i := iStartLabels; i < len(lbls); i++ {
+				if lbls[i].Name == g {
+					eg.hasher.WriteString(lbls[i].Name)
+					eg.hasher.WriteString(lbls[i].Value)
+					break
+				}
+			}
 		}
 	}
-	if newValue {
-		t.nbAddLabels++
-	} else {
-		t.nbGetLabels++
+	hash = eg.hasher.Sum64()
+
+	// find the group by hash
+	i := eg.searchLabels(hash)
+	if i < len(eg.groups) && eg.groups[i].hash == hash {
+		return &eg.groups[i]
 	}
 
-	if t.cache != nil {
-		t.cache[hash] = iValue
-	} else if t.nbGetLabels > t.nbAddLabels && t.missCnt > t.hitCnt {
-		t.cache = make(map[uint64]int, 2*t.nbAddLabels)
-		if t.hasher == nil {
-			t.hasher = xxhash.New()
+	// group not found, create a new group
+
+	// build the group labels
+	if len(lbls) > cap(eg.labelsAlloc) || cap(eg.labelsAlloc) == 0 {
+		eg.labelsAlloc = make(labels.Labels, 0, 1024)
+	}
+	if without {
+		var iStartGroup int
+		for _, lbl := range lbls {
+			var found bool
+			for i := iStartGroup; i < len(groups); i++ {
+				if lbl.Name == groups[i] {
+					found = true
+					iStartGroup = i + 1
+					break
+				}
+			}
+			if !found {
+				eg.labelsAlloc = append(eg.labelsAlloc, lbl)
+			}
+		}
+	} else {
+		var iStartLabels int
+		for _, g := range groups {
+			for i := iStartLabels; i < len(lbls); i++ {
+				if lbls[i].Name == g {
+					eg.labelsAlloc = append(eg.labelsAlloc, lbls[i])
+					iStartLabels = i + 1
+					break
+				}
+			}
 		}
 	}
-	return iValue
+	lbls = eg.labelsAlloc[:len(eg.labelsAlloc)]
+	eg.labelsAlloc = eg.labelsAlloc[len(lbls):]
+
+	// add the new group
+	if eg.sorted {
+		eg.groups = append(eg.groups, metricGroup{})
+		copy(eg.groups[i+1:], eg.groups[i:])
+		eg.groups[i] = metricGroup{hash: hash, labels: lbls, stepResult: -1}
+	} else {
+		i = len(eg.groups)
+		eg.groups = append(eg.groups, metricGroup{hash: hash, labels: lbls, stepResult: -1})
+	}
+	return &eg.groups[i]
 }
 
 func vectorAggEvaluator(
@@ -413,100 +386,38 @@ func vectorAggEvaluator(
 		return nil, err
 	}
 	sort.Strings(expr.grouping.groups)
-	mt := metricTreePool.Get().(*metricsTree)
+	eg := evaluatorGroupsPool.Get().(*evaluatorGroups)
 	return newStepEvaluator(func() (bool, int64, promql.Vector) {
 		next, ts, vec := nextEvaluator.Next()
 
 		if !next {
 			return false, 0, promql.Vector{}
 		}
-		mt.stepResults = mt.stepResults[:0]
+		eg.stepResults = eg.stepResults[:0]
 
 		if expr.operation == OpTypeTopK || expr.operation == OpTypeBottomK {
 			if expr.params < 1 {
 				return next, ts, promql.Vector{}
 			}
 		}
+		// reset step results
+		for i := range eg.groups {
+			eg.groups[i].stepResult = -1
+		}
 		for _, s := range vec {
 			metric := s.Metric
-			iValueNode := mt.getOrAddLabels(metric)
-			if mt.values[iValueNode].group == -1 {
-				// new metric, compute group labels
-				var (
-					groups = expr.grouping.groups
-					maxLen int
-				)
-				if expr.grouping.without {
-					maxLen = len(metric)
-				} else {
-					maxLen = len(expr.grouping.groups)
-				}
-				if cap(mt.groupLbls) < maxLen {
-					mt.groupLbls = make(labels.Labels, maxLen)
-				} else {
-					mt.groupLbls = mt.groupLbls[:maxLen]
-				}
-
-				var ilabels int
-				if expr.grouping.without {
-					var startGroup int
-					for _, l := range metric {
-						var found bool
-						for j := startGroup; j < len(groups); j++ {
-							if l.Name == groups[j] {
-								startGroup = j + 1
-								found = true
-								continue
-							}
-						}
-						if !found {
-							mt.groupLbls[ilabels] = l
-							ilabels++
-						}
-					}
-				} else {
-					var startMetric int
-					for _, g := range groups {
-						for j := startMetric; j < len(metric); j++ {
-							if metric[j].Name == g {
-								mt.groupLbls[ilabels] = metric[j]
-								ilabels++
-								startMetric = j + 1
-								break
-							}
-						}
-					}
-				}
-				mt.groupLbls = mt.groupLbls[:ilabels]
-				iGroupValueNode := mt.getOrAddLabels(mt.groupLbls)
-				if mt.values[iGroupValueNode].group == -1 {
-					if len(mt.groupLbls) > len(mt.labelsAlloc) || len(mt.labelsAlloc) == 0 {
-						mt.labelsAlloc = make(labels.Labels, max(len(mt.groupLbls), 1024))
-					}
-					groupLbls := mt.labelsAlloc[:len(mt.groupLbls)]
-					mt.labelsAlloc = mt.labelsAlloc[len(mt.groupLbls):]
-					copy(groupLbls, mt.groupLbls)
-					// new group
-					mt.groups = append(mt.groups, metricGroup{
-						labels:     groupLbls,
-						stepResult: -1,
-					})
-					mt.values[iGroupValueNode].group = len(mt.groups) - 1
-				}
-				mt.values[iValueNode].group = mt.values[iGroupValueNode].group
-			}
-			group := &mt.groups[mt.values[iValueNode].group]
+			group := eg.getLabelsGroup(metric, expr.grouping.groups, expr.grouping.without)
 
 			if group.stepResult == -1 {
 				// new step result
-				group.stepResult = len(mt.stepResults)
-				mt.stepResults = append(mt.stepResults, stepResult{
-					iGroup:     mt.values[iValueNode].group,
+				group.stepResult = len(eg.stepResults)
+				eg.stepResults = append(eg.stepResults, stepResult{
+					labels:     group.labels,
 					value:      s.V,
 					mean:       s.V,
 					groupCount: 1,
 				})
-				result := &mt.stepResults[group.stepResult]
+				result := &eg.stepResults[group.stepResult]
 
 				resultSize := min(expr.params, len(vec))
 				if expr.operation == OpTypeStdvar || expr.operation == OpTypeStddev {
@@ -527,7 +438,7 @@ func vectorAggEvaluator(
 					result.reverseHeap = groupReverseHeap
 				}
 			} else {
-				result := &mt.stepResults[group.stepResult]
+				result := &eg.stepResults[group.stepResult]
 				// aggregate step result
 				switch expr.operation {
 				case OpTypeSum:
@@ -587,10 +498,9 @@ func vectorAggEvaluator(
 			}
 		}
 		vec = vec[:0]
-		for i := range mt.stepResults {
-			result := &mt.stepResults[i]
+		for i := range eg.stepResults {
+			result := &eg.stepResults[i]
 			// reset step result for next step
-			mt.groups[result.iGroup].stepResult = -1
 			switch expr.operation {
 			case OpTypeAvg:
 				result.value = result.mean
@@ -631,7 +541,7 @@ func vectorAggEvaluator(
 				continue // Bypass default append.
 			}
 			vec = append(vec, promql.Sample{
-				Metric: mt.groups[result.iGroup].labels,
+				Metric: result.labels,
 				Point: promql.Point{
 					T: ts,
 					V: result.value,
@@ -640,17 +550,9 @@ func vectorAggEvaluator(
 		}
 		return next, ts, vec
 	}, func() error {
-		mt.keys = mt.keys[:0]
-		mt.values = mt.values[:0]
-		mt.groups = mt.groups[:0]
-		mt.stepResults = mt.stepResults[:0]
-		mt.groupLbls = mt.groupLbls[:0]
-		mt.hitCnt = 0
-		mt.missCnt = 0
-		mt.nbAddLabels = 0
-		mt.nbGetLabels = 0
-		mt.cache = nil
-		metricTreePool.Put(mt)
+		eg.groups = eg.groups[:0]
+		eg.stepResults = eg.stepResults[:0]
+		evaluatorGroupsPool.Put(eg)
 		return nextEvaluator.Close()
 	}, nextEvaluator.Error)
 }
