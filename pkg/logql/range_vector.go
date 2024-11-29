@@ -2,6 +2,7 @@ package logql
 
 import (
 	"sync"
+	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -51,6 +52,8 @@ type wrappedSeries struct {
 	Points      []promql.Point
 	allocPoints []promql.Point
 	nbGet       int
+	createdAt   time.Time
+	allocAfter  time.Duration
 	wrappedLabels
 }
 
@@ -98,10 +101,23 @@ func (r *rangeVectorIterator) Close() error {
 	for i := range r.window {
 		// might reuse the allocated points
 		allocPoints := r.window[i].allocPoints
+		createdAt := r.window[i].createdAt
+		allocAfter := r.window[i].allocAfter
 		// reset the series
-		r.window[i] = wrappedSeries{}
-		r.window[i].allocPoints = allocPoints
-		r.window[i].Points = nil
+		r.window[i] = wrappedSeries{
+			createdAt:   createdAt,
+			allocAfter:  allocAfter,
+			allocPoints: allocPoints,
+		}
+	}
+	r.window = r.window[:cap(r.window)]
+	for i := range r.window {
+		if r.window[i].allocPoints == nil {
+			continue
+		}
+		if !r.window[i].createdAt.IsZero() && time.Since(r.window[i].createdAt) > r.window[i].allocAfter+time.Minute {
+			r.window[i].allocPoints = nil
+		}
 	}
 	window := r.window[:0]
 	clear(r.metrics)
@@ -173,7 +189,7 @@ func (r *rangeVectorIterator) getOrAddSeries(lbs string) (*wrappedSeries, bool) 
 	}
 	// add a new series
 	if len(r.window) == cap(r.window) {
-		r.window = append(r.window, wrappedSeries{wrappedLabels: wrappedLabels{lbs: lbs}})
+		r.window = append(r.window, wrappedSeries{wrappedLabels: wrappedLabels{lbs: lbs}, createdAt: time.Now()})
 	} else {
 		// reuse
 		r.window = r.window[:len(r.window)+1]
@@ -241,6 +257,7 @@ func (r *rangeVectorIterator) load(start, end int64) {
 					newCap = 64
 				}
 				series.allocPoints = make([]promql.Point, 0, newCap)
+				series.allocAfter = time.Since(series.createdAt)
 				series.Points = append(series.allocPoints, series.Points...)
 			} else {
 				// reuse the allocated points
