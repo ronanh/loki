@@ -1088,6 +1088,7 @@ type literalStepEvaluator struct {
 	returnBool   bool
 	literalPoint promql.Sample
 	results      promql.Vector
+	stepNum      int
 }
 
 // newLiteralStepEvaluator merges a literal with a StepEvaluator. Since order matters in
@@ -1115,11 +1116,8 @@ func (e *literalStepEvaluator) Next() (bool, int64, promql.Vector) {
 	ok, ts, vec := e.eval.Next()
 
 	if cap(e.results) < len(vec) {
-		capResults := 8 * len(vec)
-		if capResults < 1024 {
-			capResults = 1024
-		}
-		e.results = make(promql.Vector, len(vec), capResults)
+		mult := max(4, e.stepNum)
+		e.results = make(promql.Vector, len(vec), mult*len(vec))
 	} else {
 		e.results = e.results[:len(vec)]
 	}
@@ -1145,9 +1143,9 @@ func (e *literalStepEvaluator) Next() (bool, int64, promql.Vector) {
 			iResults++
 		}
 	}
-	results := e.results[:iResults]
+	results := e.results[:iResults:iResults]
 	e.results = e.results[iResults:]
-
+	e.stepNum++
 	return ok, ts, results
 }
 
