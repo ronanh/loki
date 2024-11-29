@@ -142,6 +142,7 @@ type query struct {
 	evaluator Evaluator
 	record    bool
 	logStats  bool
+	hashBuf   []byte
 }
 
 // Exec Implements `Query`. It handles instrumentation & defers to Eval.
@@ -271,9 +272,10 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 		for _, p := range vec {
 			var (
 				series *promql.Series
-				hash   = p.Metric.Hash()
+				hash   uint64
 				ok     bool
 			)
+			hash, q.hashBuf = HashLabels(q.hashBuf, p.Metric)
 
 			series, ok = seriesIndex[hash]
 			if !ok {

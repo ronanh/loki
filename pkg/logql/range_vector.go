@@ -135,10 +135,6 @@ func (r *rangeVectorIterator) load(start, end int64) {
 	if s, ok := r.iter.(iter.Seekable); ok {
 		s.Seek(start)
 	}
-	var (
-		cacheLbs    string
-		cacheSeries *wrappedSeries
-	)
 	for lbs, sample, hasNext := r.iter.Peek(); hasNext; lbs, sample, hasNext = r.iter.Peek() {
 		if sample.Timestamp > end {
 			// not consuming the iterator as this belong to another range.
@@ -150,17 +146,7 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			continue
 		}
 		// adds the sample.
-		var series *wrappedSeries
-		var ok bool
-		if cacheLbs == lbs {
-			series = cacheSeries
-			ok = true
-		} else {
-			series, ok = r.window[lbs]
-			if ok && series.Points == nil {
-				series.Points = series.allocPoints
-			}
-		}
+		series, ok := r.window[lbs]
 		if !ok {
 			var metric wrappedLabels
 			if metric, ok = r.metrics[lbs]; !ok {
@@ -182,9 +168,9 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			series = getSeries()
 			series.wrappedLabels = metric
 			r.window[lbs] = series
+		} else if series.Points == nil {
+			series.Points = series.allocPoints
 		}
-		cacheLbs = lbs
-		cacheSeries = series
 		if len(series.Points) == cap(series.Points) {
 			if cap(series.allocPoints) <= 2*len(series.Points) {
 				// double the capacity.

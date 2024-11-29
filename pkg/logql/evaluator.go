@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -226,17 +225,17 @@ const (
 
 type evaluatorGroups struct {
 	groups []metricGroup
-	hasher *xxhash.Digest
 	sorted bool
 	// temporary variables
 	stepResults []stepResult
 	labelsAlloc labels.Labels
+	hashBuf     []byte
 }
 
 func newEvaluatorGroups() *evaluatorGroups {
 	return &evaluatorGroups{
-		groups: make([]metricGroup, 0, 8),
-		hasher: xxhash.New(),
+		groups:  make([]metricGroup, 0, 8),
+		hashBuf: make([]byte, 0, 1024),
 	}
 }
 
@@ -291,35 +290,11 @@ func (eg *evaluatorGroups) getLabelsGroup(lbls labels.Labels, groups []string, w
 
 	// hash the grouped labels
 	var hash uint64
-	eg.hasher.Reset()
 	if without {
-		var iStartGroup int
-		for _, lbl := range lbls {
-			var found bool
-			for i := iStartGroup; i < len(groups); i++ {
-				if lbl.Name == groups[i] {
-					found = true
-					break
-				}
-			}
-			if !found {
-				eg.hasher.WriteString(lbl.Name)
-				eg.hasher.WriteString(lbl.Value)
-			}
-		}
+		hash, eg.hashBuf = HashWithoutLabels(eg.hashBuf, lbls, groups...)
 	} else {
-		var iStartLabels int
-		for _, g := range groups {
-			for i := iStartLabels; i < len(lbls); i++ {
-				if lbls[i].Name == g {
-					eg.hasher.WriteString(lbls[i].Name)
-					eg.hasher.WriteString(lbls[i].Value)
-					break
-				}
-			}
-		}
+		hash, eg.hashBuf = HashForLabels(eg.hashBuf, lbls, groups...)
 	}
-	hash = eg.hasher.Sum64()
 
 	// find the group by hash
 	i := eg.searchLabels(hash)
@@ -360,7 +335,7 @@ func (eg *evaluatorGroups) getLabelsGroup(lbls labels.Labels, groups []string, w
 			}
 		}
 	}
-	lbls = eg.labelsAlloc[:len(eg.labelsAlloc)]
+	lbls = eg.labelsAlloc[:len(eg.labelsAlloc):len(eg.labelsAlloc)]
 	eg.labelsAlloc = eg.labelsAlloc[len(lbls):]
 
 	// add the new group
@@ -552,6 +527,7 @@ func vectorAggEvaluator(
 	}, func() error {
 		eg.groups = eg.groups[:0]
 		eg.stepResults = eg.stepResults[:0]
+		eg.sorted = false
 		evaluatorGroupsPool.Put(eg)
 		return nextEvaluator.Close()
 	}, nextEvaluator.Error)
@@ -672,6 +648,7 @@ type binOpStepEvaluator struct {
 	// q Params
 	results promql.Vector
 	pairs   map[uint64][2]*promql.Sample
+	hashBuf []byte
 }
 
 func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
@@ -695,7 +672,8 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 			// TODO(owen-d): this seems wildly inefficient: we're calculating
 			// the hash on each sample & step per evaluator.
 			// We seem limited to this approach due to using the StepEvaluator ifc.
-			hash := sample.Metric.Hash()
+			var hash uint64
+			hash, b.hashBuf = HashLabels(b.hashBuf, sample.Metric)
 			pair := b.pairs[hash]
 			pair[0] = &promql.Sample{
 				Metric: sample.Metric,
@@ -719,7 +697,9 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 			// TODO(owen-d): this seems wildly inefficient: we're calculating
 			// the hash on each sample & step per evaluator.
 			// We seem limited to this approach due to using the StepEvaluator ifc.
-			hash := sample.Metric.Hash()
+			var hash uint64
+			hash, b.hashBuf = HashLabels(b.hashBuf, sample.Metric)
+
 			pair := b.pairs[hash]
 			pair[1] = &promql.Sample{
 				Metric: sample.Metric,
@@ -1193,7 +1173,9 @@ func labelReplaceEvaluator(
 		}
 		var hash uint64
 		for i, s := range vec {
-			hash, buf = s.Metric.HashWithoutLabels(buf)
+			hash, buf = HashWithoutLabels(buf, s.Metric)
+			// hash, buf = HashLabels(buf, s.Metric)
+			// hash, buf = s.Metric.HashWithoutLabels(buf)
 			if labels, ok := labelCache[hash]; ok {
 				vec[i].Metric = labels
 				continue
