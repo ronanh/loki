@@ -329,6 +329,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 		*logproto.Sample
 		labels string
 	}, 0, len(its))
+	startedItsSamples := make([]logproto.Sample, 0, len(its))
 	iActiveIts := make([]int, 0, len(its))
 	var errs []error
 	for _, it := range its {
@@ -337,12 +338,12 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 			errs = append(errs, err)
 		}
 		if hasNext {
-			sample := it.Sample()
+			startedItsSamples = append(startedItsSamples, it.Sample())
 			startedIts = append(startedIts, struct {
 				SampleIterator
 				*logproto.Sample
 				labels string
-			}{it, &sample, it.Labels()})
+			}{it, &startedItsSamples[len(startedItsSamples)-1], it.Labels()})
 			iActiveIts = append(iActiveIts, len(startedIts)-1)
 		}
 	}
