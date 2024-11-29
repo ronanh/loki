@@ -542,12 +542,9 @@ func rangeAggEvaluator(
 	if err != nil {
 		return nil, err
 	}
-	iter := newRangeVectorIterator(
-		it,
-		expr.left.interval.Nanoseconds(),
-		q.Step().Nanoseconds(),
-		q.Start().UnixNano(), q.End().UnixNano(),
-	)
+	iter := rangeVectorIteratorPool.Get().(*rangeVectorIterator)
+	iter.init(it, expr.left.interval.Nanoseconds(), q.Step().Nanoseconds(), q.Start().UnixNano(), q.End().UnixNano())
+
 	if expr.operation == OpRangeTypeAbsent {
 		return &absentRangeVectorEvaluator{
 			iter: iter,
@@ -585,7 +582,13 @@ func (r *rangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	return true, ts, vec
 }
 
-func (r rangeVectorEvaluator) Close() error { return r.iter.Close() }
+func (r rangeVectorEvaluator) Close() error {
+	err := r.iter.Close()
+	iter := r.iter
+	r.iter = nil
+	rangeVectorIteratorPool.Put(iter)
+	return err
+}
 
 func (r rangeVectorEvaluator) Error() error {
 	if r.err != nil {
@@ -631,7 +634,13 @@ func (r *absentRangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	}
 }
 
-func (r absentRangeVectorEvaluator) Close() error { return r.iter.Close() }
+func (r absentRangeVectorEvaluator) Close() error {
+	err := r.iter.Close()
+	iter := r.iter
+	r.iter = nil
+	rangeVectorIteratorPool.Put(iter)
+	return err
+}
 
 func (r absentRangeVectorEvaluator) Error() error {
 	if r.err != nil {

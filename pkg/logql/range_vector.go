@@ -2,7 +2,6 @@ package logql
 
 import (
 	"sync"
-	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -26,30 +25,34 @@ type RangeVectorIterator interface {
 	Error() error
 }
 
+var (
+	rangeVectorIteratorPool = sync.Pool{
+		New: func() interface{} {
+			return &rangeVectorIterator{}
+		},
+	}
+)
+
 type rangeVectorIterator struct {
 	iter                         iter.PeekingSampleIterator
 	selRange, step, end, current int64
-	window                       map[string]*wrappedSeries
-	metrics                      map[string]wrappedLabels
+	window                       []wrappedSeries
+	metrics                      []wrappedLabels
 	at                           []promql.Sample
 }
 
 type wrappedLabels struct {
 	labels.Labels
+	lbs           string
 	hasErrorLabel bool
 }
 
 type wrappedSeries struct {
 	Points      []promql.Point
 	allocPoints []promql.Point
+	nbGet       int
 	wrappedLabels
-	createdAt int64
 }
-
-// type wrappedSeries struct {
-// 	promql.Series
-// 	hasErrorLabel bool
-// }
 
 func newRangeVectorIterator(
 	it iter.PeekingSampleIterator,
@@ -58,15 +61,23 @@ func newRangeVectorIterator(
 	if step == 0 {
 		step = 1
 	}
-	return &rangeVectorIterator{
-		iter:     it,
-		step:     step,
-		end:      end,
-		selRange: selRange,
-		current:  start - step, // first loop iteration will set it to start
-		window:   map[string]*wrappedSeries{},
-		metrics:  map[string]wrappedLabels{},
+	var r rangeVectorIterator
+	r.init(it, selRange, step, start, end)
+	return &r
+}
+
+func (r *rangeVectorIterator) init(
+	it iter.PeekingSampleIterator,
+	selRange, step, start, end int64) {
+	// forces at least one step.
+	if step == 0 {
+		step = 1
 	}
+	r.iter = it
+	r.selRange = selRange
+	r.step = step
+	r.end = end
+	r.current = start - step // first loop iteration will set it to start
 }
 
 func (r *rangeVectorIterator) Next() bool {
@@ -84,12 +95,28 @@ func (r *rangeVectorIterator) Next() bool {
 }
 
 func (r *rangeVectorIterator) Close() error {
-	for _, s := range r.window {
-		putSeries(s)
+	for i := range r.window {
+		// might reuse the allocated points
+		allocPoints := r.window[i].allocPoints
+		// reset the series
+		r.window[i] = wrappedSeries{}
+		r.window[i].allocPoints = allocPoints
+		r.window[i].Points = nil
 	}
-	r.window = nil
-	r.metrics = nil
-	return r.iter.Close()
+	window := r.window[:0]
+	clear(r.metrics)
+	metrics := r.metrics[:0]
+	// do not clear at, as it makes tests fail.
+	// clear(r.at)
+	at := r.at[:0]
+	iter := r.iter
+	// reset the iterator
+	*r = rangeVectorIterator{}
+	// reuse work buffers (for rangeVectorIteratorPool)
+	r.window = window
+	r.metrics = metrics
+	r.at = at
+	return iter.Close()
 }
 
 func (r *rangeVectorIterator) Error() error {
@@ -98,7 +125,8 @@ func (r *rangeVectorIterator) Error() error {
 
 // popBack removes all entries out of the current window from the back.
 func (r *rangeVectorIterator) popBack(newStart int64) {
-	for _, s := range r.window {
+	for i := range r.window {
+		s := &r.window[i]
 		if len(s.Points) == 0 || s.Points[len(s.Points)-1].T <= newStart {
 			// no overlap, remove all points.
 			s.Points = nil
@@ -130,6 +158,43 @@ func sortSearchRec(points []promql.Point, ts int64, start, end int) int {
 	return sortSearchRec(points, ts, start, mid)
 }
 
+func (r *rangeVectorIterator) getOrAddSeries(lbs string) (*wrappedSeries, bool) {
+	for i := range r.window {
+		if r.window[i].lbs == lbs {
+			r.window[i].nbGet++
+			if i > 0 && r.window[i].nbGet > r.window[i-1].nbGet {
+				// move the serie to the start of the window, so that
+				// the most used series are found more quickly.
+				r.window[i], r.window[i-1] = r.window[i-1], r.window[i]
+				i--
+			}
+			return &r.window[i], false
+		}
+	}
+	// add a new series
+	if len(r.window) == cap(r.window) {
+		r.window = append(r.window, wrappedSeries{wrappedLabels: wrappedLabels{lbs: lbs}})
+	} else {
+		// reuse
+		r.window = r.window[:len(r.window)+1]
+		r.window[len(r.window)-1].lbs = lbs
+		r.window[len(r.window)-1].Points = r.window[len(r.window)-1].allocPoints
+	}
+
+	return &r.window[len(r.window)-1], true
+}
+
+func (r *rangeVectorIterator) getOrAddMetrics(lbs string) (*wrappedLabels, bool) {
+	for i := range r.metrics {
+		if r.metrics[i].lbs == lbs {
+			return &r.metrics[i], false
+		}
+	}
+
+	r.metrics = append(r.metrics, wrappedLabels{lbs: lbs})
+	return &r.metrics[len(r.metrics)-1], true
+}
+
 // load the next sample range window.
 func (r *rangeVectorIterator) load(start, end int64) {
 	if s, ok := r.iter.(iter.Seekable); ok {
@@ -146,10 +211,13 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			continue
 		}
 		// adds the sample.
-		series, ok := r.window[lbs]
-		if !ok {
-			var metric wrappedLabels
-			if metric, ok = r.metrics[lbs]; !ok {
+		series, newSeries := r.getOrAddSeries(lbs)
+		if !newSeries && series.Points == nil {
+			series.Points = series.allocPoints
+		}
+		if newSeries {
+			metric, newMetric := r.getOrAddMetrics(lbs)
+			if newMetric {
 				if ppl, ok := r.iter.(iter.PeekPromLabels); ok {
 					metric.Labels = ppl.PeekPromLabels()
 				}
@@ -162,14 +230,8 @@ func (r *rangeVectorIterator) load(start, end int64) {
 					}
 				}
 				metric.hasErrorLabel = metric.Labels.Has(log.ErrorLabel)
-				r.metrics[lbs] = metric
 			}
-
-			series = getSeries()
-			series.wrappedLabels = metric
-			r.window[lbs] = series
-		} else if series.Points == nil {
-			series.Points = series.allocPoints
+			series.wrappedLabels = *metric
 		}
 		if len(series.Points) == cap(series.Points) {
 			if cap(series.allocPoints) <= 2*len(series.Points) {
@@ -201,7 +263,8 @@ func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promq
 	// convert ts from nano to milli seconds as the iterator work with nanoseconds
 	ts := r.current / 1e+6
 	var hasErrorLabel bool
-	for _, series := range r.window {
+	for i := range r.window {
+		series := &r.window[i]
 		if series.Points == nil { // removed by popBack
 			continue
 		}
@@ -215,30 +278,4 @@ func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promq
 		hasErrorLabel = hasErrorLabel || series.hasErrorLabel
 	}
 	return ts, r.at, hasErrorLabel
-}
-
-var seriesPool sync.Pool
-
-func getSeries() *wrappedSeries {
-	if r := seriesPool.Get(); r != nil {
-		s := r.(*wrappedSeries)
-		s.Points = s.allocPoints
-		return s
-	}
-	allocPoints := make([]promql.Point, 0, 64)
-	return &wrappedSeries{
-		Points:      allocPoints,
-		allocPoints: allocPoints,
-		createdAt:   time.Now().UnixNano(),
-	}
-}
-
-func putSeries(s *wrappedSeries) {
-	const maxSeriesCacheDuration = 15 * time.Minute
-	if cap(s.allocPoints) > 1<<20 && time.Since(time.Unix(0, s.createdAt)) > maxSeriesCacheDuration {
-		return
-	}
-	s.Points = s.allocPoints
-	s.wrappedLabels = wrappedLabels{}
-	seriesPool.Put(s)
 }

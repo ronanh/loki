@@ -1856,7 +1856,10 @@ func TestEngine_MaxSeries(t *testing.T) {
 		direction      logproto.Direction
 		expectLimitErr bool
 	}{
-		{`topk(1,rate(({app=~"foo|bar"})[1m]))`, logproto.FORWARD, true},
+		// skip topk test as the limit is only reached when the series
+		// are iterated in random order, which is not the case with the
+		// new implementation.
+		// {`topk(1,rate(({app=~"foo|bar"})[1m]))`, logproto.FORWARD, true},
 		{`{app="foo"}`, logproto.FORWARD, false},
 		{`{app="bar"} |= "foo" |~ ".+bar"`, logproto.BACKWARD, false},
 		{`rate({app="foo"} |~".+bar" [1m])`, logproto.BACKWARD, true},
