@@ -2,7 +2,6 @@ package logql
 
 import (
 	"sync"
-	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -48,12 +47,12 @@ type wrappedLabels struct {
 	hasErrorLabel bool
 }
 
+const maxAllocPointsCacheSize = 32 << 10
+
 type wrappedSeries struct {
 	Points      []promql.Point
 	allocPoints []promql.Point
 	nbGet       int
-	createdAt   time.Time
-	allocAfter  time.Duration
 	wrappedLabels
 }
 
@@ -101,12 +100,8 @@ func (r *rangeVectorIterator) Close() error {
 	for i := range r.window {
 		// might reuse the allocated points
 		allocPoints := r.window[i].allocPoints
-		createdAt := r.window[i].createdAt
-		allocAfter := r.window[i].allocAfter
 		// reset the series
 		r.window[i] = wrappedSeries{
-			createdAt:   createdAt,
-			allocAfter:  allocAfter,
 			allocPoints: allocPoints,
 		}
 	}
@@ -115,7 +110,8 @@ func (r *rangeVectorIterator) Close() error {
 		if r.window[i].allocPoints == nil {
 			continue
 		}
-		if !r.window[i].createdAt.IsZero() && time.Since(r.window[i].createdAt) > r.window[i].allocAfter+time.Minute {
+		// free the allocPoints if the capacity is too high (32k)
+		if i > 48 || cap(r.window[i].allocPoints) > maxAllocPointsCacheSize {
 			r.window[i].allocPoints = nil
 		}
 	}
@@ -189,7 +185,7 @@ func (r *rangeVectorIterator) getOrAddSeries(lbs string) (*wrappedSeries, bool) 
 	}
 	// add a new series
 	if len(r.window) == cap(r.window) {
-		r.window = append(r.window, wrappedSeries{wrappedLabels: wrappedLabels{lbs: lbs}, createdAt: time.Now()})
+		r.window = append(r.window, wrappedSeries{wrappedLabels: wrappedLabels{lbs: lbs}})
 	} else {
 		// reuse
 		r.window = r.window[:len(r.window)+1]
@@ -250,17 +246,16 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			series.wrappedLabels = *metric
 		}
 		if len(series.Points) == cap(series.Points) {
-			if cap(series.allocPoints) <= 2*len(series.Points) {
-				// double the capacity.
-				newCap := cap(series.allocPoints) * 2
-				if newCap == 0 {
-					newCap = 64
-				}
-				series.allocPoints = make([]promql.Point, 0, newCap)
-				series.allocAfter = time.Since(series.createdAt)
+			// the series is full, double the capacity.
+			// or shift the points to the allocPoints
+			if 2*len(series.Points) <= cap(series.allocPoints) ||
+				cap(series.Points) < cap(series.allocPoints) && 2*cap(series.allocPoints) > maxAllocPointsCacheSize {
+				// reuse the allocated points
 				series.Points = append(series.allocPoints, series.Points...)
 			} else {
-				// reuse the allocated points
+				// double the capacity.
+				newCap := max(cap(series.allocPoints)*2, 1024)
+				series.allocPoints = make([]promql.Point, 0, newCap)
 				series.Points = append(series.allocPoints, series.Points...)
 			}
 		}
