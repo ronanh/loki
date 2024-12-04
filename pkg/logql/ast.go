@@ -736,6 +736,8 @@ type rangeAggregationExpr struct {
 	implicit
 }
 
+var _ GroupBuilder = &rangeAggregationExpr{}
+
 func newRangeAggregationExpr(left *logRange, operation string, gr *grouping, stringParams *string) SampleExpr {
 	var params *float64
 	if stringParams != nil {
@@ -802,6 +804,10 @@ func (e rangeAggregationExpr) validate() error {
 	}
 }
 
+func (e *rangeAggregationExpr) HasGrouping() bool {
+	return e.grouping != nil
+}
+
 func (e *rangeAggregationExpr) Groups() []string {
 	return e.grouping.groups
 }
@@ -837,6 +843,7 @@ func (e *rangeAggregationExpr) Shardable() bool {
 }
 
 type GroupBuilder interface {
+	HasGrouping() bool
 	Groups() []string
 	Without() bool
 	AddGroup(string)
@@ -883,6 +890,8 @@ type vectorAggregationExpr struct {
 	operation string
 	implicit
 }
+
+var _ GroupBuilder = &vectorAggregationExpr{}
 
 func mustNewVectorAggregationExpr(left SampleExpr, operation string, gr *grouping, params *string) SampleExpr {
 	var p int
@@ -943,6 +952,10 @@ func canInjectVectorGrouping(vecOp, rangeOp string) bool {
 	default:
 		return false
 	}
+}
+
+func (e *vectorAggregationExpr) HasGrouping() bool {
+	return e.grouping != nil
 }
 
 func (e *vectorAggregationExpr) Groups() []string {
