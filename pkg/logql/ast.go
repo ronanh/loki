@@ -1228,7 +1228,7 @@ func StringBuilderQuoteTo(b *strings.Builder, s string) {
 			var runeTmp [utf8.UTFMax]byte
 			if r == '"' || r == '\\' {
 				_ = b.WriteByte('\\')
-				_ = b.WriteByte('"')
+				_ = b.WriteByte(byte(r))
 				continue
 			}
 			if strconv.IsPrint(r) {
