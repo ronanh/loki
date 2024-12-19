@@ -5,17 +5,18 @@ import (
 )
 
 func uniqueString(s []string) []string {
-	unique := make(map[string]bool, len(s))
-	us := make([]string, len(unique))
-	for _, elem := range s {
-		if len(elem) != 0 {
-			if !unique[elem] {
-				us = append(us, elem)
-				unique[elem] = true
+	l := len(s)
+	for i := 0; i < l; i++ {
+		for j := i + 1; j < l; j++ {
+			// duplicate found: remove it
+			if s[i] == s[j] {
+				copy(s[j:], s[j+1:])
+				l--
+				break
 			}
 		}
 	}
-	return us
+	return s[:l]
 }
 
 func sanitizeLabelKey(key string, isPrefix bool) string {
