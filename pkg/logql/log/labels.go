@@ -195,10 +195,10 @@ type LabelsBuilder struct {
 // NewBaseLabelsBuilderWithGrouping creates a new base labels builder with grouping to compute results.
 func NewBaseLabelsBuilderWithGrouping(groups []string, parserKeyHints ParserHint, without, noLabels bool) *BaseLabelsBuilder {
 	return &BaseLabelsBuilder{
-		del:            make([]string, 0, 5),
-		add:            make([]labels.Label, 0, 16),
-		resultCache:    make(map[uint64]LabelsResult),
-		hasher:         newHasher(),
+		// del:            make([]string, 0, 5),
+		// add:            make([]labels.Label, 0, 16),
+		// resultCache:    make(map[uint64]LabelsResult),
+		// hasher:         newHasher(),
 		groups:         groups,
 		parserKeyHints: parserKeyHints,
 		noLabels:       noLabels,
@@ -223,6 +223,9 @@ func (b *BaseLabelsBuilder) ForLabels(lbs labels.Labels, hash uint64) *LabelsBui
 		return res
 	}
 	labelResult := NewLabelsResult(lbs, hash)
+	if b.resultCache == nil {
+		b.resultCache = make(map[uint64]LabelsResult, 1)
+	}
 	b.resultCache[hash] = labelResult
 	res := &LabelsBuilder{
 		base:              lbs,
@@ -237,6 +240,13 @@ func (b *LabelsBuilder) Reset() {
 	b.del = b.del[:0]
 	b.add = b.add[:0]
 	b.err = ""
+}
+
+func (b *BaseLabelsBuilder) Hash(lbs labels.Labels) uint64 {
+	if b.hasher == nil {
+		b.hasher = newHasher()
+	}
+	return b.hasher.Hash(lbs)
 }
 
 // ParserLabelHints returns a limited list of expected labels to extract for metric queries.
@@ -435,11 +445,14 @@ func (b *LabelsBuilder) LabelsResult() LabelsResult {
 }
 
 func (b *BaseLabelsBuilder) toResult(buf labels.Labels) LabelsResult {
-	hash := b.hasher.Hash(buf)
+	hash := b.Hash(buf)
 	if cached, ok := b.resultCache[hash]; ok {
 		return cached
 	}
 	res := NewLabelsResult(buf.Copy(), hash)
+	if b.resultCache == nil {
+		b.resultCache = make(map[uint64]LabelsResult, 1)
+	}
 	b.resultCache[hash] = res
 	return res
 }

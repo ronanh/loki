@@ -96,10 +96,7 @@ func (b *BinaryLabelFilter) Process(line []byte, lbs *LabelsBuilder) ([]byte, bo
 }
 
 func (b *BinaryLabelFilter) RequiredLabelNames() []string {
-	var names []string
-	names = append(names, b.Left.RequiredLabelNames()...)
-	names = append(names, b.Right.RequiredLabelNames()...)
-	return uniqueString(names)
+	return uniqueString(append(b.Left.RequiredLabelNames(), b.Right.RequiredLabelNames()...))
 }
 
 func (b *BinaryLabelFilter) String() string {
