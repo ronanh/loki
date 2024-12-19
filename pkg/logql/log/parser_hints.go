@@ -11,7 +11,7 @@ var noParserHints = &parserHint{}
 // This is used only within metric queries since it's rare that you need all label keys.
 // For example in the following expression:
 //
-//		sum by (status_code) (rate({app="foo"} | json [5m]))
+//	sum by (status_code) (rate({app="foo"} | json [5m]))
 //
 // All we need to extract is the status_code in the json parser.
 type ParserHint interface {
@@ -69,34 +69,35 @@ func newParserHint(requiredLabelNames, groups []string, without, noLabels bool, 
 	// that were parsed from somewhere in the query, say in a filter or an aggregation clause.
 	// Because it's possible for a valid json or logfmt key to already end with _extracted, we'll just
 	// leave the existing entry ending with _extracted but also add a version with the suffix removed.
-	extractedLabels := []string{}
+	var nbExtracted int
 	for _, l := range requiredLabelNames {
 		if strings.HasSuffix(l, "_extracted") {
-			extractedLabels = append(extractedLabels, strings.TrimSuffix(l, "_extracted"))
+			nbExtracted++
 		}
 	}
-	if len(extractedLabels) > 0 {
-		requiredLabelNames = append(requiredLabelNames, extractedLabels...)
-	}
-
-	if len(groups) > 0 {
-		requiredLabelNames = append(requiredLabelNames, groups...)
-	}
+	nbAddLabels := len(groups)
 	if metricLabelName != "" {
-		requiredLabelNames = append(requiredLabelNames, metricLabelName)
+		nbAddLabels++
 	}
-	requiredLabelNames = uniqueString(requiredLabelNames)
 	if noLabels {
-		if len(requiredLabelNames) > 0 {
-			return &parserHint{requiredLabels: requiredLabelNames}
+		if len(requiredLabelNames)+nbAddLabels+nbExtracted == 0 {
+			return &parserHint{noLabels: true}
 		}
-		return &parserHint{noLabels: true}
-	}
-	// we don't know what is required when a without clause is used.
-	// Same is true when there's no grouping.
-	// no hints available then.
-	if without || len(groups) == 0 {
+	} else if without || len(groups) == 0 {
 		return noParserHints
 	}
-	return &parserHint{requiredLabels: requiredLabelNames}
+
+	res := make([]string, 0, len(requiredLabelNames)+nbAddLabels+nbExtracted)
+	res = append(res, requiredLabelNames...)
+	for _, l := range requiredLabelNames {
+		if strings.HasSuffix(l, "_extracted") {
+			res = append(res, strings.TrimSuffix(l, "_extracted"))
+		}
+	}
+	res = append(res, groups...)
+	if metricLabelName != "" {
+		res = append(res, metricLabelName)
+	}
+	res = uniqueString(res)
+	return &parserHint{requiredLabels: res}
 }
