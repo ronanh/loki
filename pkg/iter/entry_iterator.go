@@ -332,9 +332,12 @@ func NewHeapIterator(ctx context.Context, is []EntryIterator, direction logproto
 
 func NewMergingIterator(ctx context.Context, its []EntryIterator, direction logproto.Direction) HeapIterator {
 	startedIts := make([]EntryIterator, 0, len(its))
+	var err error
 	for _, it := range its {
 		if it.Next() {
 			startedIts = append(startedIts, it)
+		} else if err == nil {
+			err = it.Error()
 		}
 	}
 
@@ -343,6 +346,7 @@ func NewMergingIterator(ctx context.Context, its []EntryIterator, direction logp
 		ctx:      ctx,
 		its:      startedIts,
 		reversed: direction == logproto.BACKWARD,
+		err:      err,
 	}
 	sort.Slice(mi.its, mi.less)
 
