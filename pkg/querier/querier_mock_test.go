@@ -23,6 +23,7 @@ import (
 	"github.com/ronanh/loki/pkg/iter"
 	"github.com/ronanh/loki/pkg/logproto"
 	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/pkg/storage"
 	"github.com/ronanh/loki/pkg/util"
 )
 
@@ -203,7 +204,7 @@ type storeMock struct {
 	util.ExtendedMock
 }
 
-var _ chunk.Store = &storeMock{}
+var _ storage.Store = &storeMock{}
 
 func newStoreMock() *storeMock {
 	return &storeMock{}
@@ -246,12 +247,12 @@ func (s *storeMock) PutOne(ctx context.Context, from, through model.Time, chunk 
 }
 
 func (s *storeMock) LabelValuesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, labelName string, matchers ...*labels.Matcher) ([]string, error) {
-	args := s.Called(ctx, userID, from, through, metricName, labelName)
+	args := s.Called(ctx, userID, from, through, metricName, labelName, matchers)
 	return args.Get(0).([]string), args.Error(1)
 }
 
 func (s *storeMock) LabelNamesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, matchers ...*labels.Matcher) ([]string, error) {
-	args := s.Called(ctx, userID, from, through, metricName)
+	args := s.Called(ctx, userID, from, through, metricName, matchers)
 	return args.Get(0).([]string), args.Error(1)
 }
 

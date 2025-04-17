@@ -8,15 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cortexproject/cortex/pkg/chunk"
 	ring_client "github.com/cortexproject/cortex/pkg/ring/client"
 
 	"github.com/ronanh/loki/pkg/ingester/client"
-
+	"github.com/ronanh/loki/pkg/iter"
 	"github.com/ronanh/loki/pkg/storage"
 
 	"github.com/ronanh/loki/pkg/logql"
 
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -35,12 +37,63 @@ const (
 	queryTimeout = 12 * time.Second
 )
 
+type storeAdapter struct {
+	storage.CortexStoreCommon
+}
+
+var _ storage.Store = &storeAdapter{}
+
+func (s *storeAdapter) SelectSamples(ctx context.Context, req logql.SelectSampleParams) (iter.SampleIterator, error) {
+	if v, ok := s.CortexStoreCommon.(storage.Store); ok {
+		return v.SelectSamples(ctx, req)
+	}
+	return nil, nil
+}
+
+func (s *storeAdapter) SelectLogs(ctx context.Context, req logql.SelectLogParams) (iter.EntryIterator, error) {
+	if v, ok := s.CortexStoreCommon.(storage.Store); ok {
+		return v.SelectLogs(ctx, req)
+	}
+	return nil, nil
+}
+
+func (s *storeAdapter) GetSeries(ctx context.Context, req logql.SelectLogParams) ([]logproto.SeriesIdentifier, error) {
+	if v, ok := s.CortexStoreCommon.(storage.Store); ok {
+		return v.GetSeries(ctx, req)
+	}
+	return nil, nil
+}
+func (s *storeAdapter) GetSchemaConfigs() []chunk.PeriodConfig {
+	if v, ok := s.CortexStoreCommon.(storage.Store); ok {
+		return v.GetSchemaConfigs()
+	}
+	return nil
+}
+func (s *storeAdapter) LabelValuesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, labelName string, matchers ...*labels.Matcher) ([]string, error) {
+	if v, ok := s.CortexStoreCommon.(chunk.Store); ok {
+		return v.LabelValuesForMetricName(ctx, userID, from, through, metricName, labelName)
+	}
+	if v, ok := s.CortexStoreCommon.(storage.Store); ok {
+		return v.LabelValuesForMetricName(ctx, userID, from, through, metricName, labelName, matchers...)
+	}
+	return nil, nil
+}
+func (s *storeAdapter) LabelNamesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, matchers ...*labels.Matcher) ([]string, error) {
+	if v, ok := s.CortexStoreCommon.(chunk.Store); ok {
+		return v.LabelNamesForMetricName(ctx, userID, from, through, metricName)
+	}
+	if v, ok := s.CortexStoreCommon.(storage.Store); ok {
+		return v.LabelNamesForMetricName(ctx, userID, from, through, metricName, matchers...)
+	}
+	return nil, nil
+}
+
 func newQuerier(cfg Config, clientCfg client.Config, clientFactory ring_client.PoolFactory, ring ring.ReadRing, store storage.Store, limits *validation.Overrides) (Querier, error) {
 	iq, err := newIngesterQuerier(clientCfg, ring, cfg.ExtraQueryDelay, clientFactory)
 	if err != nil {
 		return nil, err
 	}
-	return New(cfg, store, iq, limits)
+	return New(cfg, &storeAdapter{CortexStoreCommon: store}, iq, limits)
 }
 
 func TestQuerier_Label_QueryTimeoutConfigFlag(t *testing.T) {
@@ -58,7 +111,7 @@ func TestQuerier_Label_QueryTimeoutConfigFlag(t *testing.T) {
 	ingesterClient.On("Label", mock.Anything, &request, mock.Anything).Return(mockLabelResponse([]string{}), nil)
 
 	store := newStoreMock()
-	store.On("LabelValuesForMetricName", mock.Anything, "test", model.TimeFromUnixNano(startTime.UnixNano()), model.TimeFromUnixNano(endTime.UnixNano()), "logs", "test").Return([]string{"foo", "bar"}, nil)
+	store.On("LabelValuesForMetricName", mock.Anything, "test", model.TimeFromUnixNano(startTime.UnixNano()), model.TimeFromUnixNano(endTime.UnixNano()), "logs", "test", []*labels.Matcher(nil)).Return([]string{"foo", "bar"}, nil)
 
 	limits, err := validation.NewOverrides(defaultLimitsTestConfig(), nil)
 	require.NoError(t, err)

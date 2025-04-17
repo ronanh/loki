@@ -69,9 +69,31 @@ func (cfg *SchemaConfig) Validate() error {
 	return cfg.SchemaConfig.Validate()
 }
 
+type CortexStoreCommon interface {
+	Put(ctx context.Context, chunks []chunk.Chunk) error
+	PutOne(ctx context.Context, from, through model.Time, chunk chunk.Chunk) error
+	Get(ctx context.Context, userID string, from, through model.Time, matchers ...*labels.Matcher) ([]chunk.Chunk, error)
+	// GetChunkRefs returns the un-loaded chunks and the fetchers to be used to load them. You can load each slice of chunks ([]Chunk),
+	// using the corresponding Fetcher (fetchers[i].FetchChunks(ctx, chunks[i], ...)
+	GetChunkRefs(ctx context.Context, userID string, from, through model.Time, matchers ...*labels.Matcher) ([][]chunk.Chunk, []*chunk.Fetcher, error)
+	GetChunkFetcher(tm model.Time) *chunk.Fetcher
+
+	// DeleteChunk deletes a chunks index entry and then deletes the actual chunk from chunk storage.
+	// It takes care of chunks which are deleting partially by creating and inserting a new chunk first and then deleting the original chunk
+	DeleteChunk(ctx context.Context, from, through model.Time, userID, chunkID string, metric labels.Labels, partiallyDeletedInterval *model.Interval) error
+	// DeleteSeriesIDs is only relevant for SeriesStore.
+	DeleteSeriesIDs(ctx context.Context, from, through model.Time, userID string, metric labels.Labels) error
+	Stop()
+}
+
 // Store is the Loki chunk store to retrieve and save chunks.
 type Store interface {
-	chunk.Store
+	// chunk.Store // remove dependency on chunk.Store (cortex)
+	CortexStoreCommon
+
+	LabelValuesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, labelName string, matchers ...*labels.Matcher) ([]string, error)
+	LabelNamesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, matchers ...*labels.Matcher) ([]string, error)
+
 	SelectSamples(ctx context.Context, req logql.SelectSampleParams) (iter.SampleIterator, error)
 	SelectLogs(ctx context.Context, req logql.SelectLogParams) (iter.EntryIterator, error)
 	GetSeries(ctx context.Context, req logql.SelectLogParams) ([]logproto.SeriesIdentifier, error)
@@ -182,6 +204,14 @@ func (s *store) lazyChunks(ctx context.Context, matchers []*labels.Matcher, from
 		}
 	}
 	return lazyChunks, nil
+}
+
+func (s *store) LabelValuesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, labelName string, matchers ...*labels.Matcher) ([]string, error) {
+	return s.Store.LabelValuesForMetricName(ctx, userID, from, through, metricName, labelName)
+}
+
+func (s *store) LabelNamesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, matchers ...*labels.Matcher) ([]string, error) {
+	return s.Store.LabelNamesForMetricName(ctx, userID, from, through, metricName)
 }
 
 func (s *store) GetSeries(ctx context.Context, req logql.SelectLogParams) ([]logproto.SeriesIdentifier, error) {
