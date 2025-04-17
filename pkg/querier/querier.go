@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/user"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -262,15 +263,23 @@ func (q *querier) Label(ctx context.Context, req *logproto.LabelRequest) (*logpr
 		return nil, err
 	}
 
+	var matchers []*labels.Matcher
+	if req.Query != "" {
+		matchers, err = logql.ParseMatchers(req.Query)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	from, through := model.TimeFromUnixNano(req.Start.UnixNano()), model.TimeFromUnixNano(req.End.UnixNano())
 	var storeValues []string
 	if req.Values {
-		storeValues, err = q.store.LabelValuesForMetricName(ctx, userID, from, through, "logs", req.Name)
+		storeValues, err = q.store.LabelValuesForMetricName(ctx, userID, from, through, "logs", req.Name, matchers...)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		storeValues, err = q.store.LabelNamesForMetricName(ctx, userID, from, through, "logs")
+		storeValues, err = q.store.LabelNamesForMetricName(ctx, userID, from, through, "logs", matchers...)
 		if err != nil {
 			return nil, err
 		}
