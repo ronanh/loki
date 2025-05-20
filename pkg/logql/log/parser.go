@@ -25,6 +25,7 @@ var (
 	_ Stage = &JSONParser{}
 	_ Stage = &RegexpParser{}
 	_ Stage = &LogfmtParser{}
+	_ Stage = &PatternParser{}
 
 	errMissingCapture = errors.New("at least one named capture must be supplied")
 )
@@ -435,3 +436,18 @@ func (u *UnpackParser) unpack(it *jsoniter.Iterator, entry []byte, lbs *LabelsBu
 	}
 	return entry, nil
 }
+
+type PatternParser struct {
+	pattern string
+}
+
+func NewPatternParser(pattern string) (*PatternParser, error) {
+	return &PatternParser{pattern: pattern}, nil
+}
+
+func (parser *PatternParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+	output := make([]byte, 1)
+	return output, false
+}
+
+func (parser *PatternParser) RequiredLabelNames() []string { return []string{} }
