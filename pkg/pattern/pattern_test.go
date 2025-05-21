@@ -1,0 +1,85 @@
+package pattern
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestCompile(t *testing.T) {
+
+	for _, scenario := range []struct {
+		in  string
+		out *Pattern
+		err error
+	}{
+		{
+			in: "abc<example>xddd",
+			out: &Pattern{
+				tokens: []token{
+					{
+						literal: []byte("abc"),
+					},
+					{
+						capture: []byte("example"),
+					},
+					{
+						literal: []byte("xddd"),
+					},
+				},
+			},
+		},
+		{
+			in: "abc<def>",
+			out: &Pattern{
+				tokens: []token{
+					{
+						literal: []byte("abc"),
+					},
+					{
+						capture: []byte("def"),
+					},
+				},
+			},
+		},
+		{
+			in:  "sss>",
+			out: nil,
+			err: errUnexpectedClosingAngleBracket,
+		},
+		{
+			in:  ">",
+			out: nil,
+			err: errUnexpectedClosingAngleBracket,
+		},
+		{
+			in:  "abc<ss<xd>",
+			out: nil,
+			err: errUnexpectedOpenAngleBracket,
+		},
+		{
+			in: "ab\\<c<ssxd>blabla\\>",
+			out: &Pattern{
+				tokens: []token{
+					{
+						literal: []byte("ab\\<c"),
+					},
+					{
+						capture: []byte("ssxd"),
+					},
+					{
+						literal: []byte("blabla\\>"),
+					},
+				},
+			},
+			err: nil,
+		},
+	} {
+		t.Run(scenario.in, func(t *testing.T) {
+			v, e := Compile([]byte(scenario.in))
+			assert.ErrorIs(t, e, scenario.err)
+			assert.Equal(t, scenario.out, v)
+		})
+	}
+
+}
