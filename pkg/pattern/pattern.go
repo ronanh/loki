@@ -11,6 +11,7 @@ var (
 	errUnexpectedClosingAngleBracket = errors.New("encountered unexpected `>`")
 	errNoTokensDetected              = errors.New("pattern contained no literals nor captures")
 	errIllegalCaracterInCapture      = errors.New("illegal caracter in capture name")
+	errEmptyCaptureName              = errors.New("empty name for capture is not allowed. use `_` to discard a capture")
 )
 
 type token struct {
@@ -58,17 +59,21 @@ func compileInternal(b []byte) (*Pattern, error) {
 			tokens = append(tokens, token{literal: b[i:j]})
 			i = j + 1
 		case '>':
-			if inCapture {
-				inCapture = false
-				tokens = append(tokens, token{capture: b[i:j]})
-				i = j + 1
-			} else {
+			if !inCapture {
 				return nil, errUnexpectedClosingAngleBracket
 			}
+			capture := b[i:j]
+			if len(capture) == 0 {
+				return nil, errEmptyCaptureName
+			}
+			inCapture = false
+			tokens = append(tokens, token{capture: capture})
+			i = j + 1
 		}
 	}
 
-	if len(b[i:]) != 0 {
+	dangling := b[i:]
+	if len(dangling) != 0 {
 		tokens = append(tokens, token{literal: b[i:]})
 	}
 

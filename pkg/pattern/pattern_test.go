@@ -14,6 +14,11 @@ func TestCompile(t *testing.T) {
 		err error
 	}{
 		{
+			in:  "abc<>",
+			out: nil,
+			err: errEmptyCaptureName,
+		},
+		{
 			in: "abc<example>xddd",
 			out: &Pattern{
 				tokens: []token{
@@ -69,6 +74,31 @@ func TestCompile(t *testing.T) {
 					},
 					{
 						literal: []byte("blabla\\>"),
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			in:  "ab<capture1><capture2>",
+			out: nil,
+			err: errSuccessivePatternsNotAllowed,
+		},
+		{
+			in: "ab<capture1> <capture2>",
+			out: &Pattern{
+				tokens: []token{
+					{
+						literal: []byte("ab"),
+					},
+					{
+						capture: []byte("capture1"),
+					},
+					{
+						literal: []byte(" "),
+					},
+					{
+						capture: []byte("capture2"),
 					},
 				},
 			},
