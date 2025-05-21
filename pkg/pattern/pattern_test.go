@@ -21,7 +21,7 @@ func TestCompile(t *testing.T) {
 		{
 			in: "abc<example>xddd",
 			out: &Pattern{
-				tokens: []token{
+				parts: []part{
 					{
 						literal: []byte("abc"),
 					},
@@ -37,7 +37,7 @@ func TestCompile(t *testing.T) {
 		{
 			in: "abc<def>",
 			out: &Pattern{
-				tokens: []token{
+				parts: []part{
 					{
 						literal: []byte("abc"),
 					},
@@ -65,7 +65,7 @@ func TestCompile(t *testing.T) {
 		{
 			in: "ab\\<c<ssxd>blabla\\>",
 			out: &Pattern{
-				tokens: []token{
+				parts: []part{
 					{
 						literal: []byte("ab\\<c"),
 					},
@@ -87,7 +87,7 @@ func TestCompile(t *testing.T) {
 		{
 			in: "ab<capture1> <capture2>",
 			out: &Pattern{
-				tokens: []token{
+				parts: []part{
 					{
 						literal: []byte("ab"),
 					},

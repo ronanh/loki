@@ -14,30 +14,34 @@ var (
 	errEmptyCaptureName              = errors.New("empty name for capture is not allowed. use `_` to discard a capture")
 )
 
-type token struct {
+type part struct {
 	literal []byte
 	capture []byte
 }
 
 type Pattern struct {
-	tokens []token
+	parts []part
 }
 
-func Compile(b []byte) (*Pattern, error) {
-	out, err := compileInternal(b)
+func (pat *Pattern) Match(input []byte) {
+	panic("not implemented")
+}
+
+func Compile(pat []byte) (*Pattern, error) {
+	out, err := compileInternal(pat)
 	if err != nil {
-		return nil, fmt.Errorf("pattern \"%s\" was invalid: %w", b, err)
+		return nil, fmt.Errorf("pattern \"%s\" was invalid: %w", pat, err)
 	}
 	return out, nil
 }
 
-func compileInternal(b []byte) (*Pattern, error) {
+func compileInternal(pat []byte) (*Pattern, error) {
 	inCapture := false
 	escape := false
-	tokens := make([]token, 0, 8)
+	parts := make([]part, 0, 8)
 
-	i := 0
-	for j, v := range b {
+	lhs := 0
+	for i, v := range pat {
 		if escape {
 			escape = false
 			continue
@@ -53,33 +57,33 @@ func compileInternal(b []byte) (*Pattern, error) {
 				return nil, errUnexpectedOpenAngleBracket
 			}
 			inCapture = true
-			if i != 0 && i == j {
+			if lhs != 0 && lhs == i {
 				return nil, errSuccessivePatternsNotAllowed
 			}
-			tokens = append(tokens, token{literal: b[i:j]})
-			i = j + 1
+			parts = append(parts, part{literal: pat[lhs:i]})
+			lhs = i + 1
 		case '>':
 			if !inCapture {
 				return nil, errUnexpectedClosingAngleBracket
 			}
-			capture := b[i:j]
+			capture := pat[lhs:i]
 			if len(capture) == 0 {
 				return nil, errEmptyCaptureName
 			}
 			inCapture = false
-			tokens = append(tokens, token{capture: capture})
-			i = j + 1
+			parts = append(parts, part{capture: capture})
+			lhs = i + 1
 		}
 	}
 
-	dangling := b[i:]
+	dangling := pat[lhs:]
 	if len(dangling) != 0 {
-		tokens = append(tokens, token{literal: b[i:]})
+		parts = append(parts, part{literal: dangling})
 	}
 
-	if len(tokens) == 0 {
+	if len(parts) == 0 {
 		return nil, errNoTokensDetected
 	}
 
-	return &Pattern{tokens}, nil
+	return &Pattern{parts: parts}, nil
 }
