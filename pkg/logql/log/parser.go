@@ -8,6 +8,7 @@ import (
 
 	"github.com/ronanh/loki/pkg/logql/log/jsonexpr"
 	"github.com/ronanh/loki/pkg/logql/log/logfmt"
+	"github.com/ronanh/loki/pkg/pattern"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"
@@ -25,6 +26,7 @@ var (
 	_ Stage = &JSONParser{}
 	_ Stage = &RegexpParser{}
 	_ Stage = &LogfmtParser{}
+	_ Stage = &PatternParser{}
 
 	errMissingCapture = errors.New("at least one named capture must be supplied")
 )
@@ -435,3 +437,21 @@ func (u *UnpackParser) unpack(it *jsoniter.Iterator, entry []byte, lbs *LabelsBu
 	}
 	return entry, nil
 }
+
+type PatternParser struct {
+	pat *pattern.Pattern
+}
+
+func NewPatternParser(pat string) (*PatternParser, error) {
+	p, err := pattern.Compile([]byte(pat))
+	return &PatternParser{
+		pat: p,
+	}, err
+
+}
+
+func (parser *PatternParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+	return line, true
+}
+
+func (parser *PatternParser) RequiredLabelNames() []string { return []string{} }
