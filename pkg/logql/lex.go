@@ -51,10 +51,11 @@ var tokens = map[string]int{
 	OpTypeLTE:   LTE,
 
 	// parsers
-	OpParserTypeJSON:   JSON,
-	OpParserTypeRegexp: REGEXP,
-	OpParserTypeLogfmt: LOGFMT,
-	OpParserTypeUnpack: UNPACK,
+	OpParserTypeJSON:    JSON,
+	OpParserTypeRegexp:  REGEXP,
+	OpParserTypePattern: PATTERN,
+	OpParserTypeLogfmt:  LOGFMT,
+	OpParserTypeUnpack:  UNPACK,
 
 	// fmt
 	OpFmtLabel: LABEL_FMT,
