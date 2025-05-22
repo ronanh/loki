@@ -12,6 +12,8 @@ var (
 	errNoTokensDetected              = errors.New("pattern contained no literals nor captures")
 	errIllegalCaracterInCapture      = errors.New("illegal caracter in capture name")
 	errEmptyCaptureName              = errors.New("empty name for capture is not allowed. use `_` to discard a capture")
+	errUnclosedCapture               = errors.New("reached end of pattern expression and capture was not closed")
+	errIncompleteEscape              = errors.New("incomplete escape sequence at the end of pattern expression")
 )
 
 type part struct {
@@ -74,6 +76,14 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			parts = append(parts, part{capture: capture})
 			lhs = i + 1
 		}
+	}
+
+	if inCapture {
+		return nil, errUnclosedCapture
+	}
+
+	if escape {
+		return nil, errIncompleteEscape
 	}
 
 	dangling := pat[lhs:]

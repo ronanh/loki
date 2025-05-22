@@ -14,6 +14,16 @@ func TestCompile(t *testing.T) {
 		err error
 	}{
 		{
+			in:  "babab<whatsupp",
+			out: nil,
+			err: errUnclosedCapture,
+		},
+		{
+			in:  "ciao<hola>mamamia\\",
+			out: nil,
+			err: errIncompleteEscape,
+		},
+		{
 			in:  "abc<>",
 			out: nil,
 			err: errEmptyCaptureName,
