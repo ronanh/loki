@@ -442,16 +442,40 @@ type PatternParser struct {
 	pat *pattern.Pattern
 }
 
+func mustNewPatternParser(pat string) *PatternParser {
+	v, err := NewPatternParser(pat)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func NewPatternParser(pat string) (*PatternParser, error) {
 	p, err := pattern.Compile([]byte(pat))
+	if err != nil {
+		return nil, err
+	}
 	return &PatternParser{
 		pat: p,
-	}, err
-
+	}, nil
 }
 
 func (parser *PatternParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
-	return line, true
+	iter := parser.pat.Match(line)
+	for {
+		v, ok := iter.Next()
+		if !ok {
+			return line, true
+		}
+		if len(v.Key) == 1 && v.Key[0] == '_' {
+			continue
+		}
+		key := string(v.Key)
+		if lbs.BaseHas(key) {
+			key += duplicateSuffix
+		}
+		lbs.Set(key, string(v.Value))
+	}
 }
 
 func (parser *PatternParser) RequiredLabelNames() []string { return []string{} }

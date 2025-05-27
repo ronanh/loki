@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ronanh/loki/pkg/logql"
+	"slices"
 )
 
 var (
@@ -38,6 +39,8 @@ var (
 	}`)
 
 	logfmtLine = []byte(`ts=2021-02-02T14:35:05.983992774Z caller=spanlogger.go:79 org_id=3677 traceID=2e5c7234b8640997 Ingester.TotalReached=15 Ingester.TotalChunksMatched=0 Ingester.TotalBatches=0`)
+
+	nginxline = []byte(`10.1.0.88 - - [14/Dec/2020:22:56:24 +0000] "GET /static/img/about/bob.jpg HTTP/1.1" 200 60755 "https://grafana.com/go/observabilitycon/grafana-the-open-and-composable-observability-platform/?tech=ggl-o&pg=oss-graf&plcmt=hero-txt" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15" "123.123.123.123, 35.35.122.223" "TLSv1.3"`)
 )
 
 func Test_ParserHints(t *testing.T) {
@@ -51,6 +54,13 @@ func Test_ParserHints(t *testing.T) {
 		expectVal float64
 		expectLbs string
 	}{
+		{
+			`rate({app="nginx"} | pattern "<_> \"<method> <path> <_>\"<_>" | method = "GET" [1m])`,
+			nginxline,
+			true,
+			1.0,
+			`{app="nginx", cluster="us-central-west", method="GET", path="/static/img/about/bob.jpg"}`,
+		},
 		{
 			`rate({app="nginx"} | json | response_status = 204 [1m])`,
 			jsonLine,
@@ -214,7 +224,7 @@ func Test_ParserHints(t *testing.T) {
 
 			ex, err := expr.Extractor()
 			require.NoError(t, err)
-			v, lbsRes, ok := ex.ForStream(lbs).Process(append([]byte{}, tt.line...))
+			v, lbsRes, ok := ex.ForStream(lbs).Process(slices.Clone(tt.line))
 			var lbsResString string
 			if lbsRes != nil {
 				lbsResString = lbsRes.String()
