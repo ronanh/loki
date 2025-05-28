@@ -392,6 +392,7 @@ func Test_canInjectVectorGrouping(t *testing.T) {
 		{OpTypeSum, OpRangeTypeStdvar, false},
 		{OpTypeSum, OpRangeTypeMin, false},
 		{OpTypeSum, OpRangeTypeMax, false},
+		{OpTypeSum, OpRangeTypeFirst, false},
 
 		{OpTypeAvg, OpRangeTypeBytes, false},
 		{OpTypeCount, OpRangeTypeBytesRate, false},
