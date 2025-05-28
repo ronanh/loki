@@ -39,7 +39,7 @@ func (pat *Pattern) Matches(input []byte) []MatchItem {
 		if !ok {
 			return output
 		}
-		if bytes.Compare(v.Key, []byte("_")) != 0 {
+		if len(v.Key) == 1 && v.Key[0] == '_' {
 			output = append(output, v)
 		}
 	}
@@ -79,8 +79,7 @@ func (iter *MatchIter) eatLiteralAnchor() bool {
 		return false
 	}
 
-	eq := bytes.Compare(literal, iter.input[:len(literal)])
-	if eq == 0 {
+	if bytes.Equal(literal, iter.input[:len(literal)]) {
 		iter.currPart++
 		iter.pos += len(literal)
 		return true
