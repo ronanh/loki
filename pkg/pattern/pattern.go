@@ -40,8 +40,9 @@ func (pat *Pattern) Matches(input []byte) []MatchItem {
 			return output
 		}
 		if len(v.Key) == 1 && v.Key[0] == '_' {
-			output = append(output, v)
+			continue
 		}
+		output = append(output, v)
 	}
 }
 
