@@ -130,6 +130,8 @@ func Test_SampleExpr_String(t *testing.T) {
 		`10 / (5/2)`,
 		`10 / (count_over_time({job="postgres"}[5m])/2)`,
 		`{app="foo"} | json response_status="response.status.code", first_param="request.params[0]"`,
+		`first_over_time({namespace="tns"} |= "level=error" | json |foo>=5,bar<25ms | unwrap latency | __error__!~".*" | foo >5[5m])`,
+		`last_over_time({namespace="tns"} |= "level=error" | json |foo>=5,bar<25ms | unwrap latency | __error__!~".*" | foo >5[5m])`,
 	} {
 		t.Run(tc, func(t *testing.T) {
 			expr, err := ParseExpr(tc)
@@ -392,6 +394,8 @@ func Test_canInjectVectorGrouping(t *testing.T) {
 		{OpTypeSum, OpRangeTypeStdvar, false},
 		{OpTypeSum, OpRangeTypeMin, false},
 		{OpTypeSum, OpRangeTypeMax, false},
+		{OpTypeSum, OpRangeTypeFirst, false},
+		{OpTypeSum, OpRangeTypeLast, false},
 
 		{OpTypeAvg, OpRangeTypeBytes, false},
 		{OpTypeCount, OpRangeTypeBytesRate, false},

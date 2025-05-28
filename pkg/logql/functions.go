@@ -113,6 +113,10 @@ func (r rangeAggregationExpr) aggregator() (RangeVectorAggregator, error) {
 		return quantileOverTime(*r.params), nil
 	case OpRangeTypeAbsent:
 		return one, nil
+	case OpRangeTypeFirst:
+		return firstOverTime, nil
+	case OpRangeTypeLast:
+		return lastOverTime, nil
 	default:
 		return nil, fmt.Errorf(unsupportedErr, r.operation)
 	}
@@ -180,6 +184,20 @@ func avgOverTimeLoki(samples []promql.Point) float64 {
 		mean += (samples[i].V - mean) / float64(i+1)
 	}
 	return mean
+}
+
+func firstOverTime(samples []promql.Point) float64 {
+	if len(samples) == 0 {
+		return 0
+	}
+	return samples[0].V
+}
+
+func lastOverTime(samples []promql.Point) float64 {
+	if len(samples) == 0 {
+		return 0
+	}
+	return samples[len(samples)-1].V
 }
 
 func maxOverTime(samples []promql.Point) float64 {
