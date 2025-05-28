@@ -80,6 +80,8 @@ var functionTokens = map[string]int{
 	OpRangeTypeStddev:    STDDEV_OVER_TIME,
 	OpRangeTypeQuantile:  QUANTILE_OVER_TIME,
 	OpRangeTypeAbsent:    ABSENT_OVER_TIME,
+	OpRangeTypeFirst:     FIRST_OVER_TIME,
+	OpRangeTypeLast:      LAST_OVER_TIME,
 
 	// vec ops
 	OpTypeSum:     SUM,

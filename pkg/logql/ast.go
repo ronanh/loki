@@ -657,6 +657,8 @@ const (
 	OpRangeTypeStddev    = "stddev_over_time"
 	OpRangeTypeQuantile  = "quantile_over_time"
 	OpRangeTypeAbsent    = "absent_over_time"
+	OpRangeTypeFirst     = "first_over_time"
+	OpRangeTypeLast      = "last_over_time"
 
 	// binops - logical/set
 	OpTypeOr     = "or"
