@@ -26,7 +26,7 @@ func WriteQueryResponseJSON(v logql.Result, w io.Writer) error {
 		return fmt.Errorf("legacy endpoints only support %s result type, current type is %s", logql.ValueTypeStreams, v.Data.Type())
 	}
 
-	j := map[string]interface{}{
+	j := map[string]any{
 		"streams": v.Data,
 		"stats":   v.Statistics,
 	}
