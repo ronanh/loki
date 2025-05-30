@@ -28,12 +28,12 @@ import (
 	"github.com/cortexproject/cortex/pkg/querier/astmapper"
 	"github.com/cortexproject/cortex/pkg/util/flagext"
 
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/logql/marshal"
-	"github.com/ronanh/loki/pkg/storage/stores/shipper"
-	"github.com/ronanh/loki/pkg/util/validation"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/logql/marshal"
+	"github.com/ronanh/loki/storage/stores/shipper"
+	"github.com/ronanh/loki/util/validation"
 )
 
 var (
@@ -43,7 +43,7 @@ var (
 	chunkStore = getLocalStore()
 )
 
-//go test -bench=. -benchmem -memprofile memprofile.out -cpuprofile profile.out
+// go test -bench=. -benchmem -memprofile memprofile.out -cpuprofile profile.out
 func Benchmark_store_SelectLogsRegexBackward(b *testing.B) {
 	benchmarkStoreQuery(b, &logproto.QueryRequest{
 		Selector:  `{foo="bar"} |~ "fuzz"`,

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/logproto"
 )
 
 // covers requests to /api/prom/push

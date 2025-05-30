@@ -7,10 +7,10 @@ import (
 	"sort"
 
 	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/ronanh/loki/pkg/helpers"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql/stats"
-	"github.com/ronanh/loki/pkg/util"
+	"github.com/ronanh/loki/helpers"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/util"
 )
 
 // SampleIterator iterates over samples in time-order.

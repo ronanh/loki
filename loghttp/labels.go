@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/logproto"
 )
 
 // LabelResponse represents the http json response to a label query

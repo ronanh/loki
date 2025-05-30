@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ronanh/loki/pkg/loghttp"
+	"github.com/ronanh/loki/loghttp"
 )
 
 func TestNewLabelSet(t *testing.T) {

@@ -1,8 +1,8 @@
 package marshal
 
 import (
-	"github.com/ronanh/loki/pkg/loghttp"
-	legacy "github.com/ronanh/loki/pkg/loghttp/legacy"
+	"github.com/ronanh/loki/loghttp"
+	legacy "github.com/ronanh/loki/loghttp/legacy"
 )
 
 // NewTailResponse constructs a TailResponse from a legacy.TailResponse

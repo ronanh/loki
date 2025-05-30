@@ -15,8 +15,8 @@ import (
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/util"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/util"
 )
 
 func Test_writeError(t *testing.T) {

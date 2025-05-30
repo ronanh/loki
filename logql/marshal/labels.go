@@ -3,7 +3,7 @@ package marshal
 import (
 	"github.com/prometheus/prometheus/promql/parser"
 
-	"github.com/ronanh/loki/pkg/loghttp"
+	"github.com/ronanh/loki/loghttp"
 )
 
 // NewLabelSet constructs a Labelset from a promql metric list as a string

@@ -11,11 +11,11 @@ import (
 	"github.com/cortexproject/cortex/pkg/chunk"
 	ring_client "github.com/cortexproject/cortex/pkg/ring/client"
 
-	"github.com/ronanh/loki/pkg/ingester/client"
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/storage"
+	"github.com/ronanh/loki/ingester/client"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/storage"
 
-	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/logql"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -28,8 +28,8 @@ import (
 	"github.com/cortexproject/cortex/pkg/ring"
 	"github.com/cortexproject/cortex/pkg/util/flagext"
 
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/util/validation"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/util/validation"
 )
 
 const (

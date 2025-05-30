@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 const (

@@ -7,10 +7,10 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/chunk"
 
-	"github.com/ronanh/loki/pkg/chunkenc"
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql/log"
+	"github.com/ronanh/loki/chunkenc"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql/log"
 )
 
 // LazyChunk loads the chunk when it is accessed.

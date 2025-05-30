@@ -14,8 +14,8 @@ import (
 	"github.com/uber/jaeger-client-go"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 func TestQueryType(t *testing.T) {

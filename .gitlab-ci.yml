@@ -12,9 +12,9 @@ test:
   script:
     - >
       go test -coverprofile=coverage.txt -covermode count
-      github.com/ronanh/loki/pkg/logql/log
-      github.com/ronanh/loki/pkg/pattern
-      github.com/ronanh/loki/pkg/logql
+      github.com/ronanh/loki/logql/log
+      github.com/ronanh/loki/pattern
+      github.com/ronanh/loki/logql
     - go tool cover -func coverage.txt
     - go get github.com/boumenot/gocover-cobertura
     - go run github.com/boumenot/gocover-cobertura < coverage.txt > coverage.xml

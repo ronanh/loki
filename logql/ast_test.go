@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ronanh/loki/pkg/logql/log"
+	"github.com/ronanh/loki/logql/log"
 )
 
 func Test_logSelectorExpr_String(t *testing.T) {

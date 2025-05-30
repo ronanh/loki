@@ -17,9 +17,9 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ronanh/loki/pkg/chunkenc"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/chunkenc"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
 )
 
 var fooLabelsWithName = "{foo=\"bar\", __name__=\"logs\"}"

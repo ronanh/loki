@@ -25,9 +25,9 @@ import (
 	"github.com/weaveworks/common/middleware"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/logql/marshal"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/logql/marshal"
 )
 
 var (

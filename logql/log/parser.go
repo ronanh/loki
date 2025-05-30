@@ -6,9 +6,9 @@ import (
 	"io"
 	"regexp"
 
-	"github.com/ronanh/loki/pkg/logql/log/jsonexpr"
-	"github.com/ronanh/loki/pkg/logql/log/logfmt"
-	"github.com/ronanh/loki/pkg/pattern"
+	"github.com/ronanh/loki/logql/log/jsonexpr"
+	"github.com/ronanh/loki/logql/log/logfmt"
+	"github.com/ronanh/loki/pattern"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"

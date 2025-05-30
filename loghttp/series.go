@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/logproto"
 )
 
 type SeriesResponse struct {

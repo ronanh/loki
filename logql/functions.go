@@ -8,7 +8,7 @@ import (
 
 	"github.com/prometheus/prometheus/promql"
 
-	"github.com/ronanh/loki/pkg/logql/log"
+	"github.com/ronanh/loki/logql/log"
 )
 
 const unsupportedErr = "unsupported range vector aggregation operation: %s"

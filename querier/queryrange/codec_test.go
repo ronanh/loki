@@ -14,9 +14,9 @@ import (
 	"github.com/cortexproject/cortex/pkg/querier/queryrange"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ronanh/loki/pkg/loghttp"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/loghttp"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 func init() {
