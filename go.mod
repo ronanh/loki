@@ -5,7 +5,6 @@ go 1.23.0
 toolchain go1.24.0
 
 require (
-	github.com/aws/aws-lambda-go v1.17.0
 	github.com/c2h5oh/datasize v0.0.0-20200112174442-28bbd4740fee
 	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/cortexproject/cortex v1.7.1-0.20210310133228-161f103ed5ba
