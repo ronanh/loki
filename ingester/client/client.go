@@ -17,7 +17,7 @@ import (
 
 	cortex_middleware "github.com/cortexproject/cortex/pkg/util/middleware"
 
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/logproto"
 )
 
 var ingesterClientRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{

@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
 
-	"github.com/ronanh/loki/pkg/logql"
+	"github.com/ronanh/loki/logql"
 )
 
 const (

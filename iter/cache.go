@@ -1,7 +1,7 @@
 package iter
 
 import (
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/logproto"
 )
 
 type CacheEntryIterator interface {

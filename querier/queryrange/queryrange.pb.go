@@ -11,9 +11,9 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/gogo/protobuf/types"
 	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
-	github_com_grafana_loki_pkg_logproto "github.com/ronanh/loki/pkg/logproto"
-	logproto "github.com/ronanh/loki/pkg/logproto"
-	stats "github.com/ronanh/loki/pkg/logql/stats"
+	github_com_grafana_loki_pkg_logproto "github.com/ronanh/loki/logproto"
+	logproto "github.com/ronanh/loki/logproto"
+	stats "github.com/ronanh/loki/logql/stats"
 	io "io"
 	math "math"
 	reflect "reflect"
@@ -480,7 +480,7 @@ func (m *LokiLabelNamesResponse) GetVersion() uint32 {
 
 type LokiData struct {
 	ResultType string                                        `protobuf:"bytes,1,opt,name=ResultType,proto3" json:"resultType"`
-	Result     []github_com_grafana_loki_pkg_logproto.Stream `protobuf:"bytes,2,rep,name=Result,proto3,customtype=github.com/ronanh/loki/pkg/logproto.Stream" json:"result"`
+	Result     []github_com_grafana_loki_pkg_logproto.Stream `protobuf:"bytes,2,rep,name=Result,proto3,customtype=github.com/ronanh/loki/logproto.Stream" json:"result"`
 }
 
 func (m *LokiData) Reset()      { *m = LokiData{} }

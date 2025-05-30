@@ -10,8 +10,8 @@ import (
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
 )
 
 var samples = []logproto.Sample{

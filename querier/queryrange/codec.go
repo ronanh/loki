@@ -21,12 +21,12 @@ import (
 	"github.com/prometheus/prometheus/pkg/timestamp"
 	"github.com/weaveworks/common/httpgrpc"
 
-	"github.com/ronanh/loki/pkg/loghttp"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/logql/marshal"
-	marshal_legacy "github.com/ronanh/loki/pkg/logql/marshal/legacy"
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/loghttp"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/logql/marshal"
+	marshal_legacy "github.com/ronanh/loki/logql/marshal/legacy"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 var lokiCodec = &codec{}

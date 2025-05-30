@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ronanh/loki/pkg/util"
+	"github.com/ronanh/loki/util"
 )
 
 // storeMock is a mockable version of Loki's storage, used in querier unit tests

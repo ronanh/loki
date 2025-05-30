@@ -16,12 +16,12 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/logql/stats"
-	"github.com/ronanh/loki/pkg/storage/stores/shipper"
-	"github.com/ronanh/loki/pkg/util"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/storage/stores/shipper"
+	"github.com/ronanh/loki/util"
 )
 
 var (

@@ -13,7 +13,7 @@ import (
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/logproto"
 )
 
 type lokiResult struct {

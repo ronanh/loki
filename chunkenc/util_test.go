@@ -3,8 +3,8 @@ package chunkenc
 import (
 	"time"
 
-	"github.com/ronanh/loki/pkg/chunkenc/testdata"
-	"github.com/ronanh/loki/pkg/logproto"
+	"github.com/ronanh/loki/chunkenc/testdata"
+	"github.com/ronanh/loki/logproto"
 )
 
 func logprotoEntry(ts int64, line string) *logproto.Entry {
