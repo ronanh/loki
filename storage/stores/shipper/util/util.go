@@ -14,7 +14,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"go.etcd.io/bbolt"
 
-	"github.com/ronanh/loki/pkg/chunkenc"
+	"github.com/ronanh/loki/chunkenc"
 )
 
 type StorageClient interface {

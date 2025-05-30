@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/pkg/chunkenc"
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/logql/log"
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/chunkenc"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/logql/log"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 var NilMetrics = NewChunkMetrics(nil, 0)

@@ -1,5 +1,6 @@
 // Package marshal converts internal objects to loghttp model objects.  This package is designed to work with
-//  models in pkg/loghttp/legacy.
+//
+//	models in pkg/loghttp/legacy.
 package marshal
 
 import (
@@ -9,9 +10,9 @@ import (
 	"github.com/gorilla/websocket"
 	json "github.com/json-iterator/go"
 
-	loghttp "github.com/ronanh/loki/pkg/loghttp/legacy"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
+	loghttp "github.com/ronanh/loki/loghttp/legacy"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
 )
 
 // Note that the below methods directly marshal the values passed in.  This is because these objects currently marshal

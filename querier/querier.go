@@ -14,13 +14,13 @@ import (
 
 	cortex_validation "github.com/cortexproject/cortex/pkg/util/validation"
 
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/loghttp"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/storage"
-	listutil "github.com/ronanh/loki/pkg/util"
-	"github.com/ronanh/loki/pkg/util/validation"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/loghttp"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/storage"
+	listutil "github.com/ronanh/loki/util"
+	"github.com/ronanh/loki/util/validation"
 )
 
 const (

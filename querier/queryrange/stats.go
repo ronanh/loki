@@ -15,8 +15,8 @@ import (
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/weaveworks/common/middleware"
 
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 type ctxKeyType string

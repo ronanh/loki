@@ -6,9 +6,9 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
-	"github.com/ronanh/loki/pkg/logql/log"
+	"github.com/ronanh/loki/logql/log"
 
-	"github.com/ronanh/loki/pkg/iter"
+	"github.com/ronanh/loki/iter"
 )
 
 // RangeVectorAggregator aggregates samples for a given range of samples.

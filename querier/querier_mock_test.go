@@ -19,12 +19,12 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	grpc_metadata "google.golang.org/grpc/metadata"
 
-	"github.com/ronanh/loki/pkg/ingester/client"
-	"github.com/ronanh/loki/pkg/iter"
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql"
-	"github.com/ronanh/loki/pkg/storage"
-	"github.com/ronanh/loki/pkg/util"
+	"github.com/ronanh/loki/ingester/client"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/storage"
+	"github.com/ronanh/loki/util"
 )
 
 // querierClientMock is a mockable version of QuerierClient, used in querier

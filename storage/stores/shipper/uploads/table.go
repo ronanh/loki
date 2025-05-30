@@ -20,8 +20,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"go.etcd.io/bbolt"
 
-	"github.com/ronanh/loki/pkg/chunkenc"
-	shipper_util "github.com/ronanh/loki/pkg/storage/stores/shipper/util"
+	"github.com/ronanh/loki/chunkenc"
+	shipper_util "github.com/ronanh/loki/storage/stores/shipper/util"
 )
 
 const (

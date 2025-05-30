@@ -4,7 +4,7 @@ import (
 	"flag"
 	"time"
 
-	"github.com/ronanh/loki/pkg/util/flagext"
+	"github.com/ronanh/loki/util/flagext"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	json "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"
 
-	"github.com/ronanh/loki/pkg/logproto"
-	"github.com/ronanh/loki/pkg/logql/stats"
+	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/logql/stats"
 )
 
 var (
