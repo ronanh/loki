@@ -356,6 +356,8 @@ var shardableOps = map[string]bool{
 	OpRangeTypeSum:       true,
 	OpRangeTypeMax:       true,
 	OpRangeTypeMin:       true,
+	OpRangeTypeFirst:     false,
+	OpRangeTypeLast:      false,
 
 	// binops - arith
 	OpTypeAdd: true,
