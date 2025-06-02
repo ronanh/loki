@@ -2375,6 +2375,31 @@ func Test_PipelineCombined(t *testing.T) {
 	require.Equal(t, string([]byte(`1.5s|POST|200`)), string(line))
 }
 
+func Test_PipelineCombinedPattern(t *testing.T) {
+	query := `{job="cortex-ops/query-frontend"} |= "logging.go" | pattern "level=<level> ts=<ts> caller=<caller> traceID=<traceID> msg=\"<msg>\"" | line_format "{{.level}} - {{.caller}}"`
+
+	expr, err := ParseLogSelector(query)
+	require.Nil(t, err)
+
+	p, err := expr.Pipeline()
+	require.Nil(t, err)
+	sp := p.ForStream(labels.Labels{})
+	line, lbs, ok := sp.Process([]byte(`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`))
+	require.True(t, ok)
+	require.Equal(
+		t,
+		labels.Labels{
+			labels.Label{Name: "caller", Value: "logging.go:66"},
+			labels.Label{Name: "level", Value: "debug"},
+			labels.Label{Name: "msg", Value: "POST /api/prom/api/v1/query_range (200) 1.5s"},
+			labels.Label{Name: "traceID", Value: "a9d4d8a928d8db1"},
+			labels.Label{Name: "ts", Value: "2020-10-02T10:10:42.092268913Z"},
+		},
+		lbs.Labels(),
+	)
+	require.Equal(t, string([]byte("debug - logging.go:66")), string(line))
+}
+
 var c []*labels.Matcher
 
 func Benchmark_ParseMatchers(b *testing.B) {

@@ -408,6 +408,7 @@ func Benchmark_Parser(b *testing.B) {
 		{"logfmt", logfmtLine, NewLogfmtParser(), []string{"info", "throughput", "org_id"}},
 		{"regex greedy", nginxline, mustNewRegexParser(`GET (?P<path>.*?)/\?`), []string{"path"}},
 		{"regex status digits", nginxline, mustNewRegexParser(`HTTP/1.1" (?P<statuscode>\d{3}) `), []string{"statuscode"}},
+		{"pattern simple", nginxline, mustNewPatternParser(`<_> HTTP/1.1" <statuscode>`), []string{"statuscode"}},
 	} {
 		b.Run(tt.name, func(b *testing.B) {
 			line := []byte(tt.line)
@@ -501,6 +502,74 @@ func Test_regexpParser_Parse(t *testing.T) {
 		{
 			"multiple labels extracted",
 			mustNewRegexParser("status=(?P<status>\\w+),latency=(?P<latency>\\w+)(ms|ns)"),
+			[]byte("status=200,latency=500ms"),
+			labels.Labels{
+				{Name: "app", Value: "foo"},
+			},
+			labels.Labels{
+				{Name: "app", Value: "foo"},
+				{Name: "status", Value: "200"},
+				{Name: "latency", Value: "500"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
+			b.Reset()
+			_, _ = tt.parser.Process(tt.line, b)
+			sort.Sort(tt.want)
+			require.Equal(t, tt.want, b.LabelsResult().Labels())
+		})
+	}
+}
+
+func Test_patternParser_Parse(t *testing.T) {
+	tests := []struct {
+		name   string
+		parser *PatternParser
+		line   []byte
+		lbs    labels.Labels
+		want   labels.Labels
+	}{
+		{
+			"no matches",
+			mustNewPatternParser("wistiti<foo>buzz"),
+			[]byte("blah"),
+			labels.Labels{
+				{Name: "app", Value: "foo"},
+			},
+			labels.Labels{
+				{Name: "app", Value: "foo"},
+			},
+		},
+		{
+			"double matches",
+			mustNewPatternParser("<foo>buzz"),
+			[]byte("matchebuzz barbuzz"),
+			labels.Labels{
+				{Name: "app", Value: "bar"},
+			},
+			labels.Labels{
+				{Name: "app", Value: "bar"},
+				{Name: "foo", Value: "matche"},
+			},
+		},
+		{
+			"duplicate labels",
+			mustNewPatternParser("<bar>buzz"),
+			[]byte("barbuzz"),
+			labels.Labels{
+				{Name: "bar", Value: "foo"},
+			},
+			labels.Labels{
+				{Name: "bar", Value: "foo"},
+				{Name: "bar_extracted", Value: "bar"},
+			},
+		},
+		{
+			"multiple labels extracted",
+			mustNewPatternParser("status=<status>,latency=<latency>ms"),
 			[]byte("status=200,latency=500ms"),
 			labels.Labels{
 				{Name: "app", Value: "foo"},
@@ -728,6 +797,59 @@ func Test_unpackParser_Parse(t *testing.T) {
 			require.Equal(t, tt.wantLine, l)
 			require.Equal(t, string(tt.wantLine), string(l))
 			require.Equal(t, copy, string(tt.line), "the original log line should not be mutated")
+		})
+	}
+}
+
+func Test_PatternParser(t *testing.T) {
+	tests := []struct {
+		pattern string
+		line    []byte
+		lbs     labels.Labels
+		want    labels.Labels
+	}{
+		{
+			`<ip> <userid> <user> [<_>] "<method> <path> <_>" <status> <size>`,
+			[]byte(`127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326`),
+			labels.FromStrings("foo", "bar"),
+			labels.FromStrings("foo", "bar",
+				"ip", "127.0.0.1",
+				"userid", "user-identifier",
+				"user", "frank",
+				"method", "GET",
+				"path", "/apache_pb.gif",
+				"status", "200",
+				"size", "2326",
+			),
+		},
+		{
+			`<_> msg="<method> <path> (<status>) <duration>"`,
+			[]byte(`level=debug ts=2021-05-19T07:54:26.864644382Z caller=logging.go:66 traceID=7fbb92fd0eb9c65d msg="POST /loki/api/v1/push (204) 1.238734ms"`),
+			labels.FromStrings("method", "bar"),
+			labels.FromStrings("method", "bar",
+				"method_extracted", "POST",
+				"path", "/loki/api/v1/push",
+				"status", "204",
+				"duration", "1.238734ms",
+			),
+		},
+		{
+			`foo <f>"`,
+			[]byte(`bar`),
+			labels.FromStrings("method", "bar"),
+			labels.FromStrings("method", "bar"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern, func(t *testing.T) {
+			t.Parallel()
+			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
+			b.Reset()
+			pp, err := NewPatternParser(tt.pattern)
+			require.NoError(t, err)
+			_, _ = pp.Process(tt.line, b)
+			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
 	}
 }

@@ -334,6 +334,8 @@ func Test_parserExpr_Parser(t *testing.T) {
 		{"logfmt", OpParserTypeLogfmt, "", log.NewLogfmtParser(), false},
 		{"regexp", OpParserTypeRegexp, "(?P<foo>foo)", mustNewRegexParser("(?P<foo>foo)"), false},
 		{"regexp err ", OpParserTypeRegexp, "foo", nil, true},
+		{"pattern", OpParserTypePattern, "<foo>", mustNewPatternParser("<foo>"), false},
+		{"pattern err", OpParserTypePattern, "foo", nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -353,6 +355,14 @@ func Test_parserExpr_Parser(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustNewPatternParser(pat string) log.Stage {
+	r, err := log.NewPatternParser(pat)
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func mustNewRegexParser(re string) log.Stage {
