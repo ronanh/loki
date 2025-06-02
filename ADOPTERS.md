@@ -1,2 +1,0 @@
-* Everquote
-* Grafana Labs
