@@ -470,7 +470,7 @@ func (parser *PatternParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, b
 		if len(v.Key) == 1 && v.Key[0] == '_' {
 			continue
 		}
-		key := string(v.Key)
+		key := unsafeGetString(v.Key)
 		if lbs.BaseHas(key) {
 			key += duplicateSuffix
 		}
