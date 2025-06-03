@@ -50,13 +50,6 @@ func (f Facade) Marshal(w io.Writer) error {
 	return nil
 }
 
-// UnmarshalFromBuf implements encoding.Chunk.
-func (f *Facade) UnmarshalFromBuf(buf []byte) error {
-	var err error
-	f.c, err = NewByteChunk(buf, f.blockSize, f.targetSize)
-	return err
-}
-
 // Encoding implements encoding.Chunk.
 func (Facade) Encoding() encoding.Encoding {
 	return LogChunk
