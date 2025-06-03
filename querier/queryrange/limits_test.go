@@ -170,7 +170,7 @@ func Test_MaxQueryParallelism(t *testing.T) {
 		queryrange.MiddlewareFunc(func(next queryrange.Handler) queryrange.Handler {
 			return queryrange.HandlerFunc(func(c context.Context, r queryrange.Request) (queryrange.Response, error) {
 				var wg sync.WaitGroup
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
@@ -203,7 +203,7 @@ func Test_MaxQueryParallelismLateScheduling(t *testing.T) {
 	_, _ = NewLimitedRoundTripper(f, lokiCodec, fakeLimits{maxQueryParallelism: maxQueryParallelism},
 		queryrange.MiddlewareFunc(func(next queryrange.Handler) queryrange.Handler {
 			return queryrange.HandlerFunc(func(c context.Context, r queryrange.Request) (queryrange.Response, error) {
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					go func() {
 						_, _ = next.Do(c, &LokiRequest{})
 					}()

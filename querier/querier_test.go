@@ -70,18 +70,12 @@ func (s *storeAdapter) GetSchemaConfigs() []chunk.PeriodConfig {
 	return nil
 }
 func (s *storeAdapter) LabelValuesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, labelName string, matchers ...*labels.Matcher) ([]string, error) {
-	if v, ok := s.InnerStore.(chunk.Store); ok {
-		return v.LabelValuesForMetricName(ctx, userID, from, through, metricName, labelName)
-	}
 	if v, ok := s.InnerStore.(storage.Store); ok {
 		return v.LabelValuesForMetricName(ctx, userID, from, through, metricName, labelName, matchers...)
 	}
 	return nil, nil
 }
 func (s *storeAdapter) LabelNamesForMetricName(ctx context.Context, userID string, from, through model.Time, metricName string, matchers ...*labels.Matcher) ([]string, error) {
-	if v, ok := s.InnerStore.(chunk.Store); ok {
-		return v.LabelNamesForMetricName(ctx, userID, from, through, metricName)
-	}
 	if v, ok := s.InnerStore.(storage.Store); ok {
 		return v.LabelNamesForMetricName(ctx, userID, from, through, metricName, matchers...)
 	}

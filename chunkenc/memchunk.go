@@ -277,88 +277,6 @@ func NewMemChunk(enc Encoding, blockSize, targetSize int) *MemChunk {
 	return c
 }
 
-// NewByteChunk returns a MemChunk on the passed bytes.
-func NewByteChunk(b []byte, blockSize, targetSize int) (*MemChunk, error) {
-	bc := &MemChunk{
-		head:       &headBlock{}, // Dummy, empty headblock.
-		blockSize:  blockSize,
-		targetSize: targetSize,
-	}
-	db := decbuf{b: b}
-
-	// Verify the header.
-	m, version := db.be32(), db.byte()
-	if db.err() != nil {
-		return nil, errors.Wrap(db.err(), "verifying header")
-	}
-	if m != magicNumber {
-		return nil, errors.Errorf("invalid magic number %x", m)
-	}
-	bc.format = version
-	switch version {
-	case chunkFormatV1:
-		bc.encoding = EncGZIP
-	case chunkFormatV2, chunkFormatV3:
-		// format v2+ has a byte for block encoding.
-		enc := Encoding(db.byte())
-		if db.err() != nil {
-			return nil, errors.Wrap(db.err(), "verifying encoding")
-		}
-		bc.encoding = enc
-	default:
-		return nil, errors.Errorf("invalid version %d", version)
-	}
-
-	metasOffset := binary.BigEndian.Uint64(b[len(b)-8:])
-	mb := b[metasOffset : len(b)-(8+4)] // storing the metasOffset + checksum of meta
-	db = decbuf{b: mb}
-
-	expCRC := binary.BigEndian.Uint32(b[len(b)-(8+4):])
-	if expCRC != db.crc32() {
-		return nil, ErrInvalidChecksum
-	}
-
-	// Read the number of blocks.
-	num := db.uvarint()
-	bc.blocks = make([]block, 0, num)
-
-	for i := 0; i < num; i++ {
-		var blk block
-		// Read #entries.
-		blk.numEntries = db.uvarint()
-
-		// Read mint, maxt.
-		blk.mint = db.varint64()
-		blk.maxt = db.varint64()
-
-		// Read offset and length.
-		blk.offset = db.uvarint()
-		if version == chunkFormatV3 {
-			blk.uncompressedSize = db.uvarint()
-		}
-		l := db.uvarint()
-		blk.b = b[blk.offset : blk.offset+l]
-
-		// Verify checksums.
-		expCRC := binary.BigEndian.Uint32(b[blk.offset+l:])
-		if expCRC != crc32.Checksum(blk.b, castagnoliTable) {
-			level.Error(util_log.Logger).Log("msg", "Checksum does not match for a block in chunk, this block will be skipped", "err", ErrInvalidChecksum)
-			continue
-		}
-
-		bc.blocks = append(bc.blocks, blk)
-
-		// Update the counter used to track the size of cut blocks.
-		bc.cutBlockSize += len(blk.b)
-
-		if db.err() != nil {
-			return nil, errors.Wrap(db.err(), "decoding block meta")
-		}
-	}
-
-	return bc, nil
-}
-
 // BytesWith uses a provided []byte for buffer instantiation
 // NOTE: This does not cut the head block nor include any head block data.
 func (c *MemChunk) BytesWith(b []byte) ([]byte, error) {
@@ -514,14 +432,6 @@ func (c *MemChunk) SerializeForCheckpointTo(chk, head io.Writer) error {
 
 func (c *MemChunk) CheckpointSize() (chunk, head int) {
 	return c.BytesSize(), c.head.CheckpointSize(c.format)
-}
-
-func MemchunkFromCheckpoint(chk, head []byte, blockSize int, targetSize int) (*MemChunk, error) {
-	mc, err := NewByteChunk(chk, blockSize, targetSize)
-	if err != nil {
-		return nil, err
-	}
-	return mc, mc.head.FromCheckpoint(head)
 }
 
 // Encoding implements Chunk.
