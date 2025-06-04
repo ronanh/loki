@@ -375,37 +375,6 @@ func (c *MemChunk) Bytes() ([]byte, error) {
 	return c.BytesWith(nil)
 }
 
-// BytesSize returns the raw size of the chunk.
-// NOTE: This does not account for the head block nor include any head block data.
-func (c *MemChunk) BytesSize() int {
-	size := 4 // magic number
-	size++    // format
-	if c.format > chunkFormatV1 {
-		size++ // chunk format v2+ has a byte for encoding.
-	}
-
-	// blocks
-	for _, b := range c.blocks {
-		size += len(b.b) + crc32.Size // size + crc
-
-		size += binary.MaxVarintLen32 // num entries
-		size += binary.MaxVarintLen64 // mint
-		size += binary.MaxVarintLen64 // maxt
-		size += binary.MaxVarintLen32 // offset
-		if c.format == chunkFormatV3 {
-			size += binary.MaxVarintLen32 // uncompressed size
-		}
-		size += binary.MaxVarintLen32 // len(b)
-	}
-
-	// blockmeta
-	size += binary.MaxVarintLen32 // len  blocks
-
-	size += crc32.Size // metablock crc
-	size += 8          // metaoffset
-	return size
-}
-
 // WriteTo Implements io.WriterTo
 // NOTE: Does not cut head block or include any head block data.
 // For this to be the case you must call Close() first.
@@ -512,40 +481,9 @@ func (c *MemChunk) SerializeForCheckpointTo(chk, head io.Writer) error {
 	return nil
 }
 
-func (c *MemChunk) CheckpointSize() (chunk, head int) {
-	return c.BytesSize(), c.head.CheckpointSize(c.format)
-}
-
-func MemchunkFromCheckpoint(chk, head []byte, blockSize int, targetSize int) (*MemChunk, error) {
-	mc, err := NewByteChunk(chk, blockSize, targetSize)
-	if err != nil {
-		return nil, err
-	}
-	return mc, mc.head.FromCheckpoint(head)
-}
-
 // Encoding implements Chunk.
 func (c *MemChunk) Encoding() Encoding {
 	return c.encoding
-}
-
-// Size implements Chunk.
-func (c *MemChunk) Size() int {
-	ne := 0
-	for _, blk := range c.blocks {
-		ne += blk.numEntries
-	}
-
-	if !c.head.isEmpty() {
-		ne += len(c.head.entries)
-	}
-
-	return ne
-}
-
-// BlockCount implements Chunk.
-func (c *MemChunk) BlockCount() int {
-	return len(c.blocks)
 }
 
 // SpaceFor implements Chunk.

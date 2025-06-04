@@ -881,48 +881,6 @@ func TestHeadBlockCheckpointing(t *testing.T) {
 	require.Equal(t, c.head, hb)
 }
 
-func TestCheckpointEncoding(t *testing.T) {
-	t.Parallel()
-
-	blockSize, targetSize := 256*1024, 1500*1024
-	c := NewMemChunk(EncSnappy, blockSize, targetSize)
-
-	// add a few entries
-	for i := 0; i < 5; i++ {
-		entry := &logproto.Entry{
-			Timestamp: time.Unix(int64(i), 0),
-			Line:      fmt.Sprintf("hi there - %d", i),
-		}
-		require.Equal(t, true, c.SpaceFor(entry))
-		require.Nil(t, c.Append(entry))
-	}
-
-	// cut it
-	require.Nil(t, c.cut())
-
-	// add a few more to head
-	for i := 5; i < 10; i++ {
-		entry := &logproto.Entry{
-			Timestamp: time.Unix(int64(i), 0),
-			Line:      fmt.Sprintf("hi there - %d", i),
-		}
-		require.Equal(t, true, c.SpaceFor(entry))
-		require.Nil(t, c.Append(entry))
-	}
-
-	// ensure new blocks are not cut
-	require.Equal(t, 1, len(c.blocks))
-
-	var chk, head bytes.Buffer
-	err := c.SerializeForCheckpointTo(&chk, &head)
-	require.Nil(t, err)
-
-	cpy, err := MemchunkFromCheckpoint(chk.Bytes(), head.Bytes(), blockSize, targetSize)
-	require.Nil(t, err)
-
-	require.Equal(t, c, cpy)
-}
-
 var (
 	streams = []logproto.Stream{}
 	series  = []logproto.Series{}
