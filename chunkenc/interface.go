@@ -104,21 +104,15 @@ func SupportedEncoding() string {
 
 // Chunk is the interface for the compressed logs chunk format.
 type Chunk interface {
-	Bounds() (time.Time, time.Time)
 	SpaceFor(*logproto.Entry) bool
 	Append(*logproto.Entry) error
 	Iterator(ctx context.Context, mintT, maxtT time.Time, direction logproto.Direction, pipeline log.StreamPipeline) (iter.EntryIterator, error)
 	SampleIterator(ctx context.Context, from, through time.Time, extractor log.StreamSampleExtractor) iter.SampleIterator
 	// Returns the list of blocks in the chunks.
 	Blocks(mintT, maxtT time.Time) []Block
-	Size() int
-	Bytes() ([]byte, error)
-	BytesWith([]byte) ([]byte, error) // uses provided []byte for buffer instantiation
 	io.WriterTo
-	BlockCount() int
 	Utilization() float64
 	UncompressedSize() int
-	CompressedSize() int
 	Close() error
 	Encoding() Encoding
 }

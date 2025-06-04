@@ -1,8 +1,6 @@
 package chunkenc
 
 import (
-	"io"
-
 	"github.com/cortexproject/cortex/pkg/chunk/encoding"
 )
 
@@ -39,42 +37,7 @@ func NewFacade(c Chunk, blockSize, targetSize int) encoding.Chunk {
 	}
 }
 
-// Marshal implements encoding.Chunk.
-func (f Facade) Marshal(w io.Writer) error {
-	if f.c == nil {
-		return nil
-	}
-	if _, err := f.c.WriteTo(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Encoding implements encoding.Chunk.
-func (Facade) Encoding() encoding.Encoding {
-	return LogChunk
-}
-
-// Utilization implements encoding.Chunk.
-func (f Facade) Utilization() float64 {
-	if f.c == nil {
-		return 0
-	}
-	return f.c.Utilization()
-}
-
 // LokiChunk returns the chunkenc.Chunk.
 func (f Facade) LokiChunk() Chunk {
 	return f.c
-}
-
-// UncompressedSize is a helper function to hide the type assertion kludge when wanting the uncompressed size of the Cortex interface encoding.Chunk.
-func UncompressedSize(c encoding.Chunk) (int, bool) {
-	f, ok := c.(*Facade)
-
-	if !ok || f.c == nil {
-		return 0, false
-	}
-
-	return f.c.UncompressedSize(), true
 }

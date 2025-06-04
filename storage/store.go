@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/chunk"
-	cortex_local "github.com/cortexproject/cortex/pkg/chunk/local"
 	"github.com/cortexproject/cortex/pkg/chunk/storage"
 	"github.com/cortexproject/cortex/pkg/querier/astmapper"
 	"github.com/prometheus/client_golang/prometheus"
@@ -115,16 +114,6 @@ func NewStore(cfg Config, schemaCfg SchemaConfig, chunkStore chunk.Store, regist
 		chunkMetrics: NewChunkMetrics(registerer, cfg.MaxChunkBatchSize),
 		schemaCfg:    schemaCfg,
 	}, nil
-}
-
-// NewTableClient creates a TableClient for managing tables for index/chunk store.
-// ToDo: Add support in Cortex for registering custom table client like index client.
-func NewTableClient(name string, cfg Config) (chunk.TableClient, error) {
-	if name == shipper.BoltDBShipperType {
-		name = "boltdb"
-		cfg.FSConfig = cortex_local.FSConfig{Directory: cfg.BoltDBShipperConfig.ActiveIndexDirectory}
-	}
-	return storage.NewTableClient(name, cfg.Config, prometheus.DefaultRegisterer)
 }
 
 // decodeReq sanitizes an incoming request, rounds bounds, appends the __name__ matcher,
@@ -255,10 +244,7 @@ func (s *store) GetSeries(ctx context.Context, req logql.SelectLogParams) ([]log
 	// bound concurrency
 	groups := make([][]*LazyChunk, 0, len(firstChunksPerSeries)/s.cfg.MaxChunkBatchSize+1)
 
-	split := s.cfg.MaxChunkBatchSize
-	if len(firstChunksPerSeries) < split {
-		split = len(firstChunksPerSeries)
-	}
+	split := min(len(firstChunksPerSeries), s.cfg.MaxChunkBatchSize)
 
 	for split > 0 {
 		groups = append(groups, firstChunksPerSeries[:split])
