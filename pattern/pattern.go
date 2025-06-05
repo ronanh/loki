@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
+	"github.com/ronanh/loki/util"
 )
 
 var (
@@ -16,6 +18,7 @@ var (
 	errEmptyCaptureName              = errors.New("empty name for capture is not allowed. use `_` to discard a capture")
 	errUnclosedCapture               = errors.New("reached end of pattern expression and capture was not closed")
 	errIncompleteEscape              = errors.New("incomplete escape sequence at the end of pattern expression")
+	errDuplicateCapture              = errors.New("found duplicate capture")
 )
 
 type part struct {
@@ -156,6 +159,7 @@ func CompileFromString(pat string) (*Pattern, error) {
 }
 
 func compileInternal(pat []byte) (*Pattern, error) {
+	seenCaptures := make(map[string]struct{})
 	namedCapturesCount := 0
 
 	inCapture := false
@@ -197,6 +201,10 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			inCapture = false
 			part := part{capture: capture}
 			if !part.isUnnamedCapture() {
+				if _, ok := seenCaptures[util.UnsafeGetString(capture)]; ok {
+					return nil, errDuplicateCapture
+				}
+				seenCaptures[util.UnsafeGetString(capture)] = struct{}{}
 				namedCapturesCount++
 			}
 			parts = append(parts, part)

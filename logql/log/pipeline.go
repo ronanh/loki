@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/ronanh/loki/util"
 )
 
 var (
@@ -183,5 +184,5 @@ func unsafeGetBytes(s string) []byte {
 }
 
 func unsafeGetString(buf []byte) string {
-	return *((*string)(unsafe.Pointer(&buf)))
+	return util.UnsafeGetString(buf)
 }

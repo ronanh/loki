@@ -576,10 +576,9 @@ func Test_Error(t *testing.T) {
 		{"foo bar buzz", errZeroNamedCaptures},
 		{"<f><f>", errSuccessiveCapturesNotAllowed},
 		{"<f> f<d><b>", errSuccessiveCapturesNotAllowed},
-		// TODO: handle the duplicate capture name case
-		// {"<f> f<f>", errSuccessiveCapturesNotAllowed},
+		{"<f> f<f>", errDuplicateCapture},
 		{`f<f><_>`, errSuccessiveCapturesNotAllowed},
-		{`<f>f<f><_>`, errSuccessiveCapturesNotAllowed},
+		{`<f>f<f><_>`, errDuplicateCapture},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := CompileFromString(tt.name)
