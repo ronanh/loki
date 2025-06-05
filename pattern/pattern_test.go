@@ -52,6 +52,10 @@ func TestDisallowedChars(t *testing.T) {
 			input:   "he$he",
 			wantErr: true,
 		},
+		{
+			input:   "he.he",
+			wantErr: true,
+		},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.input, func(t *testing.T) {
