@@ -4,20 +4,34 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"unicode"
 )
 
 var (
-	errSuccessiveCapturesNotAllowed  = errors.New("cannot have 2 successive captures without at least 1 litteral in between")
-	errUnexpectedOpenAngleBracket    = errors.New("encountered unexpected `<`")
-	errUnexpectedClosingAngleBracket = errors.New("encountered unexpected `>`")
-	errZeroNamedCaptures             = errors.New("there must be at least 1 named capture")
-	errZeroParts                     = errors.New("pattern contained no literals nor captures")
-	errIllegalCaracterInCapture      = errors.New("illegal caracter in capture name")
-	errEmptyCaptureName              = errors.New("empty name for capture is not allowed. use `_` to discard a capture")
-	errUnclosedCapture               = errors.New("reached end of pattern expression and capture was not closed")
-	errIncompleteEscape              = errors.New("incomplete escape sequence at the end of pattern expression")
-	errDuplicateCapture              = errors.New("found duplicate capture")
+	errSuccessiveCapturesNotAllowed = errors.New("cannot have 2 successive captures without at least 1 litteral in between")
+	errZeroNamedCaptures            = errors.New("there must be at least 1 named capture")
+	errZeroParts                    = errors.New("pattern contained no literals nor captures")
+	errIllegalCaracterInCapture     = errors.New("illegal caracter in capture name")
+	errIncompleteEscape             = errors.New("incomplete escape sequence at the end of pattern expression")
+	errDuplicateCapture             = errors.New("found duplicate capture")
 )
+
+func isInvalidCaptureName(b []byte) bool {
+	if len(b) == 0 {
+		return true
+	}
+	if b[0] == '_' {
+		return false
+	}
+	if bytes.IndexFunc(b, func(r rune) bool {
+		return unicode.IsDigit(r)
+	}) == 0 {
+		return true
+	}
+	return bytes.ContainsFunc(b, func(r rune) bool {
+		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_')
+	})
+}
 
 type part struct {
 	literal []byte
@@ -171,30 +185,34 @@ func compileInternal(pat []byte) (*Pattern, error) {
 		}
 		switch v {
 		case '\\':
-			if inCapture {
-				return nil, errIllegalCaracterInCapture
-			}
 			escape = true
 		case '<':
 			if inCapture {
-				return nil, errUnexpectedOpenAngleBracket
+				lhs--
 			}
 			inCapture = true
 			if lhs != 0 && lhs == i {
 				return nil, errSuccessiveCapturesNotAllowed
 			}
 			if i != 0 {
-				parts = append(parts, part{literal: pat[lhs:i]})
+				nextPart := part{literal: pat[lhs:i]}
+				if len(parts) != 0 && parts[len(parts)-1].literal != nil {
+					parts[len(parts)-1].literal = append(parts[len(parts)-1].literal, nextPart.literal...)
+				} else {
+					parts = append(parts, nextPart)
+				}
 			}
 			lhs = i + 1
 		case '>':
 			if !inCapture {
-				return nil, errUnexpectedClosingAngleBracket
+				continue
+			}
+			if isInvalidCaptureName(pat[lhs:i]) {
+				lhs--
+				inCapture = false
+				continue
 			}
 			capture := pat[lhs:i]
-			if len(capture) == 0 {
-				return nil, errEmptyCaptureName
-			}
 			inCapture = false
 			part := part{capture: capture}
 			if !part.isUnnamedCapture() {
@@ -208,10 +226,6 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			parts = append(parts, part)
 			lhs = i + 1
 		}
-	}
-
-	if inCapture {
-		return nil, errUnclosedCapture
 	}
 
 	if escape {

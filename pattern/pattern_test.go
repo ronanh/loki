@@ -20,8 +20,8 @@ func Test_Parse(t *testing.T) {
 			nil,
 		},
 		{
-			"<foo",
-			[]part{{literal: []byte("<foo")}},
+			"<foo<pat>",
+			[]part{{literal: []byte("<foo")}, {capture: []byte("pat")}},
 			nil,
 		},
 		{
@@ -30,18 +30,18 @@ func Test_Parse(t *testing.T) {
 			nil,
 		},
 		{
-			"<>",
-			[]part{{literal: []byte("<>")}},
+			"<><pat>",
+			[]part{{literal: []byte("<>")}, {capture: []byte("pat")}},
 			nil,
 		},
 		{
-			"<_>",
-			[]part{{capture: []byte("_")}},
+			"<_> <pat>",
+			[]part{{capture: []byte("_")}, {literal: []byte(" ")}, {capture: []byte("pat")}},
 			nil,
 		},
 		{
-			"<1_>",
-			[]part{{literal: []byte("<1_>")}},
+			"<1_><pat>",
+			[]part{{literal: []byte("<1_>")}, {capture: []byte("pat")}},
 			nil,
 		},
 		{
@@ -50,24 +50,18 @@ func Test_Parse(t *testing.T) {
 			nil,
 		},
 		{
-			"▶",
-			[]part{{literal: []byte("▶")}},
+			"▶<pat>",
+			[]part{{literal: []byte("▶")}, {capture: []byte("pat")}},
 			nil,
 		},
 	} {
 
-		// these test cases were copied from official loki repo.
-		// they don't pass here because we do the parsing and validation in the same function (`Compile`) while they do it in 2 separate steps.
-		//
-		// keeping them here for now to hopefully adapt them later
-
 		t.Run(tc.input, func(t *testing.T) {
-			// actual, err := CompileFromString(tc.input)
-			// if tc.err != nil || err != nil {
-			// 	require.ErrorIs(t, tc.err, err)
-			// 	return
-			// }
-			// require.Equal(t, tc.expected, actual.parts)
+			actual, err := CompileFromString(tc.input)
+			if tc.err != nil || err != nil {
+				require.ErrorIs(t, tc.err, err)
+			}
+			require.Equal(t, tc.expected, actual.parts)
 
 		})
 	}
@@ -187,9 +181,17 @@ func TestCompile(t *testing.T) {
 		err error
 	}{
 		{
-			in:  "babab<whatsupp",
-			out: nil,
-			err: errUnclosedCapture,
+			in: "babab<whatsupp<pat>",
+			out: &Pattern{
+				parts: []part{
+					{
+						literal: []byte("babab<whatsupp"),
+					},
+					{
+						capture: []byte("pat"),
+					},
+				},
+			},
 		},
 		{
 			in:  "ciao<hola>mamamia\\",
@@ -252,22 +254,27 @@ func TestCompile(t *testing.T) {
 					},
 				},
 			},
-			err: nil,
 		},
 		{
 			in:  "<_>abch<_>exx<_>",
-			out: nil,
 			err: errZeroNamedCaptures,
 		},
 		{
 			in:  "abchexx",
-			out: nil,
 			err: errZeroNamedCaptures,
 		},
 		{
-			in:  "abc<>",
-			out: nil,
-			err: errEmptyCaptureName,
+			in: "abc<><pat>",
+			out: &Pattern{
+				parts: []part{
+					{
+						literal: []byte("abc<>"),
+					},
+					{
+						capture: []byte("pat"),
+					},
+				},
+			},
 		},
 		{
 			in: "abc<example>xddd",
@@ -299,19 +306,43 @@ func TestCompile(t *testing.T) {
 			},
 		},
 		{
-			in:  "sss>",
-			out: nil,
-			err: errUnexpectedClosingAngleBracket,
+			in: "sss><pat>",
+			out: &Pattern{
+				parts: []part{
+					{
+						literal: []byte("sss>"),
+					},
+					{
+						capture: []byte("pat"),
+					},
+				},
+			},
 		},
 		{
-			in:  ">",
-			out: nil,
-			err: errUnexpectedClosingAngleBracket,
+			in: ">>huuuh??<<<pat>",
+			out: &Pattern{
+				parts: []part{
+					{
+						literal: []byte(">>huuuh??<<"),
+					},
+					{
+						capture: []byte("pat"),
+					},
+				},
+			},
 		},
 		{
-			in:  "abc<ss<xd>",
-			out: nil,
-			err: errUnexpectedOpenAngleBracket,
+			in: "abc<ss<xd>",
+			out: &Pattern{
+				parts: []part{
+					{
+						literal: []byte("abc<ss"),
+					},
+					{
+						capture: []byte("xd"),
+					},
+				},
+			},
 		},
 		{
 			in: "ab\\<c<ssxd>blabla\\>",
