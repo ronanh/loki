@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"unicode"
 )
 
 var (
@@ -198,6 +199,11 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			inCapture = false
 			part := part{capture: capture}
 			if !part.isUnnamedCapture() {
+				if bytes.ContainsFunc(capture, func(r rune) bool {
+					return !(unicode.IsNumber(r) || unicode.IsLetter(r) || r == '_')
+				}) {
+					return nil, errIllegalCaracterInCapture
+				}
 				namedCapturesCount++
 				for _, part := range parts {
 					if bytes.Equal(part.capture, capture) {

@@ -2,11 +2,73 @@ package pattern
 
 import (
 	"bytes"
+	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDisallowedChars(t *testing.T) {
+	type scenario struct {
+		input   string
+		wantErr bool
+	}
+	scenarios := []scenario{
+		{
+			input:   "he-he",
+			wantErr: true,
+		},
+		{
+			input:   "he_he",
+			wantErr: false,
+		},
+		{
+			input:   "he_h50e",
+			wantErr: false,
+		},
+		{
+			input:   "He_he",
+			wantErr: false,
+		},
+		{
+			input:   "he_^he",
+			wantErr: true,
+		},
+		{
+			input:   "1hehe",
+			wantErr: false,
+		},
+		{
+			input:   "he%he",
+			wantErr: true,
+		},
+		{
+			input:   "he\\he",
+			wantErr: true,
+		},
+		{
+			input:   "he$he",
+			wantErr: true,
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.input, func(t *testing.T) {
+			regex := fmt.Sprintf("ciao (?P<%s>)", scenario.input)
+			_, err := regexp.Compile(regex)
+			_, err2 := CompileFromString(fmt.Sprintf("ciao <%s>", scenario.input))
+			if scenario.wantErr {
+				require.Error(t, err)
+				require.Error(t, err2)
+			} else {
+				require.Nil(t, err)
+				require.Nil(t, err2)
+			}
+
+		})
+	}
+}
 
 func Test_Parse(t *testing.T) {
 	for _, tc := range []struct {
