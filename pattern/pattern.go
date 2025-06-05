@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-
-	"github.com/ronanh/loki/util"
 )
 
 var (
@@ -159,7 +157,6 @@ func CompileFromString(pat string) (*Pattern, error) {
 }
 
 func compileInternal(pat []byte) (*Pattern, error) {
-	seenCaptures := make(map[string]struct{})
 	namedCapturesCount := 0
 
 	inCapture := false
@@ -201,11 +198,12 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			inCapture = false
 			part := part{capture: capture}
 			if !part.isUnnamedCapture() {
-				if _, ok := seenCaptures[util.UnsafeGetString(capture)]; ok {
-					return nil, errDuplicateCapture
-				}
-				seenCaptures[util.UnsafeGetString(capture)] = struct{}{}
 				namedCapturesCount++
+				for _, part := range parts {
+					if bytes.Equal(part.capture, capture) {
+						return nil, errDuplicateCapture
+					}
+				}
 			}
 			parts = append(parts, part)
 			lhs = i + 1

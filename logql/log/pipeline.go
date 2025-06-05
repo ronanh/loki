@@ -1,8 +1,6 @@
 package log
 
 import (
-	"unsafe"
-
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/util"
 )
@@ -180,9 +178,9 @@ func ReduceStages(stages []Stage) Stage {
 }
 
 func unsafeGetBytes(s string) []byte {
-	return *(*[]byte)(unsafe.Pointer(&s))
+	return util.StrToBytes(s)
 }
 
 func unsafeGetString(buf []byte) string {
-	return util.UnsafeGetString(buf)
+	return util.BytesToStr(buf)
 }
