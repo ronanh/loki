@@ -1,7 +1,6 @@
 package marshal
 
 import (
-	"bytes"
 	"log"
 	"testing"
 	"time"

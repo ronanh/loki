@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var ErrUnsupportedAPIVersion = errors.New("unsupported API version - must be /api/v1")
+var ErrUnsupportedAPIVersion = errors.New("unsupported API call - must be /api/v1")
 
 // Version holds a loghttp version
 type Version int

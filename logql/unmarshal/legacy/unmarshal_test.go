@@ -1,13 +1,8 @@
 package unmarshal
 
 import (
-	"io/ioutil"
 	"log"
-	"strings"
-	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/ronanh/loki/logproto"
 )
