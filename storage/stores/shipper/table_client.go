@@ -9,8 +9,6 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/chunk"
 	util_log "github.com/cortexproject/cortex/pkg/util/log"
-
-	"github.com/ronanh/loki/storage/stores/util"
 )
 
 const (
@@ -19,10 +17,6 @@ const (
 
 type boltDBShipperTableClient struct {
 	objectClient chunk.ObjectClient
-}
-
-func NewBoltDBShipperTableClient(objectClient chunk.ObjectClient) chunk.TableClient {
-	return &boltDBShipperTableClient{util.NewPrefixedObjectClient(objectClient, StorageKeyPrefix)}
 }
 
 func (b *boltDBShipperTableClient) ListTables(ctx context.Context) ([]string, error) {
