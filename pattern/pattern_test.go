@@ -345,6 +345,20 @@ func TestCompile(t *testing.T) {
 			},
 		},
 		{
+			in: "ab\\<cssxd\\><pat>",
+			out: &Pattern{
+				parts: []part{
+					{
+						literal: []byte("ab\\<cssxd\\>"),
+					},
+					{
+						capture: []byte("pat"),
+					},
+				},
+			},
+			err: nil,
+		},
+		{
 			in: "ab\\<c<ssxd>blabla\\>",
 			out: &Pattern{
 				parts: []part{

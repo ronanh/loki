@@ -17,17 +17,25 @@ var (
 )
 
 func isInvalidCaptureName(b []byte) bool {
+	// empty is invalid
 	if len(b) == 0 {
 		return true
 	}
+
+	// this means that it is either an unnamed capture
+	// or the capture's name starts with _. both are allowed
 	if b[0] == '_' {
 		return false
 	}
+
+	// the first char/rune cannot be a number
 	if bytes.IndexFunc(b, func(r rune) bool {
 		return unicode.IsDigit(r)
 	}) == 0 {
 		return true
 	}
+
+	// the rest of the chars must either be, letter, digit or underscore
 	return bytes.ContainsFunc(b, func(r rune) bool {
 		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_')
 	})
