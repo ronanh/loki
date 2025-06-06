@@ -6,6 +6,7 @@ import (
 	"time"
 
 	util_log "github.com/cortexproject/cortex/pkg/util/log"
+	kit_log "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -17,7 +18,6 @@ import (
 	loghttp_legacy "github.com/ronanh/loki/loghttp/legacy"
 	"github.com/ronanh/loki/logql"
 	"github.com/ronanh/loki/logql/marshal"
-	marshal_legacy "github.com/ronanh/loki/logql/marshal/legacy"
 	serverutil "github.com/ronanh/loki/util/server"
 	"github.com/ronanh/loki/util/validation"
 )
@@ -129,64 +129,6 @@ func (q *HttpQuerier) InstantQueryHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// LogQueryHandler is a http.HandlerFunc for log only queries.
-func (q *HttpQuerier) LogQueryHandler(w http.ResponseWriter, r *http.Request) {
-	// Enforce the query timeout while querying backends
-	ctx, cancel := context.WithDeadline(r.Context(), time.Now().Add(q.cfg.QueryTimeout))
-	defer cancel()
-
-	request, err := loghttp.ParseRangeQuery(r)
-	if err != nil {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
-		return
-	}
-	request.Query, err = parseRegexQuery(r)
-	if err != nil {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
-		return
-	}
-
-	expr, err := logql.ParseExpr(request.Query)
-	if err != nil {
-		serverutil.WriteError(err, w)
-		return
-	}
-
-	// short circuit metric queries
-	if _, ok := expr.(logql.SampleExpr); ok {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, "legacy endpoints only support %s result type", logql.ValueTypeStreams), w)
-		return
-	}
-
-	if err := q.validateEntriesLimits(ctx, request.Query, request.Limit); err != nil {
-		serverutil.WriteError(err, w)
-		return
-	}
-
-	params := logql.NewLiteralParams(
-		request.Query,
-		request.Start,
-		request.End,
-		request.Step,
-		request.Interval,
-		request.Direction,
-		request.Limit,
-		request.Shards,
-	)
-	query := q.engine.Query(params)
-
-	result, err := query.Exec(ctx)
-	if err != nil {
-		serverutil.WriteError(err, w)
-		return
-	}
-
-	if err := marshal_legacy.WriteQueryResponseJSON(result, w); err != nil {
-		serverutil.WriteError(err, w)
-		return
-	}
-}
-
 // LabelHandler is a http.HandlerFunc for handling label queries.
 func (q *HttpQuerier) LabelHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := loghttp.ParseLabelQuery(r)
@@ -201,15 +143,23 @@ func (q *HttpQuerier) LabelHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if loghttp.GetVersion(r.RequestURI) == loghttp.VersionV1 {
-		err = marshal.WriteLabelResponseJSON(*resp, w)
-	} else {
-		err = marshal_legacy.WriteLabelResponseJSON(*resp, w)
-	}
-	if err != nil {
+	if err := loghttp.EnsureHasV1(r.RequestURI); err != nil {
 		serverutil.WriteError(err, w)
 		return
 	}
+
+	if err = marshal.WriteLabelResponseJSON(*resp, w); err != nil {
+		serverutil.WriteError(err, w)
+		return
+	}
+}
+
+func handleError(conn *websocket.Conn, logger kit_log.Logger, msg string, err error) {
+	level.Error(logger).Log("msg", msg, "err", err)
+	if err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())); err != nil {
+		level.Error(logger).Log("msg", "Error connecting to ingesters for tailing", "err", err)
+	}
+
 }
 
 // TailHandler is a http.HandlerFunc for handling tail queries.
@@ -288,17 +238,12 @@ func (q *HttpQuerier) TailHandler(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case response = <-responseChan:
-			var err error
-			if loghttp.GetVersion(r.RequestURI) == loghttp.VersionV1 {
-				err = marshal.WriteTailResponseJSON(*response, conn)
-			} else {
-				err = marshal_legacy.WriteTailResponseJSON(*response, conn)
+			if err := loghttp.EnsureHasV1(r.RequestURI); err != nil {
+				handleError(conn, logger, "The request was not V1", err)
+				return
 			}
-			if err != nil {
-				level.Error(logger).Log("msg", "Error writing to websocket", "err", err)
-				if err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())); err != nil {
-					level.Error(logger).Log("msg", "Error writing close message to websocket", "err", err)
-				}
+			if err := marshal.WriteTailResponseJSON(*response, conn); err != nil {
+				handleError(conn, logger, "Error writing to websocket", err)
 				return
 			}
 

@@ -143,28 +143,6 @@ var tailTests = []struct {
 	},
 }
 
-func Test_WriteQueryResponseJSON(t *testing.T) {
-
-	for i, queryTest := range queryTests {
-		var b bytes.Buffer
-		err := WriteQueryResponseJSON(logql.Result{Data: queryTest.actual}, &b)
-		require.NoError(t, err)
-
-		testJSONBytesEqual(t, []byte(queryTest.expected), b.Bytes(), "Query Test %d failed", i)
-	}
-}
-
-func Test_WriteLabelResponseJSON(t *testing.T) {
-
-	for i, labelTest := range labelTests {
-		var b bytes.Buffer
-		err := WriteLabelResponseJSON(labelTest.actual, &b)
-		require.NoError(t, err)
-
-		testJSONBytesEqual(t, []byte(labelTest.expected), b.Bytes(), "Label Test %d failed", i)
-	}
-}
-
 func Test_MarshalTailResponse(t *testing.T) {
 
 	for i, tailTest := range tailTests {

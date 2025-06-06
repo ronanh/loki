@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -25,7 +25,6 @@ import (
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
 	"github.com/ronanh/loki/logql/marshal"
-	marshal_legacy "github.com/ronanh/loki/logql/marshal/legacy"
 	"github.com/ronanh/loki/logql/stats"
 )
 
@@ -272,14 +271,14 @@ func (codec) EncodeRequest(ctx context.Context, r queryrange.Request) (*http.Req
 
 func (codec) DecodeResponse(ctx context.Context, r *http.Response, req queryrange.Request) (queryrange.Response, error) {
 	if r.StatusCode/100 != 2 {
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		return nil, httpgrpc.Errorf(r.StatusCode, string(body))
 	}
 
 	sp, _ := opentracing.StartSpanFromContext(ctx, "codec.DecodeResponse")
 	defer sp.Finish()
 
-	buf, err := ioutil.ReadAll(r.Body)
+	buf, err := io.ReadAll(r.Body)
 	if err != nil {
 		sp.LogFields(otlog.Error(err))
 		return nil, httpgrpc.Errorf(http.StatusInternalServerError, "error decoding response: %v", err)
@@ -378,14 +377,11 @@ func (codec) EncodeResponse(ctx context.Context, res queryrange.Response) (*http
 			Data:       logql.Streams(streams),
 			Statistics: response.Statistics,
 		}
-		if loghttp.Version(response.Version) == loghttp.VersionLegacy {
-			if err := marshal_legacy.WriteQueryResponseJSON(result, &buf); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := marshal.WriteQueryResponseJSON(result, &buf); err != nil {
-				return nil, err
-			}
+		if err := loghttp.EnsureIsV1(loghttp.Version(response.Version)); err != nil {
+			return nil, err
+		}
+		if err := marshal.WriteQueryResponseJSON(result, &buf); err != nil {
+			return nil, err
 		}
 
 	case *LokiSeriesResponse:
@@ -396,15 +392,13 @@ func (codec) EncodeResponse(ctx context.Context, res queryrange.Response) (*http
 			return nil, err
 		}
 	case *LokiLabelNamesResponse:
-		if loghttp.Version(response.Version) == loghttp.VersionLegacy {
-			if err := marshal_legacy.WriteLabelResponseJSON(logproto.LabelResponse{Values: response.Data}, &buf); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := marshal.WriteLabelResponseJSON(logproto.LabelResponse{Values: response.Data}, &buf); err != nil {
-				return nil, err
-			}
+		if err := loghttp.EnsureIsV1(loghttp.Version(response.Version)); err != nil {
+			return nil, err
 		}
+		if err := marshal.WriteLabelResponseJSON(logproto.LabelResponse{Values: response.Data}, &buf); err != nil {
+			return nil, err
+		}
+
 	default:
 		return nil, httpgrpc.Errorf(http.StatusInternalServerError, "invalid response format")
 	}
@@ -415,7 +409,7 @@ func (codec) EncodeResponse(ctx context.Context, res queryrange.Response) (*http
 		Header: http.Header{
 			"Content-Type": []string{"application/json"},
 		},
-		Body:       ioutil.NopCloser(&buf),
+		Body:       io.NopCloser(&buf),
 		StatusCode: http.StatusOK,
 	}
 	return &resp, nil

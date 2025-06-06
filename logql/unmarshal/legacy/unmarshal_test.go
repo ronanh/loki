@@ -45,19 +45,6 @@ var pushTests = []struct {
 	},
 }
 
-func Test_DecodePushRequest(t *testing.T) {
-
-	for i, pushTest := range pushTests {
-		var actual logproto.PushRequest
-		closer := ioutil.NopCloser(strings.NewReader(pushTest.actual))
-
-		err := DecodePushRequest(closer, &actual)
-		require.NoError(t, err)
-
-		require.Equalf(t, pushTest.expected, actual.Streams, "Push Test %d failed", i)
-	}
-}
-
 func mustParse(l string, t string) time.Time {
 	ret, err := time.Parse(l, t)
 	if err != nil {
