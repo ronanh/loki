@@ -26,7 +26,6 @@ import (
 	cortex_local "github.com/cortexproject/cortex/pkg/chunk/local"
 	"github.com/cortexproject/cortex/pkg/chunk/storage"
 	"github.com/cortexproject/cortex/pkg/querier/astmapper"
-	"github.com/cortexproject/cortex/pkg/util/flagext"
 
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
@@ -755,7 +754,6 @@ func TestStore_MultipleBoltDBShippersInConfig(t *testing.T) {
 
 	// config for BoltDB Shipper
 	boltdbShipperConfig := shipper.Config{}
-	flagext.DefaultValues(&boltdbShipperConfig)
 	boltdbShipperConfig.ActiveIndexDirectory = path.Join(tempDir, "index")
 	boltdbShipperConfig.SharedStoreType = "filesystem"
 	boltdbShipperConfig.CacheLocation = path.Join(tempDir, "boltdb-shipper-cache")
@@ -768,7 +766,6 @@ func TestStore_MultipleBoltDBShippersInConfig(t *testing.T) {
 		Config: storage.Config{
 			FSConfig: cortex_local.FSConfig{Directory: path.Join(tempDir, "chunks")},
 		},
-		BoltDBShipperConfig: boltdbShipperConfig,
 	}
 
 	schemaConfig := SchemaConfig{
@@ -798,8 +795,6 @@ func TestStore_MultipleBoltDBShippersInConfig(t *testing.T) {
 			},
 		},
 	}
-
-	RegisterCustomIndexClients(&config, nil)
 
 	chunkStore, err := storage.NewStore(
 		config.Config,

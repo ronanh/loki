@@ -31,15 +31,13 @@ var (
 
 // Config is the loki storage configuration
 type Config struct {
-	storage.Config      `yaml:",inline"`
-	MaxChunkBatchSize   int            `yaml:"max_chunk_batch_size"`
-	BoltDBShipperConfig shipper.Config `yaml:"boltdb_shipper"`
+	storage.Config    `yaml:",inline"`
+	MaxChunkBatchSize int `yaml:"max_chunk_batch_size"`
 }
 
 // RegisterFlags adds the flags required to configure this flag set.
 func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 	cfg.Config.RegisterFlags(f)
-	cfg.BoltDBShipperConfig.RegisterFlags(f)
 	f.IntVar(&cfg.MaxChunkBatchSize, "store.max-chunk-batch-size", 50, "The maximum number of chunks to fetch per batch.")
 }
 
@@ -351,35 +349,6 @@ func filterChunksByTime(from, through model.Time, chunks []chunk.Chunk) []chunk.
 		filtered = append(filtered, chunk)
 	}
 	return filtered
-}
-
-func RegisterCustomIndexClients(cfg *Config, registerer prometheus.Registerer) {
-	// BoltDB Shipper is supposed to be run as a singleton.
-	// This could also be done in NewBoltDBIndexClientWithShipper factory method but we are doing it here because that method is used
-	// in tests for creating multiple instances of it at a time.
-	var boltDBIndexClientWithShipper chunk.IndexClient
-
-	storage.RegisterIndexStore(shipper.BoltDBShipperType, func() (chunk.IndexClient, error) {
-		if boltDBIndexClientWithShipper != nil {
-			return boltDBIndexClientWithShipper, nil
-		}
-
-		objectClient, err := storage.NewObjectClient(cfg.BoltDBShipperConfig.SharedStoreType, cfg.Config)
-		if err != nil {
-			return nil, err
-		}
-
-		boltDBIndexClientWithShipper, err = shipper.NewShipper(cfg.BoltDBShipperConfig, objectClient, registerer)
-
-		return boltDBIndexClientWithShipper, err
-	}, func() (client chunk.TableClient, e error) {
-		objectClient, err := storage.NewObjectClient(cfg.BoltDBShipperConfig.SharedStoreType, cfg.Config)
-		if err != nil {
-			return nil, err
-		}
-
-		return shipper.NewBoltDBShipperTableClient(objectClient), nil
-	})
 }
 
 // ActivePeriodConfig returns index of active PeriodicConfig which would be applicable to logs that would be pushed starting now.
