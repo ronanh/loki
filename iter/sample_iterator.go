@@ -1,13 +1,11 @@
 package iter
 
 import (
-	"container/heap"
 	"context"
 	"io"
 	"sort"
 
 	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/ronanh/loki/helpers"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
@@ -42,85 +40,9 @@ type PeekingSampleIterator interface {
 	Peek() (string, logproto.Sample, bool)
 }
 
-type peekingSampleIterator struct {
-	iter SampleIterator
-
-	cache *sampleWithLabels
-	next  *sampleWithLabels
-}
-
 type sampleWithLabels struct {
 	logproto.Sample
 	labels string
-}
-
-func NewPeekingSampleIteratorLoki(iter SampleIterator) PeekingSampleIterator {
-	// initialize the next entry so we can peek right from the start.
-	var cache *sampleWithLabels
-	next := &sampleWithLabels{}
-	if iter.Next() {
-		cache = &sampleWithLabels{
-			Sample: iter.Sample(),
-			labels: iter.Labels(),
-		}
-		next.Sample = cache.Sample
-		next.labels = cache.labels
-	}
-	return &peekingSampleIterator{
-		iter:  iter,
-		cache: cache,
-		next:  next,
-	}
-}
-
-func (it *peekingSampleIterator) Close() error {
-	return it.iter.Close()
-}
-
-func (it *peekingSampleIterator) Labels() string {
-	if it.next != nil {
-		return it.next.labels
-	}
-	return ""
-}
-
-func (it *peekingSampleIterator) Next() bool {
-	if it.cache != nil {
-		it.next.Sample = it.cache.Sample
-		it.next.labels = it.cache.labels
-		it.cacheNext()
-		return true
-	}
-	return false
-}
-
-// cacheNext caches the next element if it exists.
-func (it *peekingSampleIterator) cacheNext() {
-	if it.iter.Next() {
-		it.cache.Sample = it.iter.Sample()
-		it.cache.labels = it.iter.Labels()
-		return
-	}
-	// nothing left removes the cached entry
-	it.cache = nil
-}
-
-func (it *peekingSampleIterator) Sample() logproto.Sample {
-	if it.next != nil {
-		return it.next.Sample
-	}
-	return logproto.Sample{}
-}
-
-func (it *peekingSampleIterator) Peek() (string, logproto.Sample, bool) {
-	if it.cache != nil {
-		return it.cache.labels, it.cache.Sample, true
-	}
-	return "", logproto.Sample{}, false
-}
-
-func (it *peekingSampleIterator) Error() error {
-	return it.iter.Error()
 }
 
 type sampleIteratorHeap []SampleIterator
@@ -152,147 +74,9 @@ func (h sampleIteratorHeap) Less(i, j int) bool {
 	}
 }
 
-// heapSampleIterator iterates over a heap of iterators.
-type heapSampleIterator struct {
-	heap       *sampleIteratorHeap
-	is         []SampleIterator
-	prefetched bool
-	stats      *stats.ChunkData
-
-	tuples     []sampletuple
-	curr       logproto.Sample
-	currLabels string
-	errs       []error
-}
-
-// NewHeapSampleIterator returns a new iterator which uses a heap to merge together
-// entries for multiple iterators.
-func NewHeapSampleIteratorLoki(ctx context.Context, is []SampleIterator) SampleIterator {
-	return &heapSampleIterator{
-		stats:  stats.GetChunkData(ctx),
-		is:     is,
-		heap:   &sampleIteratorHeap{},
-		tuples: make([]sampletuple, 0, len(is)),
-	}
-}
-
-// prefetch iterates over all inner iterators to merge together, calls Next() on
-// each of them to prefetch the first entry and pushes of them - who are not
-// empty - to the heap
-func (i *heapSampleIterator) prefetch() {
-	if i.prefetched {
-		return
-	}
-
-	i.prefetched = true
-	for _, it := range i.is {
-		i.requeue(it, false)
-	}
-
-	// We can now clear the list of input iterators to merge, given they have all
-	// been processed and the non empty ones have been pushed to the heap
-	i.is = nil
-}
-
-// requeue pushes the input ei EntryIterator to the heap, advancing it via an ei.Next()
-// call unless the advanced input parameter is true. In this latter case it expects that
-// the iterator has already been advanced before calling requeue().
-//
-// If the iterator has no more entries or an error occur while advancing it, the iterator
-// is not pushed to the heap and any possible error captured, so that can be get via Error().
-func (i *heapSampleIterator) requeue(ei SampleIterator, advanced bool) {
-	if advanced || ei.Next() {
-		heap.Push(i.heap, ei)
-		return
-	}
-
-	if err := ei.Error(); err != nil {
-		i.errs = append(i.errs, err)
-	}
-	helpers.LogError("closing iterator", ei.Close)
-}
-
 type sampletuple struct {
 	logproto.Sample
 	SampleIterator
-}
-
-func (i *heapSampleIterator) Next() bool {
-	i.prefetch()
-
-	if i.heap.Len() == 0 {
-		return false
-	}
-
-	// We support multiple entries with the same timestamp, and we want to
-	// preserve their original order. We look at all the top entries in the
-	// heap with the same timestamp, and pop the ones whose common value
-	// occurs most often.
-	for i.heap.Len() > 0 {
-		next := i.heap.Peek()
-		sample := next.Sample()
-		if len(i.tuples) > 0 && (i.tuples[0].Labels() != next.Labels() || i.tuples[0].Timestamp != sample.Timestamp) {
-			break
-		}
-
-		heap.Pop(i.heap)
-		i.tuples = append(i.tuples, sampletuple{
-			Sample:         sample,
-			SampleIterator: next,
-		})
-	}
-
-	i.curr = i.tuples[0].Sample
-	i.currLabels = i.tuples[0].Labels()
-	t := i.tuples[0]
-	if len(i.tuples) == 1 {
-		i.requeue(i.tuples[0].SampleIterator, false)
-		i.tuples = i.tuples[:0]
-		return true
-	}
-	// Requeue the iterators, advancing them if they were consumed.
-	for j := range i.tuples {
-		if i.tuples[j].Hash != i.curr.Hash {
-			i.requeue(i.tuples[j].SampleIterator, true)
-			continue
-		}
-		// we count as duplicates only if the tuple is not the one (t) used to fill the current entry
-		if i.tuples[j] != t {
-			i.stats.TotalDuplicates++
-		}
-		i.requeue(i.tuples[j].SampleIterator, false)
-	}
-	i.tuples = i.tuples[:0]
-	return true
-}
-
-func (i *heapSampleIterator) Sample() logproto.Sample {
-	return i.curr
-}
-
-func (i *heapSampleIterator) Labels() string {
-	return i.currLabels
-}
-
-func (i *heapSampleIterator) Error() error {
-	switch len(i.errs) {
-	case 0:
-		return nil
-	case 1:
-		return i.errs[0]
-	default:
-		return util.MultiError(i.errs)
-	}
-}
-
-func (i *heapSampleIterator) Close() error {
-	for i.heap.Len() > 0 {
-		if err := i.heap.Pop().(SampleIterator).Close(); err != nil {
-			return err
-		}
-	}
-	i.tuples = nil
-	return nil
 }
 
 type mergingSampleIterator struct {
@@ -546,7 +330,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 		j        int
 		needSort bool
 	)
-	for i := 0; i < len(mi.iActiveIts); i++ {
+	for i := range mi.iActiveIts {
 		itsi := &mi.its[mi.iActiveIts[i]]
 		if s, ok := itsi.SampleIterator.(Seekable); ok {
 			hasNext := s.Seek(t)
@@ -812,29 +596,4 @@ func (i *timeRangedSampleIterator) Next() bool {
 		i.SampleIterator.Close()
 	}
 	return ok
-}
-
-// ReadBatch reads a set of entries off an iterator.
-func ReadSampleBatch(i SampleIterator, size uint32) (*logproto.SampleQueryResponse, uint32, error) {
-	series := map[string]*logproto.Series{}
-	respSize := uint32(0)
-	for ; respSize < size && i.Next(); respSize++ {
-		labels, sample := i.Labels(), i.Sample()
-		s, ok := series[labels]
-		if !ok {
-			s = &logproto.Series{
-				Labels: labels,
-			}
-			series[labels] = s
-		}
-		s.Samples = append(s.Samples, sample)
-	}
-
-	result := logproto.SampleQueryResponse{
-		Series: make([]logproto.Series, 0, len(series)),
-	}
-	for _, s := range series {
-		result.Series = append(result.Series, *s)
-	}
-	return &result, respSize, i.Error()
 }
