@@ -181,3 +181,15 @@ func TestNewNonOverlappingSampleIterator(t *testing.T) {
 	require.NoError(t, it.Error())
 	require.NoError(t, it.Close())
 }
+
+func TestReadSampleBatch(t *testing.T) {
+	res, size, err := ReadSampleBatch(NewSeriesIterator(carSeries), 1)
+	require.Equal(t, &logproto.SampleQueryResponse{Series: []logproto.Series{{Labels: carSeries.Labels, Samples: []logproto.Sample{sample(1)}}}}, res)
+	require.Equal(t, uint32(1), size)
+	require.NoError(t, err)
+
+	res, size, err = ReadSampleBatch(NewMultiSeriesIterator(context.Background(), []logproto.Series{carSeries, varSeries}), 100)
+	require.ElementsMatch(t, []logproto.Series{carSeries, varSeries}, res.Series)
+	require.Equal(t, uint32(6), size)
+	require.NoError(t, err)
+}

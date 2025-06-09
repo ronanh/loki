@@ -597,3 +597,28 @@ func (i *timeRangedSampleIterator) Next() bool {
 	}
 	return ok
 }
+
+// ReadBatch reads a set of entries off an iterator.
+func ReadSampleBatch(i SampleIterator, size uint32) (*logproto.SampleQueryResponse, uint32, error) {
+	series := map[string]*logproto.Series{}
+	respSize := uint32(0)
+	for ; respSize < size && i.Next(); respSize++ {
+		labels, sample := i.Labels(), i.Sample()
+		s, ok := series[labels]
+		if !ok {
+			s = &logproto.Series{
+				Labels: labels,
+			}
+			series[labels] = s
+		}
+		s.Samples = append(s.Samples, sample)
+	}
+
+	result := logproto.SampleQueryResponse{
+		Series: make([]logproto.Series, 0, len(series)),
+	}
+	for _, s := range series {
+		result.Series = append(result.Series, *s)
+	}
+	return &result, respSize, i.Error()
+}
