@@ -5,11 +5,7 @@ package logproto;
 option go_package = "github.com/ronanh/loki/logproto";
 
 import "google/protobuf/timestamp.proto";
-import "github.com/gogo/protobuf/gogoproto/gogo.proto";
-
-service Pusher {
-  rpc Push(PushRequest) returns (PushResponse) {};
-}
+import "pb/gogo.proto";
 
 service Querier {
   rpc Query(QueryRequest) returns (stream QueryResponse) {};
@@ -18,18 +14,10 @@ service Querier {
   rpc Tail(TailRequest) returns (stream TailResponse) {};
   rpc Series(SeriesRequest) returns (SeriesResponse) {};
   rpc TailersCount(TailersCountRequest) returns (TailersCountResponse) {};
-  rpc GetChunkIDs(GetChunkIDsRequest) returns (GetChunkIDsResponse) {}; // GetChunkIDs returns ChunkIDs from the index store holding logs for given selectors and time-range.
 }
 
 service Ingester {
   rpc TransferChunks(stream TimeSeriesChunk) returns (TransferChunksResponse) {};
-}
-
-message PushRequest {
-  repeated StreamAdapter streams = 1 [(gogoproto.jsontag) = "streams", (gogoproto.customtype) = "Stream"];
-}
-
-message PushResponse {
 }
 
 message QueryRequest {
@@ -156,12 +144,3 @@ message TailersCountResponse {
   uint32 count = 1;
 }
 
-message GetChunkIDsRequest {
-  string matchers = 1;
-  google.protobuf.Timestamp start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-  google.protobuf.Timestamp end = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-}
-
-message GetChunkIDsResponse {
-  repeated string chunkIDs = 1;
-}
