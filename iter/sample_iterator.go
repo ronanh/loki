@@ -9,6 +9,7 @@ import (
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
+	"slices"
 )
 
 // SampleIterator iterates over samples in time-order.
@@ -43,40 +44,6 @@ type PeekingSampleIterator interface {
 type sampleWithLabels struct {
 	logproto.Sample
 	labels string
-}
-
-type sampleIteratorHeap []SampleIterator
-
-func (h sampleIteratorHeap) Len() int             { return len(h) }
-func (h sampleIteratorHeap) Swap(i, j int)        { h[i], h[j] = h[j], h[i] }
-func (h sampleIteratorHeap) Peek() SampleIterator { return h[0] }
-func (h *sampleIteratorHeap) Push(x interface{}) {
-	*h = append(*h, x.(SampleIterator))
-}
-
-func (h *sampleIteratorHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
-}
-
-func (h sampleIteratorHeap) Less(i, j int) bool {
-	s1, s2 := h[i].Sample(), h[j].Sample()
-	switch {
-	case s1.Timestamp < s2.Timestamp:
-		return true
-	case s1.Timestamp > s2.Timestamp:
-		return false
-	default:
-		return h[i].Labels() < h[j].Labels()
-	}
-}
-
-type sampletuple struct {
-	logproto.Sample
-	SampleIterator
 }
 
 type mergingSampleIterator struct {
@@ -301,7 +268,7 @@ func (mi *mergingSampleIterator) dedup() {
 			// stream finished: remove it
 			itsi.Close()
 			itsi.SampleIterator = nil
-			mi.iActiveIts = append(mi.iActiveIts[:i], mi.iActiveIts[i+1:]...)
+			mi.iActiveIts = slices.Delete(mi.iActiveIts, i, i+1)
 			// restart iteration from the same position
 			i--
 			continue
