@@ -2246,13 +2246,6 @@ func constantValue(t int64) generator {
 	}
 }
 
-// nolint
-func inverse(g generator) generator {
-	return func(i int64) logData {
-		return g(-i)
-	}
-}
-
 // errorIterator
 type errorIterator struct{}
 

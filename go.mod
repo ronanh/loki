@@ -32,8 +32,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/weaveworks/common v0.0.0-20210112142934-23c8d7fa6120
-	go.etcd.io/bbolt v1.3.5
-	go.uber.org/atomic v1.7.0
+	go.etcd.io/bbolt v1.3.5 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
 	google.golang.org/grpc v1.34.0
 	gopkg.in/yaml.v2 v2.4.0
 )

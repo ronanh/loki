@@ -160,32 +160,6 @@ func avgOverTime(samples []promql.Point) float64 {
 	return sumOverTime(samples) / float64(len(samples))
 }
 
-func avgOverTimeLoki(samples []promql.Point) float64 {
-	var mean float64
-	for i := range samples {
-		if math.IsInf(mean, 0) {
-			v := samples[i].V
-			if math.IsInf(v, 0) && (mean > 0) == (v > 0) {
-				// The `mean` and `v.V` values are `Inf` of the same sign.  They
-				// can't be subtracted, but the value of `mean` is correct
-				// already.
-				continue
-			}
-			if !math.IsInf(v, 0) && !math.IsNaN(v) {
-				// At this stage, the mean is an infinite. If the added
-				// value is neither an Inf or a Nan, we can keep that mean
-				// value.
-				// This is required because our calculation below removes
-				// the mean value, which would look like Inf += x - Inf and
-				// end up as a NaN.
-				continue
-			}
-		}
-		mean += (samples[i].V - mean) / float64(i+1)
-	}
-	return mean
-}
-
 func firstOverTime(samples []promql.Point) float64 {
 	if len(samples) == 0 {
 		return 0

@@ -1127,27 +1127,6 @@ func (e *literalExpr) Pipeline() (log.Pipeline, error)         { return log.NewN
 func (e *literalExpr) Matchers() []*labels.Matcher             { return nil }
 func (e *literalExpr) Extractor() (log.SampleExtractor, error) { return nil, nil }
 
-// helper used to impl Stringer for vector and range aggregations
-// nolint:interfacer
-func formatOperation(op string, grouping *grouping, params ...string) string {
-	nonEmptyParams := make([]string, 0, len(params))
-	for _, p := range params {
-		if p != "" {
-			nonEmptyParams = append(nonEmptyParams, p)
-		}
-	}
-
-	var sb strings.Builder
-	sb.WriteString(op)
-	if grouping != nil {
-		sb.WriteString(grouping.String())
-	}
-	sb.WriteString("(")
-	sb.WriteString(strings.Join(nonEmptyParams, ","))
-	sb.WriteString(")")
-	return sb.String()
-}
-
 type labelReplaceExpr struct {
 	left        SampleExpr
 	dst         string
