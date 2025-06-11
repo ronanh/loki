@@ -14,6 +14,8 @@ import (
 	"github.com/ronanh/loki/util"
 )
 
+const lineFuncName = "__line__"
+
 func init() {
 	m := sprig.GenericFuncMap()
 	for _, fn := range []string{
@@ -107,7 +109,7 @@ func NewFormatter(tmpl string) (*LineFormatter, error) {
 	}
 
 	funcMap := maps.Clone(functionMap)
-	funcMap["__line__"] = func() string {
+	funcMap[lineFuncName] = func() string {
 		return util.BytesToStr(lineFormatter.currLine)
 	}
 	t, err := template.New("line").Option("missingkey=zero").Funcs(funcMap).Parse(tmpl)
@@ -239,7 +241,7 @@ func NewLabelsFormatter(fmts []LabelFmt) (*LabelsFormatter, error) {
 		buf: bytes.NewBuffer(make([]byte, 1024)),
 	}
 	funcMap := maps.Clone(functionMap)
-	funcMap["__line__"] = func() string {
+	funcMap[lineFuncName] = func() string {
 		return util.BytesToStr(lblsFormatter.currentLine)
 	}
 
