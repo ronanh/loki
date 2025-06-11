@@ -1,10 +1,8 @@
 package cfg
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 
@@ -13,36 +11,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// JSON returns a Source that opens the supplied `.json` file and loads it.
-func JSON(f *string) Source {
-	return func(dst Cloneable) error {
-		if f == nil {
-			return nil
-		}
-
-		j, err := ioutil.ReadFile(*f)
-		if err != nil {
-			return err
-		}
-
-		err = dJSON(j)(dst)
-		return errors.Wrap(err, *f)
-	}
-}
-
-// dJSON returns a JSON source and allows dependency injection
-func dJSON(y []byte) Source {
-	return func(dst Cloneable) error {
-		return json.Unmarshal(y, dst)
-	}
-}
-
 // YAML returns a Source that opens the supplied `.yaml` file and loads it.
 // When expandEnvVars is true, variables in the supplied '.yaml\ file are expanded
 // using https://pkg.go.dev/github.com/drone/envsubst?tab=overview
 func YAML(f string, expandEnvVars bool) Source {
 	return func(dst Cloneable) error {
-		y, err := ioutil.ReadFile(f)
+		y, err := os.ReadFile(f)
 		if err != nil {
 			return err
 		}
