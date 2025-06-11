@@ -3,11 +3,68 @@ package log
 import (
 	"bytes"
 	"fmt"
-	"regexp"
+	"maps"
+	"net/url"
 	"strings"
 	"text/template"
 	"text/template/parse"
+
+	"github.com/Masterminds/sprig/v3"
+	"github.com/dustin/go-humanize"
+	"github.com/ronanh/loki/util"
 )
+
+func init() {
+	m := sprig.GenericFuncMap()
+	for _, fn := range []string{
+		"b64enc",
+		"b64dec",
+		"lower",
+		"upper",
+		"title",
+		"trunc",
+		"substr",
+		"contains",
+		"hasPrefix",
+		"hasSuffix",
+		"indent",
+		"nindent",
+		"replace",
+		"repeat",
+		"trim",
+		"trimAll",
+		"trimSuffix",
+		"trimPrefix",
+		"int",
+		"float64",
+		"add",
+		"sub",
+		"mul",
+		"div",
+		"mod",
+		"addf",
+		"subf",
+		"mulf",
+		"divf",
+		"max",
+		"min",
+		"maxf",
+		"minf",
+		"ceil",
+		"floor",
+		"round",
+		"fromJson",
+		"date",
+		"toDate",
+		"now",
+		"unixEpoch",
+		"default",
+		"regexReplaceAll",
+		"regexReplaceAllLiteral",
+	} {
+		functionMap[fn] = m[fn]
+	}
+}
 
 var (
 	_ Stage = &LineFormatter{}
@@ -26,53 +83,39 @@ var (
 		"TrimSuffix": strings.TrimSuffix,
 		"TrimSpace":  strings.TrimSpace,
 
-		// New function ported from https://github.com/Masterminds/sprig/
-		// Those function takes the string as the last parameter, allowing pipe chaining.
-		// Example: .mylabel | lower | substring 0 5
-		"lower":      strings.ToLower,
-		"upper":      strings.ToUpper,
-		"title":      strings.Title,
-		"trunc":      trunc,
-		"substr":     substring,
-		"contains":   contains,
-		"hasPrefix":  hasPrefix,
-		"hasSuffix":  hasSuffix,
-		"indent":     indent,
-		"nindent":    nindent,
-		"replace":    replace,
-		"repeat":     repeat,
-		"trim":       strings.TrimSpace,
-		"trimAll":    trimAll,
-		"trimSuffix": trimSuffix,
-		"trimPrefix": trimPrefix,
-
-		// regex functions
-		"regexReplaceAll": func(regex string, s string, repl string) string {
-			r := regexp.MustCompile(regex)
-			return r.ReplaceAllString(s, repl)
-		},
-		"regexReplaceAllLiteral": func(regex string, s string, repl string) string {
-			r := regexp.MustCompile(regex)
-			return r.ReplaceAllLiteralString(s, repl)
+		// specific functions
+		"urldecode": url.QueryUnescape,
+		"urlencode": url.QueryEscape,
+		"bytes": func(s string) (float64, error) {
+			v, err := humanize.ParseBytes(s)
+			return float64(v), err
 		},
 	}
 )
 
 type LineFormatter struct {
+	currLine []byte
+
 	*template.Template
 	buf *bytes.Buffer
 }
 
 // NewFormatter creates a new log line formatter from a given text template.
 func NewFormatter(tmpl string) (*LineFormatter, error) {
-	t, err := template.New("line").Option("missingkey=zero").Funcs(functionMap).Parse(tmpl)
+	lineFormatter := &LineFormatter{
+		buf: bytes.NewBuffer(make([]byte, 4096)),
+	}
+
+	funcMap := maps.Clone(functionMap)
+	funcMap["__line__"] = func() string {
+		return util.BytesToStr(lineFormatter.currLine)
+	}
+	t, err := template.New("line").Option("missingkey=zero").Funcs(funcMap).Parse(tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid line template: %s", err)
 	}
-	return &LineFormatter{
-		Template: t,
-		buf:      bytes.NewBuffer(make([]byte, 4096)),
-	}, nil
+	lineFormatter.Template = t
+	return lineFormatter, nil
 }
 
 func (lf *LineFormatter) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
@@ -81,6 +124,7 @@ func (lf *LineFormatter) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool)
 	if tmpMap {
 		defer smp.Put(m)
 	}
+	lf.currLine = line
 	if err := lf.Template.Execute(lf.buf, m); err != nil {
 		lbs.SetErr(errTemplateFormat)
 		return line, true
@@ -178,6 +222,8 @@ type labelFormatter struct {
 }
 
 type LabelsFormatter struct {
+	currentLine []byte
+
 	formats []labelFormatter
 	buf     *bytes.Buffer
 }
@@ -189,11 +235,19 @@ func NewLabelsFormatter(fmts []LabelFmt) (*LabelsFormatter, error) {
 	if err := validate(fmts); err != nil {
 		return nil, err
 	}
+	lblsFormatter := &LabelsFormatter{
+		buf: bytes.NewBuffer(make([]byte, 1024)),
+	}
+	funcMap := maps.Clone(functionMap)
+	funcMap["__line__"] = func() string {
+		return util.BytesToStr(lblsFormatter.currentLine)
+	}
+
 	formats := make([]labelFormatter, 0, len(fmts))
 	for _, fm := range fmts {
 		toAdd := labelFormatter{LabelFmt: fm}
 		if !fm.Rename {
-			t, err := template.New("label").Option("missingkey=zero").Funcs(functionMap).Parse(fm.Value)
+			t, err := template.New("label").Option("missingkey=zero").Funcs(funcMap).Parse(fm.Value)
 			if err != nil {
 				return nil, fmt.Errorf("invalid template for label '%s': %s", fm.Name, err)
 			}
@@ -201,10 +255,8 @@ func NewLabelsFormatter(fmts []LabelFmt) (*LabelsFormatter, error) {
 		}
 		formats = append(formats, toAdd)
 	}
-	return &LabelsFormatter{
-		formats: formats,
-		buf:     bytes.NewBuffer(make([]byte, 1024)),
-	}, nil
+	lblsFormatter.formats = formats
+	return lblsFormatter, nil
 }
 
 func validate(fmts []LabelFmt) error {
@@ -224,6 +276,7 @@ func validate(fmts []LabelFmt) error {
 }
 
 func (lf *LabelsFormatter) Process(l []byte, lbs *LabelsBuilder) ([]byte, bool) {
+	lf.currentLine = l
 	var tmpMap bool
 	var m map[string]string
 	for _, f := range lf.formats {
@@ -264,61 +317,3 @@ func (lf *LabelsFormatter) RequiredLabelNames() []string {
 	}
 	return uniqueString(names)
 }
-
-func trunc(c int, s string) string {
-	runes := []rune(s)
-	l := len(runes)
-	if c < 0 && l+c > 0 {
-		return string(runes[l+c:])
-	}
-	if c >= 0 && l > c {
-		return string(runes[:c])
-	}
-	return s
-}
-
-// substring creates a substring of the given string.
-//
-// If start is < 0, this calls string[:end].
-//
-// If start is >= 0 and end < 0 or end bigger than s length, this calls string[start:]
-//
-// Otherwise, this calls string[start, end].
-func substring(start, end int, s string) string {
-	runes := []rune(s)
-	l := len(runes)
-	if end > l {
-		end = l
-	}
-	if start > l {
-		start = l
-	}
-	if start < 0 {
-		if end < 0 {
-			return ""
-		}
-		return string(runes[:end])
-	}
-	if end < 0 {
-		return string(runes[start:])
-	}
-	if start > end {
-		return ""
-	}
-	return string(runes[start:end])
-}
-
-func contains(substr string, str string) bool  { return strings.Contains(str, substr) }
-func hasPrefix(substr string, str string) bool { return strings.HasPrefix(str, substr) }
-func hasSuffix(substr string, str string) bool { return strings.HasSuffix(str, substr) }
-func repeat(count int, str string) string      { return strings.Repeat(str, count) }
-func replace(old, new, src string) string      { return strings.Replace(src, old, new, -1) }
-func trimAll(a, b string) string               { return strings.Trim(b, a) }
-func trimSuffix(a, b string) string            { return strings.TrimSuffix(b, a) }
-func trimPrefix(a, b string) string            { return strings.TrimPrefix(b, a) }
-func indent(spaces int, v string) string {
-	pad := strings.Repeat(" ", spaces)
-	return pad + strings.Replace(v, "\n", "\n"+pad, -1)
-}
-
-func nindent(spaces int, v string) string { return "\n" + indent(spaces, v) }
