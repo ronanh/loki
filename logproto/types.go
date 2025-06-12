@@ -20,16 +20,6 @@ type Entry struct {
 	Line      string    `protobuf:"bytes,2,opt,name=line,proto3" json:"line"`
 }
 
-func (m *Stream) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
 func (m *Stream) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
@@ -54,16 +44,6 @@ func (m *Stream) MarshalTo(dAtA []byte) (int, error) {
 		}
 	}
 	return i, nil
-}
-
-func (m *Entry) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
 }
 
 func (m *Entry) MarshalTo(dAtA []byte) (int, error) {
