@@ -15,6 +15,11 @@ func Test_Parse(t *testing.T) {
 		err      error
 	}{
 		{
+			"",
+			nil,
+			errZeroParts,
+		},
+		{
 			"<foo> bar f <f>",
 			[]part{{capture: []byte("foo")}, {literal: []byte(" bar f ")}, {capture: []byte("f")}},
 			nil,
@@ -59,9 +64,13 @@ func Test_Parse(t *testing.T) {
 		t.Run(tc.input, func(t *testing.T) {
 			actual, err := CompileFromString(tc.input)
 			if tc.err != nil || err != nil {
-				require.ErrorIs(t, tc.err, err)
+				require.ErrorIs(t, err, tc.err)
 			}
-			require.Equal(t, tc.expected, actual.parts)
+			if tc.expected == nil {
+				require.Nil(t, actual)
+			} else {
+				require.Equal(t, tc.expected, actual.parts)
+			}
 
 		})
 	}
