@@ -203,11 +203,6 @@ func TestCompile(t *testing.T) {
 			},
 		},
 		{
-			in:  "ciao<hola>mamamia\\",
-			out: nil,
-			err: errIncompleteEscape,
-		},
-		{
 			in: "status=<status>,latency=<latency>",
 			out: &Pattern{
 				parts: []part{

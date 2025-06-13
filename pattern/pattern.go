@@ -11,7 +11,6 @@ var (
 	errSuccessiveCapturesNotAllowed = errors.New("cannot have 2 successive captures without at least 1 litteral in between")
 	errZeroNamedCaptures            = errors.New("there must be at least 1 named capture")
 	errZeroParts                    = errors.New("pattern contained no literals nor captures")
-	errIncompleteEscape             = errors.New("incomplete escape sequence at the end of pattern expression")
 	errDuplicateCapture             = errors.New("found duplicate capture")
 )
 
@@ -181,18 +180,11 @@ func compileInternal(pat []byte) (*Pattern, error) {
 	namedCapturesCount := 0
 
 	inCapture := false
-	escape := false
 	parts := make([]part, 0, 8)
 
 	lhs := 0
 	for i, v := range pat {
-		if escape {
-			escape = false
-			continue
-		}
 		switch v {
-		case '\\':
-			escape = true
 		case '<':
 			if inCapture {
 				lhs--
@@ -204,10 +196,9 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			if i != 0 {
 				literal := pat[lhs:i]
 				if len(parts) > 0 && parts[len(parts)-1].literal != nil {
-					// this means the previous part was a literal,
-					// so we update it to add the current literal
-					// to ensure we are always alternating
-					// between literal and capture
+					// We must ensure that we are always alternating between literal and capture
+					// Here the previous part was already a literal
+					// which means it needs to be extended with this one
 					prevLiteral := parts[len(parts)-1].literal
 					newLiteral := pat[lhs-len(prevLiteral) : i]
 					parts[len(parts)-1].literal = newLiteral
@@ -239,10 +230,6 @@ func compileInternal(pat []byte) (*Pattern, error) {
 			parts = append(parts, part)
 			lhs = i + 1
 		}
-	}
-
-	if escape {
-		return nil, errIncompleteEscape
 	}
 
 	dangling := pat[lhs:]
