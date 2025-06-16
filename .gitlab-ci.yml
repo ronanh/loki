@@ -10,7 +10,7 @@ default:
 lint:
   stage: test
   script:
-    - make ci-lint
+    - make ci-check
 
 test:
   stage: test
