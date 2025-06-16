@@ -19,3 +19,17 @@ linters:
     paths:
       - ".*.pb.go"
       - ".*.y.go"
+formatters:
+  settings:
+    golines:
+      max-len: 100
+      tab-len: 4
+      shorten-comments: true
+      reformat-tags: true
+      chain-split-dots: true
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines    

@@ -6,15 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-const testSize = 10
-const defaultLabels = "{foo=\"baz\"}"
+const (
+	testSize      = 10
+	defaultLabels = "{foo=\"baz\"}"
+)
 
 func TestIterator(t *testing.T) {
 	for i, tc := range []struct {
@@ -305,7 +306,11 @@ func TestReverseIterator(t *testing.T) {
 	itr1 := mkStreamIterator(inverse(offset(testSize, identity)), defaultLabels)
 	itr2 := mkStreamIterator(inverse(offset(testSize, identity)), "{foobar: \"bazbar\"}")
 
-	heapIterator := NewHeapIterator(context.Background(), []EntryIterator{itr1, itr2}, logproto.BACKWARD)
+	heapIterator := NewHeapIterator(
+		context.Background(),
+		[]EntryIterator{itr1, itr2},
+		logproto.BACKWARD,
+	)
 	reversedIter, err := NewReversedIter(heapIterator, testSize, false)
 	require.NoError(t, err)
 
@@ -344,7 +349,11 @@ func TestReverseEntryIteratorUnlimited(t *testing.T) {
 	itr1 := mkStreamIterator(offset(testSize, identity), defaultLabels)
 	itr2 := mkStreamIterator(offset(testSize, identity), "{foobar: \"bazbar\"}")
 
-	heapIterator := NewHeapIterator(context.Background(), []EntryIterator{itr1, itr2}, logproto.BACKWARD)
+	heapIterator := NewHeapIterator(
+		context.Background(),
+		[]EntryIterator{itr1, itr2},
+		logproto.BACKWARD,
+	)
 	reversedIter, err := NewReversedIter(heapIterator, 0, false)
 	require.NoError(t, err)
 
@@ -486,7 +495,8 @@ func Test_DuplicateCount(t *testing.T) {
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
 						},
-					}}),
+					},
+				}),
 			},
 			logproto.FORWARD,
 			6,
@@ -503,7 +513,8 @@ func Test_DuplicateCount(t *testing.T) {
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
 						},
-					}}),
+					},
+				}),
 			},
 			logproto.BACKWARD,
 			6,
@@ -517,7 +528,8 @@ func Test_DuplicateCount(t *testing.T) {
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
 						},
-					}}),
+					},
+				}),
 			},
 			logproto.FORWARD,
 			0,
@@ -531,7 +543,8 @@ func Test_DuplicateCount(t *testing.T) {
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
 						},
-					}}),
+					},
+				}),
 			},
 			logproto.BACKWARD,
 			0,
@@ -550,7 +563,6 @@ func Test_DuplicateCount(t *testing.T) {
 }
 
 func Test_timeRangedIterator_Next(t *testing.T) {
-
 	tests := []struct {
 		mint   time.Time
 		maxt   time.Time
@@ -567,37 +579,43 @@ func Test_timeRangedIterator_Next(t *testing.T) {
 		{time.Unix(0, 0), time.Unix(0, 10), []bool{true, true, true, false}},
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("mint:%d maxt:%d", tt.mint.UnixNano(), tt.maxt.UnixNano()), func(t *testing.T) {
-			it := NewTimeRangedIterator(
-				NewStreamIterator(
-					logproto.Stream{Entries: []logproto.Entry{
-						{Timestamp: time.Unix(0, 1)},
-						{Timestamp: time.Unix(0, 2)},
-						{Timestamp: time.Unix(0, 3)},
-					}}),
-				tt.mint,
-				tt.maxt,
-			)
-			for _, b := range tt.expect {
-				require.Equal(t, b, it.Next())
-			}
-			require.NoError(t, it.Close())
-		})
-		t.Run(fmt.Sprintf("mint:%d maxt:%d_sample", tt.mint.UnixNano(), tt.maxt.UnixNano()), func(t *testing.T) {
-			it := NewTimeRangedSampleIterator(
-				NewSeriesIterator(
-					logproto.Series{Samples: []logproto.Sample{
-						sample(1),
-						sample(2),
-						sample(3),
-					}}),
-				tt.mint.UnixNano(),
-				tt.maxt.UnixNano(),
-			)
-			for _, b := range tt.expect {
-				require.Equal(t, b, it.Next())
-			}
-			require.NoError(t, it.Close())
-		})
+		t.Run(
+			fmt.Sprintf("mint:%d maxt:%d", tt.mint.UnixNano(), tt.maxt.UnixNano()),
+			func(t *testing.T) {
+				it := NewTimeRangedIterator(
+					NewStreamIterator(
+						logproto.Stream{Entries: []logproto.Entry{
+							{Timestamp: time.Unix(0, 1)},
+							{Timestamp: time.Unix(0, 2)},
+							{Timestamp: time.Unix(0, 3)},
+						}}),
+					tt.mint,
+					tt.maxt,
+				)
+				for _, b := range tt.expect {
+					require.Equal(t, b, it.Next())
+				}
+				require.NoError(t, it.Close())
+			},
+		)
+		t.Run(
+			fmt.Sprintf("mint:%d maxt:%d_sample", tt.mint.UnixNano(), tt.maxt.UnixNano()),
+			func(t *testing.T) {
+				it := NewTimeRangedSampleIterator(
+					NewSeriesIterator(
+						logproto.Series{Samples: []logproto.Sample{
+							sample(1),
+							sample(2),
+							sample(3),
+						}}),
+					tt.mint.UnixNano(),
+					tt.maxt.UnixNano(),
+				)
+				for _, b := range tt.expect {
+					require.Equal(t, b, it.Next())
+				}
+				require.NoError(t, it.Close())
+			},
+		)
 	}
 }

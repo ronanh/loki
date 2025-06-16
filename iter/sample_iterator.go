@@ -3,13 +3,13 @@ package iter
 import (
 	"context"
 	"io"
+	"slices"
 	"sort"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
-	"slices"
 )
 
 // SampleIterator iterates over samples in time-order.
@@ -35,15 +35,11 @@ type PeekPromLabels interface {
 	PeekPromLabels() labels.Labels
 }
 
-// PeekingSampleIterator is a sample iterator that can peek sample without moving the current sample.
+// PeekingSampleIterator is a sample iterator that can peek sample without moving the current
+// sample.
 type PeekingSampleIterator interface {
 	SampleIterator
 	Peek() (string, logproto.Sample, bool)
-}
-
-type sampleWithLabels struct {
-	logproto.Sample
-	labels string
 }
 
 type mergingSampleIterator struct {
@@ -60,8 +56,10 @@ type mergingSampleIterator struct {
 	errs      []error
 }
 
-var _ SampleIterator = (*mergingSampleIterator)(nil)
-var _ PeekingSampleIterator = (*mergingSampleIterator)(nil)
+var (
+	_ SampleIterator        = (*mergingSampleIterator)(nil)
+	_ PeekingSampleIterator = (*mergingSampleIterator)(nil)
+)
 
 func NewHeapSampleIterator(ctx context.Context, is []SampleIterator) SampleIterator {
 	return NewMergingSampleIterator(ctx, is)
@@ -111,9 +109,11 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 	return mi
 }
 
-var _ SampleIterator = (*mergingSampleIterator)(nil)
-var _ PeekPromLabels = (*mergingSampleIterator)(nil)
-var _ Seekable = (*mergingSampleIterator)(nil)
+var (
+	_ SampleIterator = (*mergingSampleIterator)(nil)
+	_ PeekPromLabels = (*mergingSampleIterator)(nil)
+	_ Seekable       = (*mergingSampleIterator)(nil)
+)
 
 // Close closes the iterator and frees associated ressources
 func (mi *mergingSampleIterator) Close() error {
@@ -200,19 +200,19 @@ func (mi *mergingSampleIterator) Next() bool {
 	mi.curSample, mi.curLabels = *its0.Sample, its0.labels
 
 	// advance iterator
-	hasNext := its0.SampleIterator.Next()
-	if err := its0.SampleIterator.Error(); err != nil {
+	hasNext := its0.Next()
+	if err := its0.Error(); err != nil {
 		mi.errs = append(mi.errs, err)
 	}
 	if !hasNext {
 		// stream finished: remove it
-		its0.SampleIterator.Close()
+		its0.Close()
 		its0.SampleIterator = nil
 		mi.iActiveIts = mi.iActiveIts[1:]
 	} else {
 		*its0.Sample = its0.SampleIterator.Sample()
 		ts0 := its0.Timestamp
-		its0.labels = its0.SampleIterator.Labels()
+		its0.labels = its0.Labels()
 
 		// Ensure streams sorted (only sort the stream that was advanced)
 		var firstItNewPos int
@@ -255,13 +255,14 @@ func (mi *mergingSampleIterator) dedup() {
 	// Ensure no duplicates
 	for i := 1; i < len(mi.iActiveIts); i++ {
 		itsi := &mi.its[mi.iActiveIts[i]]
-		if itsi.Sample.Timestamp != its0.Sample.Timestamp || itsi.labels != its0.labels || itsi.Sample.Hash != its0.Sample.Hash {
+		if itsi.Timestamp != its0.Timestamp || itsi.labels != its0.labels ||
+			itsi.Hash != its0.Hash {
 			break
 		}
 		// Duplicate -> advance to discard
 		mi.stats.TotalDuplicates++
-		hasNext := itsi.SampleIterator.Next()
-		if err := its0.SampleIterator.Error(); err != nil {
+		hasNext := itsi.Next()
+		if err := its0.Error(); err != nil {
 			mi.errs = append(mi.errs, err)
 		}
 		if !hasNext {
@@ -274,7 +275,7 @@ func (mi *mergingSampleIterator) dedup() {
 			continue
 		}
 		*itsi.Sample = itsi.SampleIterator.Sample()
-		itsi.labels = itsi.SampleIterator.Labels()
+		itsi.labels = itsi.Labels()
 		// Ensure sorted
 		for j := i + 1; j < len(mi.iActiveIts); j++ {
 			if !mi.less(j, j-1) {
@@ -301,7 +302,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 		itsi := &mi.its[mi.iActiveIts[i]]
 		if s, ok := itsi.SampleIterator.(Seekable); ok {
 			hasNext := s.Seek(t)
-			if err := itsi.SampleIterator.Error(); err != nil {
+			if err := itsi.Error(); err != nil {
 				mi.errs = append(mi.errs, err)
 			}
 			if !hasNext {
@@ -315,15 +316,15 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 				needSort = true
 			}
 			*itsi.Sample = sample
-			itsi.labels = itsi.SampleIterator.Labels()
+			itsi.labels = itsi.Labels()
 			mi.iActiveIts[j] = mi.iActiveIts[i]
 			j++
 		} else {
 			// Seek not supported: use Next() to advance
 			var advanced bool
-			for itsi.Sample.Timestamp < t {
-				hasNext := itsi.SampleIterator.Next()
-				if err := itsi.SampleIterator.Error(); err != nil {
+			for itsi.Timestamp < t {
+				hasNext := itsi.Next()
+				if err := itsi.Error(); err != nil {
 					mi.errs = append(mi.errs, err)
 				}
 				if !hasNext {
@@ -333,7 +334,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 					break
 				}
 				*itsi.Sample = itsi.SampleIterator.Sample()
-				itsi.labels = itsi.SampleIterator.Labels()
+				itsi.labels = itsi.Labels()
 				advanced = true
 			}
 			if itsi.SampleIterator != nil {
@@ -341,7 +342,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 				if advanced {
 					needSort = true
 					*itsi.Sample = itsi.SampleIterator.Sample()
-					itsi.labels = itsi.SampleIterator.Labels()
+					itsi.labels = itsi.Labels()
 				}
 				j++
 			}
@@ -414,7 +415,10 @@ func (i *sampleQueryClientIterator) Close() error {
 }
 
 // NewSampleQueryResponseIterator returns an iterator over a SampleQueryResponse.
-func NewSampleQueryResponseIterator(ctx context.Context, resp *logproto.SampleQueryResponse) SampleIterator {
+func NewSampleQueryResponseIterator(
+	ctx context.Context,
+	resp *logproto.SampleQueryResponse,
+) SampleIterator {
 	return NewMultiSeriesIterator(ctx, resp.Series)
 }
 
@@ -540,7 +544,7 @@ func NewTimeRangedSampleIterator(it SampleIterator, mint, maxt int64) SampleIter
 func (i *timeRangedSampleIterator) Next() bool {
 	ok := i.SampleIterator.Next()
 	if !ok {
-		i.SampleIterator.Close()
+		i.Close()
 		return ok
 	}
 	ts := i.SampleIterator.Sample().Timestamp
@@ -560,7 +564,7 @@ func (i *timeRangedSampleIterator) Next() bool {
 		}
 	}
 	if !ok {
-		i.SampleIterator.Close()
+		i.Close()
 	}
 	return ok
 }

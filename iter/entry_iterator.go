@@ -128,7 +128,8 @@ func (h iteratorMaxHeap) Less(i, j int) bool {
 	}
 }
 
-// HeapIterator iterates over a heap of iterators with ability to push new iterators and get some properties like time of entry at peek and len
+// HeapIterator iterates over a heap of iterators with ability to push new iterators and get some
+// properties like time of entry at peek and len
 // Not safe for concurrent use
 type HeapIterator interface {
 	EntryIterator
@@ -155,7 +156,11 @@ type heapIterator struct {
 
 // NewHeapIterator returns a new iterator which uses a heap to merge together
 // entries for multiple interators.
-func NewHeapIteratorLoki(ctx context.Context, is []EntryIterator, direction logproto.Direction) HeapIterator {
+func NewHeapIteratorLoki(
+	ctx context.Context,
+	is []EntryIterator,
+	direction logproto.Direction,
+) HeapIterator {
 	result := &heapIterator{is: is, stats: stats.GetChunkData(ctx)}
 	switch direction {
 	case logproto.BACKWARD:
@@ -229,7 +234,8 @@ func (i *heapIterator) Next() bool {
 	for i.heap.Len() > 0 {
 		next := i.heap.Peek()
 		entry := next.Entry()
-		if len(i.tuples) > 0 && (i.tuples[0].Labels() != next.Labels() || !i.tuples[0].Timestamp.Equal(entry.Timestamp)) {
+		if len(i.tuples) > 0 &&
+			(i.tuples[0].Labels() != next.Labels() || !i.tuples[0].Timestamp.Equal(entry.Timestamp)) {
 			break
 		}
 
@@ -261,7 +267,8 @@ func (i *heapIterator) Next() bool {
 			i.requeue(i.tuples[j].EntryIterator, true)
 			continue
 		}
-		// we count as duplicates only if the tuple is not the one (t) used to fill the current entry
+		// we count as duplicates only if the tuple is not the one (t) used to fill the current
+		// entry
 		if i.tuples[j] != t {
 			i.stats.TotalDuplicates++
 		}
@@ -323,14 +330,24 @@ type mergingIterator struct {
 	err       error
 }
 
-var _ EntryIterator = (*mergingIterator)(nil)
-var _ HeapIterator = (*mergingIterator)(nil)
+var (
+	_ EntryIterator = (*mergingIterator)(nil)
+	_ HeapIterator  = (*mergingIterator)(nil)
+)
 
-func NewHeapIterator(ctx context.Context, is []EntryIterator, direction logproto.Direction) HeapIterator {
+func NewHeapIterator(
+	ctx context.Context,
+	is []EntryIterator,
+	direction logproto.Direction,
+) HeapIterator {
 	return NewMergingIterator(ctx, is, direction)
 }
 
-func NewMergingIterator(ctx context.Context, its []EntryIterator, direction logproto.Direction) HeapIterator {
+func NewMergingIterator(
+	ctx context.Context,
+	its []EntryIterator,
+	direction logproto.Direction,
+) HeapIterator {
 	startedIts := make([]EntryIterator, 0, len(its))
 	var err error
 	for _, it := range its {
@@ -471,7 +488,8 @@ func (mi *mergingIterator) dedup() bool {
 	// Ensure no duplicates
 	var needSort bool
 	for i := 1; i < len(mi.its); i++ {
-		if mi.its[i].Entry().Timestamp != mi.its[0].Entry().Timestamp || mi.its[i].Labels() != mi.its[0].Labels() {
+		if mi.its[i].Entry().Timestamp != mi.its[0].Entry().Timestamp ||
+			mi.its[i].Labels() != mi.its[0].Labels() {
 			break
 		}
 		// Duplicate -> advance to discard
@@ -491,7 +509,11 @@ func (mi *mergingIterator) dedup() bool {
 }
 
 // NewStreamsIterator returns an iterator over logproto.Stream
-func NewStreamsIterator(ctx context.Context, streams []logproto.Stream, direction logproto.Direction) EntryIterator {
+func NewStreamsIterator(
+	ctx context.Context,
+	streams []logproto.Stream,
+	direction logproto.Direction,
+) EntryIterator {
 	is := make([]EntryIterator, 0, len(streams))
 	for i := range streams {
 		is = append(is, NewStreamIterator(streams[i]))
@@ -500,7 +522,11 @@ func NewStreamsIterator(ctx context.Context, streams []logproto.Stream, directio
 }
 
 // NewQueryResponseIterator returns an iterator over a QueryResponse.
-func NewQueryResponseIterator(ctx context.Context, resp *logproto.QueryResponse, direction logproto.Direction) EntryIterator {
+func NewQueryResponseIterator(
+	ctx context.Context,
+	resp *logproto.QueryResponse,
+	direction logproto.Direction,
+) EntryIterator {
 	is := make([]EntryIterator, 0, len(resp.Streams))
 	for i := range resp.Streams {
 		is = append(is, NewStreamIterator(resp.Streams[i]))
@@ -516,7 +542,10 @@ type queryClientIterator struct {
 }
 
 // NewQueryClientIterator returns an iterator over a QueryClient.
-func NewQueryClientIterator(client logproto.Querier_QueryClient, direction logproto.Direction) EntryIterator {
+func NewQueryClientIterator(
+	client logproto.Querier_QueryClient,
+	direction logproto.Direction,
+) EntryIterator {
 	return &queryClientIterator{
 		client:    client,
 		direction: direction,
@@ -633,7 +662,7 @@ func NewTimeRangedIterator(it EntryIterator, mint, maxt time.Time) EntryIterator
 func (i *timeRangedIterator) Next() bool {
 	ok := i.EntryIterator.Next()
 	if !ok {
-		i.EntryIterator.Close()
+		i.Close()
 		return ok
 	}
 	ts := i.EntryIterator.Entry().Timestamp
@@ -653,7 +682,7 @@ func (i *timeRangedIterator) Next() bool {
 		}
 	}
 	if !ok {
-		i.EntryIterator.Close()
+		i.Close()
 	}
 	return ok
 }
@@ -696,7 +725,10 @@ func (i *reverseIterator) load() {
 	if !i.loaded {
 		i.loaded = true
 		for count := uint32(0); (i.limit == 0 || count < i.limit) && i.iter.Next(); count++ {
-			i.entriesWithLabels = append(i.entriesWithLabels, entryWithLabels{i.iter.Entry(), i.iter.Labels()})
+			i.entriesWithLabels = append(
+				i.entriesWithLabels,
+				entryWithLabels{i.iter.Entry(), i.iter.Labels()},
+			)
 		}
 		i.iter.Close()
 	}
@@ -708,7 +740,8 @@ func (i *reverseIterator) Next() bool {
 		i.entriesWithLabels = nil
 		return false
 	}
-	i.cur, i.entriesWithLabels = i.entriesWithLabels[len(i.entriesWithLabels)-1], i.entriesWithLabels[:len(i.entriesWithLabels)-1]
+	i.cur = i.entriesWithLabels[len(i.entriesWithLabels)-1]
+	i.entriesWithLabels = i.entriesWithLabels[:len(i.entriesWithLabels)-1]
 	return true
 }
 
