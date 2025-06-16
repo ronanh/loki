@@ -7,6 +7,11 @@ stages:
 default:
   interruptible: true
 
+lint:
+  stage: test
+  script:
+    - make ci-lint
+
 test:
   stage: test
   script:
