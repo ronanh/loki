@@ -277,12 +277,6 @@ func (o *Overrides) EvaluationDelay(userID string) time.Duration {
 	return o.getOverridesForUser(userID).RulerEvaluationDelay
 }
 
-// RulerTenantShardSize returns shard size (number of rulers) used by this tenant when using shuffle-sharding strategy.
-// Not used in Loki.
-func (o *Overrides) RulerTenantShardSize(userID string) int {
-	return 0
-}
-
 // RulerMaxRulesPerRuleGroup returns the maximum number of rules per rule group for a given user.
 func (o *Overrides) RulerMaxRulesPerRuleGroup(userID string) int {
 	return o.getOverridesForUser(userID).RulerMaxRulesPerRuleGroup

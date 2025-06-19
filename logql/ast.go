@@ -32,7 +32,6 @@ type QueryParams interface {
 	LogSelector() (LogSelectorExpr, error)
 	GetStart() time.Time
 	GetEnd() time.Time
-	GetShards() []string
 }
 
 // implicit holds default implementations
@@ -159,8 +158,6 @@ func (e *matchersExpr) Matchers() []*labels.Matcher {
 func (e *matchersExpr) AddMatcher(matcher *labels.Matcher) {
 	e.matchers = append(e.matchers, matcher)
 }
-
-func (e *matchersExpr) Shardable() bool { return true }
 
 func (e *matchersExpr) String() string {
 	var sb strings.Builder
@@ -297,8 +294,6 @@ func (e *lineFilterExpr) Leaves() []Expr {
 	return e.left.Leaves()
 }
 
-func (e *lineFilterExpr) Shardable() bool { return true }
-
 func (e *lineFilterExpr) String() string {
 	var sb strings.Builder
 	sb.Grow(32)
@@ -361,8 +356,6 @@ func newLabelParserExpr(op, param string) *labelParserExpr {
 	}
 }
 
-func (e *labelParserExpr) Shardable() bool { return true }
-
 func (e *labelParserExpr) Stage() (log.Stage, error) {
 	switch e.op {
 	case OpParserTypeJSON:
@@ -399,8 +392,6 @@ type labelFilterExpr struct {
 	implicit
 }
 
-func (e *labelFilterExpr) Shardable() bool { return true }
-
 func (e *labelFilterExpr) Stage() (log.Stage, error) {
 	return e.LabelFilterer, nil
 }
@@ -417,8 +408,6 @@ type DropLabelsExpr struct {
 func newDropLabelsExpr(dropLabels []log.DropLabel) *DropLabelsExpr {
 	return &DropLabelsExpr{dropLabels: dropLabels}
 }
-
-func (e *DropLabelsExpr) Shardable() bool { return true }
 
 func (e *DropLabelsExpr) Stage() (log.Stage, error) {
 	return log.NewDropLabels(e.dropLabels), nil
@@ -454,8 +443,6 @@ func newLineFmtExpr(value string) *lineFmtExpr {
 	}
 }
 
-func (e *lineFmtExpr) Shardable() bool { return true }
-
 func (e *lineFmtExpr) Stage() (log.Stage, error) {
 	return log.NewFormatter(e.value)
 }
@@ -475,8 +462,6 @@ func newLabelFmtExpr(fmts []log.LabelFmt) *labelFmtExpr {
 		formats: fmts,
 	}
 }
-
-func (e *labelFmtExpr) Shardable() bool { return false }
 
 func (e *labelFmtExpr) Stage() (log.Stage, error) {
 	return log.NewLabelsFormatter(e.formats)
@@ -517,8 +502,6 @@ func newJSONExpressionParser(expressions []log.JSONExpression) *jsonExpressionPa
 		expressions: expressions,
 	}
 }
-
-func (j *jsonExpressionParser) Shardable() bool { return true }
 
 func (j *jsonExpressionParser) Stage() (log.Stage, error) {
 	return log.NewJSONExpressionParser(j.expressions)
@@ -1096,7 +1079,6 @@ func (e *literalExpr) String() string {
 // and they will only be present in binary operation legs.
 func (e *literalExpr) Selector() LogSelectorExpr               { return e }
 func (e *literalExpr) HasFilter() bool                         { return false }
-func (e *literalExpr) Shardable() bool                         { return true }
 func (e *literalExpr) Pipeline() (log.Pipeline, error)         { return log.NewNoopPipeline(), nil }
 func (e *literalExpr) Matchers() []*labels.Matcher             { return nil }
 func (e *literalExpr) Extractor() (log.SampleExtractor, error) { return nil, nil }
@@ -1133,10 +1115,6 @@ func (e *labelReplaceExpr) Selector() LogSelectorExpr {
 
 func (e *labelReplaceExpr) Extractor() (SampleExtractor, error) {
 	return e.left.Extractor()
-}
-
-func (e *labelReplaceExpr) Shardable() bool {
-	return false
 }
 
 func (e *labelReplaceExpr) String() string {
