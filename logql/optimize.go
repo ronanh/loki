@@ -2,17 +2,6 @@ package logql
 
 // optimizeSampleExpr Attempt to optimize the SampleExpr to another that will run faster but will produce the same result.
 func optimizeSampleExpr(expr SampleExpr) (SampleExpr, error) {
-	var skip bool
-	// we skip sharding AST for now, it's not easy to clone them since they are not part of the language.
-	walkSampleExpr(expr, func(e SampleExpr) {
-		switch e.(type) {
-		case *ConcatSampleExpr, *DownstreamSampleExpr:
-			skip = true
-		}
-	})
-	if skip {
-		return expr, nil
-	}
 	// clone the expr.
 	q := expr.String()
 	expr, err := ParseSampleExpr(q)
@@ -95,13 +84,6 @@ func children(expr SampleExpr) []SampleExpr {
 		return []SampleExpr{}
 	case *labelReplaceExpr:
 		return []SampleExpr{e.left}
-	case *DownstreamSampleExpr:
-		return []SampleExpr{e.SampleExpr}
-	case *ConcatSampleExpr:
-		if e.next != nil {
-			return []SampleExpr{e.next}
-		}
-		return []SampleExpr{}
 	default:
 		panic("unknown sample expression")
 	}
