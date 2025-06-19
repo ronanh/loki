@@ -9,7 +9,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/cortexproject/cortex v1.7.1-0.20210310133228-161f103ed5ba
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/drone/envsubst v1.0.2
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-kit/kit v0.10.0
 	github.com/gogo/protobuf v1.3.2 // remember to update loki-build-image/Dockerfile too
