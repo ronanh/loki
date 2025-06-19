@@ -7,58 +7,11 @@ import (
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/querier/astmapper"
-	util_log "github.com/cortexproject/cortex/pkg/util/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/prometheus/promql"
 
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
 )
-
-/*
-This includes a bunch of tooling for parallelization improvements based on backend shard factors.
-In schemas 10+ a shard factor (default 16) is introduced in the index store,
-calculated by hashing the label set of a log stream. This allows us to perform certain optimizations
-that fall under the umbrella of query remapping and querying shards individually.
-For instance, `{app="foo"} |= "bar"` can be executed on each shard independently, then reaggregated.
-There are also a class of optimizations that can be performed by altering a query into a functionally equivalent,
-but more parallelizable form. For instance, an average can be remapped into a sum/count,
-which can then take advantage of our sharded execution model.
-*/
-
-// ShardedEngine is an Engine implementation that can split queries into more parallelizable forms via
-// querying the underlying backend shards individually and reaggregating them.
-type ShardedEngine struct {
-	timeout        time.Duration
-	downstreamable Downstreamable
-	limits         Limits
-	metrics        *ShardingMetrics
-}
-
-// NewShardedEngine constructs a *ShardedEngine
-func NewShardedEngine(opts EngineOpts, downstreamable Downstreamable, metrics *ShardingMetrics, limits Limits) *ShardedEngine {
-	opts.applyDefault()
-	return &ShardedEngine{
-		timeout:        opts.Timeout,
-		downstreamable: downstreamable,
-		metrics:        metrics,
-		limits:         limits,
-	}
-}
-
-// Query constructs a Query
-func (ng *ShardedEngine) Query(p Params, mapped Expr) Query {
-	return &query{
-		timeout:   ng.timeout,
-		params:    p,
-		evaluator: NewDownstreamEvaluator(ng.downstreamable.Downstreamer()),
-		parse: func(_ context.Context, _ string) (Expr, error) {
-			return mapped, nil
-		},
-		limits: ng.limits,
-	}
-}
 
 // DownstreamSampleExpr is a SampleExpr which signals downstream computation
 type DownstreamSampleExpr struct {
@@ -153,28 +106,6 @@ type Downstreamer interface {
 	Downstream(context.Context, []DownstreamQuery) ([]Result, error)
 }
 
-// DownstreamEvaluator is an evaluator which handles shard aware AST nodes
-type DownstreamEvaluator struct {
-	Downstreamer
-	defaultEvaluator Evaluator
-}
-
-// Downstream runs queries and collects stats from the embedded Downstreamer
-func (ev DownstreamEvaluator) Downstream(ctx context.Context, queries []DownstreamQuery) ([]Result, error) {
-	results, err := ev.Downstreamer.Downstream(ctx, queries)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, res := range results {
-		if err := stats.JoinResults(ctx, res.Statistics); err != nil {
-			level.Warn(util_log.Logger).Log("msg", "unable to merge downstream results", "err", err)
-		}
-	}
-
-	return results, nil
-}
-
 type errorQuerier struct{}
 
 func (errorQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.EntryIterator, error) {
@@ -183,142 +114,6 @@ func (errorQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.Ent
 
 func (errorQuerier) SelectSamples(ctx context.Context, p SelectSampleParams) (iter.SampleIterator, error) {
 	return nil, errors.New("Unimplemented")
-}
-
-func NewDownstreamEvaluator(downstreamer Downstreamer) *DownstreamEvaluator {
-	return &DownstreamEvaluator{
-		Downstreamer:     downstreamer,
-		defaultEvaluator: NewDefaultEvaluator(&errorQuerier{}, 0),
-	}
-}
-
-// Evaluator returns a StepEvaluator for a given SampleExpr
-func (ev *DownstreamEvaluator) StepEvaluator(
-	ctx context.Context,
-	nextEv SampleEvaluator,
-	expr SampleExpr,
-	params Params,
-) (StepEvaluator, error) {
-	switch e := expr.(type) {
-
-	case DownstreamSampleExpr:
-		// downstream to a querier
-		var shards []astmapper.ShardAnnotation
-		if e.shard != nil {
-			shards = append(shards, *e.shard)
-		}
-		results, err := ev.Downstream(ctx, []DownstreamQuery{{
-			Expr:   e.SampleExpr,
-			Params: params,
-			Shards: shards,
-		}})
-		if err != nil {
-			return nil, err
-		}
-		return ResultStepEvaluator(results[0], params)
-
-	case *ConcatSampleExpr:
-		cur := e
-		var queries []DownstreamQuery
-		for cur != nil {
-			qry := DownstreamQuery{
-				Expr:   cur.DownstreamSampleExpr.SampleExpr,
-				Params: params,
-			}
-			if shard := cur.DownstreamSampleExpr.shard; shard != nil {
-				qry.Shards = Shards{*shard}
-			}
-			queries = append(queries, qry)
-			cur = cur.next
-		}
-
-		results, err := ev.Downstream(ctx, queries)
-		if err != nil {
-			return nil, err
-		}
-
-		xs := make([]StepEvaluator, 0, len(queries))
-		for i, res := range results {
-			stepper, err := ResultStepEvaluator(res, params)
-			if err != nil {
-				level.Warn(util_log.Logger).Log(
-					"msg", "could not extract StepEvaluator",
-					"err", err,
-					"expr", queries[i].Expr.String(),
-				)
-				return nil, err
-			}
-			xs = append(xs, stepper)
-		}
-
-		return ConcatEvaluator(xs)
-
-	default:
-		return ev.defaultEvaluator.StepEvaluator(ctx, nextEv, e, params)
-	}
-}
-
-// Iterator returns the iter.EntryIterator for a given LogSelectorExpr
-func (ev *DownstreamEvaluator) Iterator(
-	ctx context.Context,
-	expr LogSelectorExpr,
-	params Params,
-) (iter.EntryIterator, error) {
-	switch e := expr.(type) {
-	case DownstreamLogSelectorExpr:
-		// downstream to a querier
-		var shards Shards
-		if e.shard != nil {
-			shards = append(shards, *e.shard)
-		}
-		results, err := ev.Downstream(ctx, []DownstreamQuery{{
-			Expr:   e.LogSelectorExpr,
-			Params: params,
-			Shards: shards,
-		}})
-		if err != nil {
-			return nil, err
-		}
-		return ResultIterator(results[0], params)
-
-	case *ConcatLogSelectorExpr:
-		cur := e
-		var queries []DownstreamQuery
-		for cur != nil {
-			qry := DownstreamQuery{
-				Expr:   cur.DownstreamLogSelectorExpr.LogSelectorExpr,
-				Params: params,
-			}
-			if shard := cur.DownstreamLogSelectorExpr.shard; shard != nil {
-				qry.Shards = Shards{*shard}
-			}
-			queries = append(queries, qry)
-			cur = cur.next
-		}
-
-		results, err := ev.Downstream(ctx, queries)
-		if err != nil {
-			return nil, err
-		}
-
-		xs := make([]iter.EntryIterator, 0, len(queries))
-		for i, res := range results {
-			iter, err := ResultIterator(res, params)
-			if err != nil {
-				level.Warn(util_log.Logger).Log(
-					"msg", "could not extract Iterator",
-					"err", err,
-					"expr", queries[i].Expr.String(),
-				)
-			}
-			xs = append(xs, iter)
-		}
-
-		return iter.NewHeapIterator(ctx, xs, params.Direction()), nil
-
-	default:
-		return nil, EvaluatorUnsupportedType(expr, ev)
-	}
 }
 
 // ConcatEvaluator joins multiple StepEvaluators.

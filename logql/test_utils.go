@@ -2,10 +2,8 @@ package logql
 
 import (
 	"context"
-	"fmt"
 	logger "log"
 	"sort"
-	"time"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/cortexproject/cortex/pkg/querier/astmapper"
@@ -232,40 +230,6 @@ func (m MockDownstreamer) Downstream(ctx context.Context, queries []DownstreamQu
 		results = append(results, res)
 	}
 	return results, nil
-}
-
-// create nStreams of nEntries with labelNames each where each label value
-// with the exception of the "index" label is modulo'd into a shard
-func randomStreams(nStreams, nEntries, nShards int, labelNames []string) (streams []logproto.Stream) {
-	for i := 0; i < nStreams; i++ {
-		// labels
-		stream := logproto.Stream{}
-		ls := labels.Labels{{Name: "index", Value: fmt.Sprintf("%d", i)}}
-
-		for _, lName := range labelNames {
-			// I needed a way to hash something to uint64
-			// in order to get some form of random label distribution
-			shard := append(ls, labels.Label{
-				Name:  lName,
-				Value: fmt.Sprintf("%d", i),
-			}).Hash() % uint64(nShards)
-
-			ls = append(ls, labels.Label{
-				Name:  lName,
-				Value: fmt.Sprintf("%d", shard),
-			})
-		}
-		for j := 0; j <= nEntries; j++ {
-			stream.Entries = append(stream.Entries, logproto.Entry{
-				Timestamp: time.Unix(0, int64(j*int(time.Second))),
-				Line:      fmt.Sprintf("line number: %d", j),
-			})
-		}
-
-		stream.Labels = ls.String()
-		streams = append(streams, stream)
-	}
-	return streams
 }
 
 func mustParseLabels(s string) labels.Labels {

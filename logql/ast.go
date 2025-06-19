@@ -20,8 +20,7 @@ import (
 
 // Expr is the root expression which can be a SampleExpr or LogSelectorExpr
 type Expr interface {
-	logQLExpr()      // ensure it's not implemented accidentally
-	Shardable() bool // A recursive check on the AST to see if it's shardable.
+	logQLExpr() // ensure it's not implemented accidentally
 	fmt.Stringer
 }
 
@@ -219,15 +218,6 @@ func newPipelineExpr(left *matchersExpr, pipeline MultiStageExpr) LogSelectorExp
 		left:     left,
 		pipeline: pipeline,
 	}
-}
-
-func (e *pipelineExpr) Shardable() bool {
-	for _, p := range e.pipeline {
-		if !p.Shardable() {
-			return false
-		}
-	}
-	return true
 }
 
 func (e *pipelineExpr) Matchers() []*labels.Matcher {
@@ -622,8 +612,6 @@ func (r logRange) String() string {
 	return left + "[" + interval + "]"
 }
 
-func (r *logRange) Shardable() bool { return r.left.Shardable() }
-
 func newLogRange(left LogSelectorExpr, interval time.Duration, u *unwrapExpr) *logRange {
 	return &logRange{
 		left:     left,
@@ -844,11 +832,6 @@ func (e *rangeAggregationExpr) String() string {
 	return e.operation + "(" + left + ")"
 }
 
-// impl SampleExpr
-func (e *rangeAggregationExpr) Shardable() bool {
-	return shardableOps[e.operation] && e.left.Shardable()
-}
-
 type GroupBuilder interface {
 	HasGrouping() bool
 	Groups() []string
@@ -990,11 +973,6 @@ func (e *vectorAggregationExpr) String() string {
 	return e.operation + "(" + e.left.String() + ")"
 }
 
-// impl SampleExpr
-func (e *vectorAggregationExpr) Shardable() bool {
-	return shardableOps[e.operation] && e.left.Shardable()
-}
-
 type BinOpOptions struct {
 	ReturnBool bool
 }
@@ -1017,11 +995,6 @@ func (e *binOpExpr) String() string {
 
 func (e *binOpExpr) Leaves() []Expr {
 	return []Expr{e.SampleExpr, e.RHS}
-}
-
-// impl SampleExpr
-func (e *binOpExpr) Shardable() bool {
-	return shardableOps[e.op] && e.SampleExpr.Shardable() && e.RHS.Shardable()
 }
 
 func mustNewBinOpExpr(op string, opts BinOpOptions, lhs, rhs Expr) SampleExpr {
@@ -1079,7 +1052,8 @@ func mustNewBinOpExpr(op string, opts BinOpOptions, lhs, rhs Expr) SampleExpr {
 
 // Reduces a binary operation expression. A binop is reducible if both of its legs are literal expressions.
 // This is because literals need match all labels, which is currently difficult to encode into StepEvaluators.
-// Therefore, we ensure a binop can be reduced/simplified, maintaining the invariant that it does not have two literal legs.
+// Therefore, we ensure a binop can be reduced/simplified, maintaining the invariant that it does not have two literal
+// legs.
 func reduceBinOp(op string, left, right *literalExpr) *literalExpr {
 	var res promql.Sample
 	mergeBinOp(

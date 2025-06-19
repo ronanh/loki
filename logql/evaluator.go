@@ -96,7 +96,7 @@ func (p LiteralParams) Shards() []string { return p.shards }
 
 // GetRangeType returns whether a query is an instant query or range query
 func GetRangeType(q Params) QueryRangeType {
-	if q.Start() == q.End() && q.Step() == 0 {
+	if q.Start().Equal(q.End()) && q.Step() == 0 {
 		return InstantType
 	}
 	return RangeType
