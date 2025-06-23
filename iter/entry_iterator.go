@@ -3,6 +3,7 @@ package iter
 import (
 	"container/heap"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"sort"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
-	"github.com/ronanh/loki/util"
 )
 
 // EntryIterator iterates over entries in time-order.
@@ -296,7 +296,7 @@ func (i *heapIterator) Error() error {
 	case 1:
 		return i.errs[0]
 	default:
-		return util.MultiError(i.errs)
+		return errors.Join(i.errs...)
 	}
 }
 

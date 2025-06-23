@@ -2,6 +2,7 @@ package iter
 
 import (
 	"context"
+	"errors"
 	"io"
 	"slices"
 	"sort"
@@ -9,7 +10,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
-	"github.com/ronanh/loki/util"
 )
 
 // SampleIterator iterates over samples in time-order.
@@ -137,7 +137,7 @@ func (mi *mergingSampleIterator) Error() error {
 	case 1:
 		return mi.errs[0]
 	default:
-		return util.MultiError(mi.errs)
+		return errors.Join(mi.errs...)
 	}
 }
 
