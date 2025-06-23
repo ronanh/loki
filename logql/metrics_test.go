@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	util_log "github.com/cortexproject/cortex/pkg/util/log"
-	"github.com/go-kit/kit/log"
 	"github.com/opentracing/opentracing-go"
 	"github.com/stretchr/testify/require"
 	"github.com/uber/jaeger-client-go"
@@ -53,7 +51,6 @@ func TestQueryType(t *testing.T) {
 
 func TestLogSlowQuery(t *testing.T) {
 	buf := bytes.NewBufferString("")
-	util_log.Logger = log.NewLogfmtLogger(buf)
 	tr, c := jaeger.NewTracer("foo", jaeger.NewConstSampler(true), jaeger.NewInMemoryReporter())
 	defer c.Close()
 	opentracing.SetGlobalTracer(tr)
@@ -80,5 +77,4 @@ func TestLogSlowQuery(t *testing.T) {
 			sp.Context().(jaeger.SpanContext).SpanID().String(),
 		),
 		buf.String())
-	util_log.Logger = log.NewNopLogger()
 }

@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"log/slog"
 	"math"
 	"sort"
 	"time"
 
-	"github.com/cortexproject/cortex/pkg/util/spanlogger"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -17,7 +16,6 @@ import (
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/weaveworks/common/user"
 
-	"github.com/ronanh/loki/helpers"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
@@ -147,13 +145,6 @@ type query struct {
 
 // Exec Implements `Query`. It handles instrumentation & defers to Eval.
 func (q *query) Exec(ctx context.Context) (Result, error) {
-	var (
-		log *spanlogger.SpanLogger
-	)
-	if q.logStats {
-		log, ctx = spanlogger.New(ctx, "query.Exec")
-		defer log.Finish()
-	}
 
 	rangeType := GetRangeType(q.params)
 	timer := prometheus.NewTimer(queryTime.WithLabelValues(string(rangeType)))
@@ -171,7 +162,7 @@ func (q *query) Exec(ctx context.Context) (Result, error) {
 		statResult = stats.Snapshot(ctx, time.Since(start))
 	}
 	if q.logStats {
-		statResult.Log(level.Debug(log))
+		statResult.Log(ctx, slog.LevelDebug, slog.Default())
 	}
 
 	status := "200"
@@ -215,7 +206,11 @@ func (q *query) Eval(ctx context.Context) (promql_parser.Value, error) {
 			return nil, err
 		}
 
-		defer helpers.LogErrorWithContext(ctx, "closing iterator", iter.Close)
+		defer func() {
+			if err := iter.Close(); err != nil {
+				slog.ErrorContext(ctx, "closing iterator", "err", err)
+			}
+		}()
 		streams, err := readStreams(iter, q.params.Limit(), q.params.Direction(), q.params.Interval())
 		return streams, err
 	default:
@@ -243,7 +238,11 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 	if err != nil {
 		return nil, err
 	}
-	defer helpers.LogErrorWithContext(ctx, "closing SampleExpr", stepEvaluator.Close)
+	defer func() {
+		if err := stepEvaluator.Close(); err != nil {
+			slog.ErrorContext(ctx, "closing SampleExpr", "err", err)
+		}
+	}()
 
 	seriesIndex := map[uint64]*promql.Series{}
 	maxSeries := q.limits.MaxQuerySeries(userID)

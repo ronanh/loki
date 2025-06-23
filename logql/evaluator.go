@@ -395,16 +395,17 @@ func vectorAggEvaluator(
 				result := &eg.stepResults[group.stepResult]
 
 				resultSize := min(expr.params, len(vec))
-				if expr.operation == OpTypeStdvar || expr.operation == OpTypeStddev {
+				switch expr.operation {
+				case OpTypeStdvar, OpTypeStddev:
 					result.value = 0.0
-				} else if expr.operation == OpTypeTopK {
+				case OpTypeTopK:
 					groupHeap := make(vectorByValueHeap, 0, resultSize)
 					heap.Push(&groupHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},
 						Metric: s.Metric,
 					})
 					result.heap = groupHeap
-				} else if expr.operation == OpTypeBottomK {
+				case OpTypeBottomK:
 					groupReverseHeap := make(vectorByReverseValueHeap, 0, resultSize)
 					heap.Push(&groupReverseHeap, &promql.Sample{
 						Point:  promql.Point{V: s.V},

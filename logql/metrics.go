@@ -2,12 +2,11 @@ package logql
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
-	util_log "github.com/cortexproject/cortex/pkg/util/log"
 	"github.com/dustin/go-humanize"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
@@ -67,14 +66,13 @@ var (
 
 func RecordMetrics(ctx context.Context, p Params, status string, stats stats.Result, result promql_parser.Value) {
 	var (
-		logger        = util_log.WithContext(ctx, util_log.Logger)
 		rt            = string(GetRangeType(p))
 		latencyType   = latencyTypeFast
 		returnedLines = 0
 	)
 	queryType, err := QueryType(p.Query())
 	if err != nil {
-		level.Warn(logger).Log("msg", "error parsing query type", "err", err)
+		slog.WarnContext(ctx, "error parsing query type", "err", err)
 	}
 
 	// Tag throughput metric by latency type based on a threshold.
@@ -88,7 +86,7 @@ func RecordMetrics(ctx context.Context, p Params, status string, stats stats.Res
 	}
 
 	// we also log queries, useful for troubleshooting slow queries.
-	level.Info(logger).Log(
+	slog.InfoContext(ctx, "record query metrics",
 		"latency", latencyType, // this can be used to filter log lines.
 		"query", p.Query(),
 		"query_type", queryType,

@@ -2,10 +2,10 @@ package stats
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
-	util_log "github.com/cortexproject/cortex/pkg/util/log"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +28,7 @@ func TestSnapshot(t *testing.T) {
 	fakeIngesterQuery(ctx)
 
 	res := Snapshot(ctx, 2*time.Second)
-	res.Log(util_log.Logger)
+	res.Log(ctx, slog.LevelDebug, slog.Default())
 	expected := Result{
 		Ingester: Ingester{
 			TotalChunksMatched: 200,

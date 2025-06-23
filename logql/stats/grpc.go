@@ -2,10 +2,9 @@ package stats
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
-	util_log "github.com/cortexproject/cortex/pkg/util/log"
-	"github.com/go-kit/kit/log/level"
 	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -39,7 +38,6 @@ func CollectTrailer(ctx context.Context) grpc.CallOption {
 	d, ok := ctx.Value(trailersKey).(*trailerCollector)
 	if !ok {
 		return grpc.EmptyCallOption{}
-
 	}
 	return grpc.Trailer(d.addTrailer())
 }
@@ -47,7 +45,7 @@ func CollectTrailer(ctx context.Context) grpc.CallOption {
 func SendAsTrailer(ctx context.Context, stream grpc.ServerStream) {
 	trailer, err := encodeTrailer(ctx)
 	if err != nil {
-		level.Warn(util_log.WithContext(ctx, util_log.Logger)).Log("msg", "failed to encode trailer", "err", err)
+		slog.WarnContext(ctx, "failed to encode trailer", "err", err)
 		return
 	}
 	stream.SetTrailer(trailer)
@@ -110,26 +108,25 @@ func decodeTrailers(ctx context.Context) Result {
 }
 
 func decodeTrailer(ctx context.Context, meta *metadata.MD) Result {
-	logger := util_log.WithContext(ctx, util_log.Logger)
 	var ingData IngesterData
 	values := meta.Get(ingesterDataKey)
 	if len(values) == 1 {
 		if err := jsoniter.UnmarshalFromString(values[0], &ingData); err != nil {
-			level.Warn(logger).Log("msg", "could not unmarshal ingester data", "err", err)
+			slog.WarnContext(ctx, "could not unmarshal ingester data", "err", err)
 		}
 	}
 	var chunkData ChunkData
 	values = meta.Get(chunkDataKey)
 	if len(values) == 1 {
 		if err := jsoniter.UnmarshalFromString(values[0], &chunkData); err != nil {
-			level.Warn(logger).Log("msg", "could not unmarshal chunk data", "err", err)
+			slog.WarnContext(ctx, "could not unmarshal chunk data", "err", err)
 		}
 	}
 	var storeData StoreData
 	values = meta.Get(storeDataKey)
 	if len(values) == 1 {
 		if err := jsoniter.UnmarshalFromString(values[0], &storeData); err != nil {
-			level.Warn(logger).Log("msg", "could not unmarshal chunk data", "err", err)
+			slog.WarnContext(ctx, "could not unmarshal chunk data", "err", err)
 		}
 	}
 	return Result{

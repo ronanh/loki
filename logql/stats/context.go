@@ -24,11 +24,11 @@ import (
 	"context"
 	"errors"
 	fmt "fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/go-kit/kit/log"
 )
 
 type ctxKeyType string
@@ -43,8 +43,8 @@ const (
 )
 
 // Log logs a query statistics result.
-func (r Result) Log(log log.Logger) {
-	_ = log.Log(
+func (r Result) Log(ctx context.Context, lvl slog.Level, log *slog.Logger) {
+	log.Log(ctx, lvl, "query statistics result",
 		"Ingester.TotalReached", r.Ingester.TotalReached,
 		"Ingester.TotalChunksMatched", r.Ingester.TotalChunksMatched,
 		"Ingester.TotalBatches", r.Ingester.TotalBatches,
@@ -68,11 +68,11 @@ func (r Result) Log(log log.Logger) {
 		"Store.CompressedBytes", humanize.Bytes(uint64(r.Store.CompressedBytes)),
 		"Store.TotalDuplicates", r.Store.TotalDuplicates,
 	)
-	r.Summary.Log(log)
+	r.Summary.Log(ctx, lvl, log)
 }
 
-func (s Summary) Log(log log.Logger) {
-	_ = log.Log(
+func (s Summary) Log(ctx context.Context, lvl slog.Level, log *slog.Logger) {
+	log.Log(ctx, lvl, "query statistics summary",
 		"Summary.BytesProcessedPerSecond", humanize.Bytes(uint64(s.BytesProcessedPerSecond)),
 		"Summary.LinesProcessedPerSecond", s.LinesProcessedPerSecond,
 		"Summary.TotalBytesProcessed", humanize.Bytes(uint64(s.TotalBytesProcessed)),

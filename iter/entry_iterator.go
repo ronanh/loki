@@ -4,11 +4,11 @@ import (
 	"container/heap"
 	"context"
 	"io"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/ronanh/loki/helpers"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
@@ -209,7 +209,9 @@ func (i *heapIterator) requeue(ei EntryIterator, advanced bool) {
 	if err := ei.Error(); err != nil {
 		i.errs = append(i.errs, err)
 	}
-	helpers.LogError("closing iterator", ei.Close)
+	if err := ei.Close(); err != nil {
+		slog.Error("closing iterator", "err", err)
+	}
 }
 
 func (i *heapIterator) Push(ei EntryIterator) {

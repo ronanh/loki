@@ -5,13 +5,18 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cortexproject/cortex/pkg/chunk"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/user"
 
 	"github.com/ronanh/loki/logql"
 )
+
+type QueryError string
+
+func (e QueryError) Error() string {
+	return string(e)
+}
 
 // StatusClientClosedRequest is the status code for when a client request cancellation of an http request
 const StatusClientClosedRequest = 499
@@ -24,7 +29,7 @@ const (
 // WriteError write a go error with the correct status code.
 func WriteError(err error, w http.ResponseWriter) {
 	var (
-		queryErr chunk.QueryError
+		queryErr QueryError
 		promErr  promql.ErrStorage
 	)
 
