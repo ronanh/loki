@@ -19,13 +19,12 @@ import (
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
-	"github.com/ronanh/loki/util"
 )
 
 var (
 	testSize        = int64(300)
 	ErrMock         = errors.New("mock error")
-	ErrMockMultiple = util.MultiError{ErrMock, ErrMock}
+	ErrMockMultiple = errors.Join(ErrMock, ErrMock)
 )
 
 func TestEngine_LogsInstantQuery(t *testing.T) {

@@ -3,6 +3,7 @@ package logql
 import (
 	"container/heap"
 	"context"
+	stderrors "errors"
 	"math"
 	"sort"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
-	"github.com/ronanh/loki/util"
 )
 
 type QueryRangeType string
@@ -769,7 +769,7 @@ func (b *binOpStepEvaluator) Error() error {
 	case 1:
 		return errs[0]
 	default:
-		return util.MultiError(errs)
+		return stderrors.Join(errs...)
 	}
 }
 
