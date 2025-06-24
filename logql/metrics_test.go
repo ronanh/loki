@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/stretchr/testify/require"
-	"github.com/uber/jaeger-client-go"
-	"github.com/weaveworks/common/user"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/sloghandler"
 )
 
 func TestQueryType(t *testing.T) {
@@ -51,12 +52,16 @@ func TestQueryType(t *testing.T) {
 
 func TestLogSlowQuery(t *testing.T) {
 	buf := bytes.NewBufferString("")
-	tr, c := jaeger.NewTracer("foo", jaeger.NewConstSampler(true), jaeger.NewInMemoryReporter())
-	defer c.Close()
-	opentracing.SetGlobalTracer(tr)
-	sp := opentracing.StartSpan("")
-	ctx := opentracing.ContextWithSpan(user.InjectOrgID(context.Background(), "foo"), sp)
+	slog.SetDefault(slog.New(sloghandler.New(slog.NewTextHandler(buf, nil))))
+	defer slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+
+	ctx := context.Background()
+	ctx, sp := tracesdk.NewTracerProvider().Tracer("test").Start(ctx, "test")
+
+	defer sp.End()
+
 	now := time.Now()
+
 	RecordMetrics(ctx, LiteralParams{
 		qs:        `{foo="bar"} |= "buzz"`,
 		direction: logproto.BACKWARD,
@@ -71,10 +76,15 @@ func TestLogSlowQuery(t *testing.T) {
 			TotalBytesProcessed:     100000,
 		},
 	}, Streams{logproto.Stream{Entries: make([]logproto.Entry, 10)}})
-	require.Equal(t,
-		fmt.Sprintf(
-			"level=info org_id=foo traceID=%s latency=slow query=\"{foo=\\\"bar\\\"} |= \\\"buzz\\\"\" query_type=filter range_type=range length=1h0m0s step=1m0s duration=25.25s status=200 limit=1000 returned_lines=10 throughput=100kB total_bytes=100kB\n",
-			sp.Context().(jaeger.SpanContext).SpanID().String(),
-		),
-		buf.String())
+	loggedLine := buf.String()
+	require.Contains(t, loggedLine, "level=INFO")
+	require.Contains(t, loggedLine, fmt.Sprint("traceID=", sp.SpanContext().TraceID()))
+	require.Contains(t, loggedLine, "returned_lines=10")
+	require.Contains(t, loggedLine, "query=\"{foo=\\\"bar\\\"} |= \\\"buzz\\\"\"")
+	require.Contains(t, loggedLine, "query_type=filter")
+	require.Contains(t, loggedLine, "range_type=range")
+	require.Contains(t, loggedLine, "length=1h0m0s")
+	require.Contains(t, loggedLine, "step=1m0s")
+	require.Contains(t, loggedLine, "latency=slow")
+	require.Contains(t, loggedLine, "duration=25.25s status=200 limit=1000 returned_lines=10 throughput=100kB total_bytes=100kB")
 }
