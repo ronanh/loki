@@ -24,12 +24,3 @@ func (ch *handlerImpl) Handle(ctx context.Context, r slog.Record) error {
 
 	return ch.Handler.Handle(ctx, r)
 }
-
-func (ch *handlerImpl) WithAttrs([]slog.Attr) slog.Handler {
-	return ch.clone()
-}
-
-func (ch *handlerImpl) clone() *handlerImpl {
-	clone := *ch
-	return &clone
-}
