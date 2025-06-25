@@ -15,6 +15,10 @@ func BytesToStr(bs []byte) string {
 	return unsafe.String(unsafe.SliceData(bs), len(bs))
 }
 
+// StrToBytes returns raw byte slice representation
+// of `str` without allocation
+//
+// Mutating the returned buffer updates the `str`
 func StrToBytes(str string) []byte {
 	if str == "" {
 		return nil

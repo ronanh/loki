@@ -1,40 +1,34 @@
 package util
 
 import (
-	"slices"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestStringSliceContains(t *testing.T) {
-	t.Parallel()
+func TestStrToBytesRoundtrip(t *testing.T) {
+	for _, s := range []string{
+		"", "blabla", "###~u", "hello world", "$ƒ∂©ƒ∂ç√≈çå©",
+	} {
+		t.Run(s, func(t *testing.T) {
+			b := StrToBytes(s)
+			if b != nil {
+				require.Equal(t, b, []byte(s))
+			}
+			after := BytesToStr(b)
+			require.Equal(t, s, after)
 
-	tests := map[string]struct {
-		inputSlice []string
-		inputValue string
-		expected   bool
-	}{
-		"should return false on missing value in the slice": {
-			inputSlice: []string{"one", "two"},
-			inputValue: "three",
-			expected:   false,
-		},
-		"should return true on existing value in the slice": {
-			inputSlice: []string{"one", "two"},
-			inputValue: "two",
-			expected:   true,
-		},
-	}
-
-	for testName, testData := range tests {
-		testData := testData
-
-		t.Run(testName, func(t *testing.T) {
-			t.Parallel()
-
-			actual := slices.Contains(testData.inputSlice, testData.inputValue)
-			assert.Equal(t, testData.expected, actual)
+			bb := StrToBytes(after)
+			if b != nil {
+				require.Equal(t, &b[0], &bb[0])
+			}
 		})
 	}
+}
+
+func TestBytesToStrMutate(t *testing.T) {
+	b := []byte("hello world")
+	s := BytesToStr(b)
+	b[0] = 'w'
+	require.Equal(t, "wello world", s)
 }
