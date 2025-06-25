@@ -24,13 +24,26 @@ func Test_onPanic(t *testing.T) {
 		ServeHTTP(rec, req)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 
-	require.Error(t, RecoveryGRPCStreamInterceptor(nil, fakeStream{}, nil, grpc.StreamHandler(func(srv interface{}, stream grpc.ServerStream) error {
-		panic("foo")
-	})))
+	require.Error(
+		t,
+		RecoveryGRPCStreamInterceptor(
+			nil,
+			fakeStream{},
+			nil,
+			grpc.StreamHandler(func(srv interface{}, stream grpc.ServerStream) error {
+				panic("foo")
+			}),
+		),
+	)
 
-	_, err = RecoveryGRPCUnaryInterceptor(context.Background(), nil, nil, grpc.UnaryHandler(func(ctx context.Context, req interface{}) (interface{}, error) {
-		panic("foo")
-	}))
+	_, err = RecoveryGRPCUnaryInterceptor(
+		context.Background(),
+		nil,
+		nil,
+		grpc.UnaryHandler(func(ctx context.Context, req interface{}) (interface{}, error) {
+			panic("foo")
+		}),
+	)
 	require.Error(t, err)
 }
 

@@ -20,10 +20,12 @@ const (
 	// because the limit of active streams has been reached.
 	StreamLimit         = "stream_limit"
 	StreamLimitErrorMsg = "Maximum active stream limit exceeded, reduce the number of active streams (reduce labels or reduce label values), or contact your Loki administrator to see if the limit can be increased"
-	// GreaterThanMaxSampleAge is a reason for discarding log lines which are older than the current time - `reject_old_samples_max_age`
+	// GreaterThanMaxSampleAge is a reason for discarding log lines which are older than the current
+	// time - `reject_old_samples_max_age`
 	GreaterThanMaxSampleAge         = "greater_than_max_sample_age"
 	GreaterThanMaxSampleAgeErrorMsg = "entry for stream '%s' has timestamp too old: %v"
-	// TooFarInFuture is a reason for discarding log lines which are newer than the current time + `creation_grace_period`
+	// TooFarInFuture is a reason for discarding log lines which are newer than the current time +
+	// `creation_grace_period`
 	TooFarInFuture         = "too_far_in_future"
 	TooFarInFutureErrorMsg = "entry for stream '%s' has timestamp too new: %v"
 	// MaxLabelNamesPerSeries is a reason for discarding a log line which has too many label names

@@ -9,12 +9,11 @@ import (
 	"testing"
 
 	"github.com/prometheus/prometheus/promql"
+	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/util"
 	"github.com/stretchr/testify/require"
 	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/user"
-
-	"github.com/ronanh/loki/logql"
-	"github.com/ronanh/loki/util"
 )
 
 func Test_writeError(t *testing.T) {

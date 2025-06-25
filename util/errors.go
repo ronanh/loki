@@ -62,7 +62,8 @@ func (es MultiError) Is(target error) bool {
 }
 
 // IsConnCanceled returns true, if error is from a closed gRPC connection.
-// copied from https://github.com/etcd-io/etcd/blob/7f47de84146bdc9225d2080ec8678ca8189a2d2b/clientv3/client.go#L646
+// copied from
+// https://github.com/etcd-io/etcd/blob/7f47de84146bdc9225d2080ec8678ca8189a2d2b/clientv3/client.go#L646
 func IsConnCanceled(err error) bool {
 	if err == nil {
 		return false

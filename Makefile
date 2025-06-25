@@ -1,5 +1,5 @@
 TEST_TARGETS = ./...
-LINT_PKGS = ./iter
+LINT_PKGS = ./iter ./util
 
 test:
 	go test ${TEST_TARGETS}

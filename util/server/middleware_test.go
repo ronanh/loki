@@ -100,7 +100,6 @@ func TestPrepopulate(t *testing.T) {
 			} else {
 				require.Equal(t, tc.expected, req.Form)
 			}
-
 		})
 	}
 }

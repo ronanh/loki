@@ -46,7 +46,8 @@ type Limits struct {
 	MaxEntriesLimitPerQuery    int           `yaml:"max_entries_limit_per_query"`
 	MaxCacheFreshness          time.Duration `yaml:"max_cache_freshness_per_query"`
 
-	// Query frontend enforced limits. The default is actually parameterized by the queryrange config.
+	// Query frontend enforced limits. The default is actually parameterized by the queryrange
+	// config.
 	QuerySplitDuration time.Duration `yaml:"split_queries_by_interval"`
 
 	// Ruler defaults and limits.
@@ -68,30 +69,130 @@ func (l *Limits) RegisterFlags(f *flag.FlagSet) {
 	f.IntVar(&l.MaxLabelValueLength, "validation.max-length-label-value", 2048, "Maximum length accepted for label value. This setting also applies to the metric name")
 	f.IntVar(&l.MaxLabelNamesPerSeries, "validation.max-label-names-per-series", 30, "Maximum number of label names per series.")
 	f.BoolVar(&l.RejectOldSamples, "validation.reject-old-samples", false, "Reject old samples.")
-	f.DurationVar(&l.RejectOldSamplesMaxAge, "validation.reject-old-samples.max-age", 14*24*time.Hour, "Maximum accepted sample age before rejecting.")
-	f.DurationVar(&l.CreationGracePeriod, "validation.create-grace-period", 10*time.Minute, "Duration which table will be created/deleted before/after it's needed; we won't accept sample from before this time.")
-	f.BoolVar(&l.EnforceMetricName, "validation.enforce-metric-name", true, "Enforce every sample has a metric name.")
-	f.IntVar(&l.MaxEntriesLimitPerQuery, "validation.max-entries-limit", 5000, "Per-user entries limit per query")
+	f.DurationVar(
+		&l.RejectOldSamplesMaxAge,
+		"validation.reject-old-samples.max-age",
+		14*24*time.Hour,
+		"Maximum accepted sample age before rejecting.",
+	)
+	f.DurationVar(
+		&l.CreationGracePeriod,
+		"validation.create-grace-period",
+		10*time.Minute,
+		"Duration which table will be created/deleted before/after it's needed; we won't accept sample from before this time.",
+	)
+	f.BoolVar(
+		&l.EnforceMetricName,
+		"validation.enforce-metric-name",
+		true,
+		"Enforce every sample has a metric name.",
+	)
+	f.IntVar(
+		&l.MaxEntriesLimitPerQuery,
+		"validation.max-entries-limit",
+		5000,
+		"Per-user entries limit per query",
+	)
 
-	f.IntVar(&l.MaxLocalStreamsPerUser, "ingester.max-streams-per-user", 10e3, "Maximum number of active streams per user, per ingester. 0 to disable.")
-	f.IntVar(&l.MaxGlobalStreamsPerUser, "ingester.max-global-streams-per-user", 0, "Maximum number of active streams per user, across the cluster. 0 to disable.")
+	f.IntVar(
+		&l.MaxLocalStreamsPerUser,
+		"ingester.max-streams-per-user",
+		10e3,
+		"Maximum number of active streams per user, per ingester. 0 to disable.",
+	)
+	f.IntVar(
+		&l.MaxGlobalStreamsPerUser,
+		"ingester.max-global-streams-per-user",
+		0,
+		"Maximum number of active streams per user, across the cluster. 0 to disable.",
+	)
 
-	f.IntVar(&l.MaxChunksPerQuery, "store.query-chunk-limit", 2e6, "Maximum number of chunks that can be fetched in a single query.")
-	f.DurationVar(&l.MaxQueryLength, "store.max-query-length", 0, "Limit to length of chunk store queries, 0 to disable.")
-	f.IntVar(&l.MaxQuerySeries, "querier.max-query-series", 500, "Limit the maximum of unique series returned by a metric query. When the limit is reached an error is returned.")
-	f.DurationVar(&l.MaxQueryLookback, "querier.max-query-lookback", 0, "Limit how long back data (series and metadata) can be queried, up until <lookback> duration ago. This limit is enforced in the query-frontend, querier and ruler. If the requested time range is outside the allowed range, the request will not fail but will be manipulated to only query data within the allowed time range. 0 to disable.")
-	f.IntVar(&l.MaxQueryParallelism, "querier.max-query-parallelism", 14, "Maximum number of queries will be scheduled in parallel by the frontend.")
-	f.IntVar(&l.CardinalityLimit, "store.cardinality-limit", 1e5, "Cardinality limit for index queries.")
-	f.IntVar(&l.MaxStreamsMatchersPerQuery, "querier.max-streams-matcher-per-query", 1000, "Limit the number of streams matchers per query")
-	f.IntVar(&l.MaxConcurrentTailRequests, "querier.max-concurrent-tail-requests", 10, "Limit the number of concurrent tail requests")
-	f.DurationVar(&l.MaxCacheFreshness, "frontend.max-cache-freshness", 1*time.Minute, "Most recent allowed cacheable result per-tenant, to prevent caching very recent results that might still be in flux.")
+	f.IntVar(
+		&l.MaxChunksPerQuery,
+		"store.query-chunk-limit",
+		2e6,
+		"Maximum number of chunks that can be fetched in a single query.",
+	)
+	f.DurationVar(
+		&l.MaxQueryLength,
+		"store.max-query-length",
+		0,
+		"Limit to length of chunk store queries, 0 to disable.",
+	)
+	f.IntVar(
+		&l.MaxQuerySeries,
+		"querier.max-query-series",
+		500,
+		"Limit the maximum of unique series returned by a metric query. When the limit is reached an error is returned.",
+	)
+	f.DurationVar(
+		&l.MaxQueryLookback,
+		"querier.max-query-lookback",
+		0,
+		"Limit how long back data (series and metadata) can be queried, up until <lookback> duration ago. This limit is enforced in the query-frontend, querier and ruler. If the requested time range is outside the allowed range, the request will not fail but will be manipulated to only query data within the allowed time range. 0 to disable.",
+	)
+	f.IntVar(
+		&l.MaxQueryParallelism,
+		"querier.max-query-parallelism",
+		14,
+		"Maximum number of queries will be scheduled in parallel by the frontend.",
+	)
+	f.IntVar(
+		&l.CardinalityLimit,
+		"store.cardinality-limit",
+		1e5,
+		"Cardinality limit for index queries.",
+	)
+	f.IntVar(
+		&l.MaxStreamsMatchersPerQuery,
+		"querier.max-streams-matcher-per-query",
+		1000,
+		"Limit the number of streams matchers per query",
+	)
+	f.IntVar(
+		&l.MaxConcurrentTailRequests,
+		"querier.max-concurrent-tail-requests",
+		10,
+		"Limit the number of concurrent tail requests",
+	)
+	f.DurationVar(
+		&l.MaxCacheFreshness,
+		"frontend.max-cache-freshness",
+		1*time.Minute,
+		"Most recent allowed cacheable result per-tenant, to prevent caching very recent results that might still be in flux.",
+	)
 
-	f.DurationVar(&l.RulerEvaluationDelay, "ruler.evaluation-delay-duration", 0, "Duration to delay the evaluation of rules to ensure the underlying metrics have been pushed to Cortex.")
-	f.IntVar(&l.RulerMaxRulesPerRuleGroup, "ruler.max-rules-per-rule-group", 0, "Maximum number of rules per rule group per-tenant. 0 to disable.")
-	f.IntVar(&l.RulerMaxRuleGroupsPerTenant, "ruler.max-rule-groups-per-tenant", 0, "Maximum number of rule groups per-tenant. 0 to disable.")
+	f.DurationVar(
+		&l.RulerEvaluationDelay,
+		"ruler.evaluation-delay-duration",
+		0,
+		"Duration to delay the evaluation of rules to ensure the underlying metrics have been pushed to Cortex.",
+	)
+	f.IntVar(
+		&l.RulerMaxRulesPerRuleGroup,
+		"ruler.max-rules-per-rule-group",
+		0,
+		"Maximum number of rules per rule group per-tenant. 0 to disable.",
+	)
+	f.IntVar(
+		&l.RulerMaxRuleGroupsPerTenant,
+		"ruler.max-rule-groups-per-tenant",
+		0,
+		"Maximum number of rule groups per-tenant. 0 to disable.",
+	)
 
-	f.StringVar(&l.PerTenantOverrideConfig, "limits.per-user-override-config", "", "File name of per-user overrides.")
-	f.DurationVar(&l.PerTenantOverridePeriod, "limits.per-user-override-period", 10*time.Second, "Period with this to reload the overrides.")
+	f.StringVar(
+		&l.PerTenantOverrideConfig,
+		"limits.per-user-override-config",
+		"",
+		"File name of per-user overrides.",
+	)
+	f.DurationVar(
+		&l.PerTenantOverridePeriod,
+		"limits.per-user-override-period",
+		10*time.Second,
+		"Period with this to reload the overrides.",
+	)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
