@@ -569,7 +569,7 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
 			t.Parallel()
 
-			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params), NoLimits)
+			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params))
 			q := eng.Query(LiteralParams{
 				qs:        test.qs,
 				start:     test.ts,
@@ -1764,7 +1764,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
 			t.Parallel()
 
-			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params), NoLimits)
+			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params))
 
 			q := eng.Query(LiteralParams{
 				qs:        test.qs,
@@ -1799,7 +1799,7 @@ func (statsQuerier) SelectSamples(ctx context.Context, p SelectSampleParams) (it
 }
 
 func TestEngine_Stats(t *testing.T) {
-	eng := NewEngine(EngineOpts{LogStats: true}, &statsQuerier{}, NoLimits)
+	eng := NewEngine(EngineOpts{LogStats: true}, &statsQuerier{})
 
 	q := eng.Query(LiteralParams{
 		qs:        `{foo="bar"}`,
@@ -1872,7 +1872,7 @@ func TestStepEvaluator_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tc := tc
-			eng := NewEngine(EngineOpts{}, tc.querier, NoLimits)
+			eng := NewEngine(EngineOpts{}, tc.querier)
 			q := eng.Query(LiteralParams{
 				qs:    tc.qs,
 				start: time.Unix(0, 0),
@@ -1882,43 +1882,6 @@ func TestStepEvaluator_Error(t *testing.T) {
 			_, err := q.Exec(context.Background())
 			require.Equal(t, tc.err, err)
 		})
-	}
-}
-
-func TestEngine_MaxSeries(t *testing.T) {
-	eng := NewEngine(EngineOpts{}, getLocalQuerier(100000), &fakeLimits{maxSeries: 1})
-
-	for _, test := range []struct {
-		qs             string
-		direction      logproto.Direction
-		expectLimitErr bool
-	}{
-		// skip topk test as the limit is only reached when the series
-		// are iterated in random order, which is not the case with the
-		// new implementation.
-		// {`topk(1,rate(({app=~"foo|bar"})[1m]))`, logproto.FORWARD, true},
-		{`{app="foo"}`, logproto.FORWARD, false},
-		{`{app="bar"} |= "foo" |~ ".+bar"`, logproto.BACKWARD, false},
-		{`rate({app="foo"} |~".+bar" [1m])`, logproto.BACKWARD, true},
-		{`rate({app="foo"}[30s])`, logproto.FORWARD, true},
-		{`count_over_time({app="foo|bar"} |~".+bar" [1m])`, logproto.BACKWARD, true},
-		{`avg(count_over_time({app=~"foo|bar"} |~".+bar" [1m]))`, logproto.FORWARD, false},
-	} {
-		q := eng.Query(LiteralParams{
-			qs:        test.qs,
-			start:     time.Unix(0, 0),
-			end:       time.Unix(100000, 0),
-			step:      60 * time.Second,
-			direction: test.direction,
-			limit:     1000,
-		})
-		_, err := q.Exec(context.Background())
-		if test.expectLimitErr {
-			require.NotNil(t, err)
-			require.True(t, errors.Is(err, ErrLimit))
-			return
-		}
-		require.Nil(t, err)
 	}
 }
 
@@ -1943,7 +1906,7 @@ var result promql_parser.Value
 
 func benchmarkRangeQuery(testsize int64, b *testing.B) {
 	b.ReportAllocs()
-	eng := NewEngine(EngineOpts{}, getLocalQuerier(testsize), NoLimits)
+	eng := NewEngine(EngineOpts{}, getLocalQuerier(testsize))
 	start := time.Unix(0, 0)
 	end := time.Unix(testsize, 0)
 	b.ResetTimer()

@@ -95,17 +95,15 @@ func (opts *EngineOpts) applyDefault() {
 type Engine struct {
 	timeout   time.Duration
 	evaluator Evaluator
-	limits    Limits
 	opts      EngineOpts
 }
 
 // NewEngine creates a new LogQL Engine.
-func NewEngine(opts EngineOpts, q Querier, l Limits) *Engine {
+func NewEngine(opts EngineOpts, q Querier) *Engine {
 	opts.applyDefault()
 	return &Engine{
 		timeout:   opts.Timeout,
 		evaluator: NewDefaultEvaluator(q, opts.MaxLookBackPeriod),
-		limits:    l,
 		opts:      opts,
 	}
 }
@@ -121,7 +119,6 @@ func (ng *Engine) Query(params Params) Query {
 		},
 		record:   ng.opts.RecordMetrics,
 		logStats: ng.opts.LogStats,
-		limits:   ng.limits,
 	}
 }
 
@@ -135,7 +132,6 @@ type query struct {
 	timeout   time.Duration
 	params    Params
 	parse     func(context.Context, string) (Expr, error)
-	limits    Limits
 	evaluator Evaluator
 	record    bool
 	logStats  bool

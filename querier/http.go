@@ -27,7 +27,7 @@ func NewHttpQuerier(cfg Config, q Querier, limits *validation.Overrides) (*HttpQ
 	hq := HttpQuerier{
 		querier: q,
 		cfg:     cfg,
-		engine:  logql.NewEngine(cfg.Engine, q, limits),
+		engine:  logql.NewEngine(cfg.Engine, q),
 		limits:  limits,
 	}
 	return &hq, nil

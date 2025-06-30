@@ -16,7 +16,3 @@ type Limits interface {
 type fakeLimits struct {
 	maxSeries int
 }
-
-func (f fakeLimits) MaxQuerySeries(userID string) int {
-	return f.maxSeries
-}
