@@ -15,7 +15,6 @@ import (
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/weaveworks/common/user"
 
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
@@ -578,7 +577,7 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 				direction: test.direction,
 				limit:     test.limit,
 			})
-			res, err := q.Exec(user.InjectOrgID(context.Background(), "fake"))
+			res, err := q.Exec(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1776,7 +1775,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 				direction: test.direction,
 				limit:     test.limit,
 			})
-			res, err := q.Exec(user.InjectOrgID(context.Background(), "fake"))
+			res, err := q.Exec(context.Background())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1809,7 +1808,7 @@ func TestEngine_Stats(t *testing.T) {
 		direction: logproto.BACKWARD,
 		limit:     1000,
 	})
-	r, err := q.Exec(user.InjectOrgID(context.Background(), "fake"))
+	r, err := q.Exec(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), r.Statistics.Store.DecompressedBytes)
 }
@@ -1880,7 +1879,7 @@ func TestStepEvaluator_Error(t *testing.T) {
 				end:   time.Unix(180, 0),
 				step:  1 * time.Second,
 			})
-			_, err := q.Exec(user.InjectOrgID(context.Background(), "fake"))
+			_, err := q.Exec(context.Background())
 			require.Equal(t, tc.err, err)
 		})
 	}
@@ -1913,7 +1912,7 @@ func TestEngine_MaxSeries(t *testing.T) {
 			direction: test.direction,
 			limit:     1000,
 		})
-		_, err := q.Exec(user.InjectOrgID(context.Background(), "fake"))
+		_, err := q.Exec(context.Background())
 		if test.expectLimitErr {
 			require.NotNil(t, err)
 			require.True(t, errors.Is(err, ErrLimit))
@@ -1983,7 +1982,7 @@ func benchmarkRangeQuery(testsize int64, b *testing.B) {
 				direction: test.direction,
 				limit:     1000,
 			})
-			res, err := q.Exec(user.InjectOrgID(context.Background(), "fake"))
+			res, err := q.Exec(context.Background())
 			if err != nil {
 				b.Fatal(err)
 			}

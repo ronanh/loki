@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
-	"github.com/weaveworks/common/user"
 
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
@@ -224,12 +223,7 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 		return q.evalLiteral(ctx, lit)
 	}
 
-	userID, err := user.ExtractOrgID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	expr, err = optimizeSampleExpr(expr)
+	expr, err := optimizeSampleExpr(expr)
 	if err != nil {
 		return nil, err
 	}
@@ -245,16 +239,10 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 	}()
 
 	seriesIndex := map[uint64]*promql.Series{}
-	maxSeries := q.limits.MaxQuerySeries(userID)
 
 	next, ts, vec := stepEvaluator.Next()
 	if stepEvaluator.Error() != nil {
 		return nil, stepEvaluator.Error()
-	}
-
-	// fail fast for the first step or instant query
-	if len(vec) > maxSeries {
-		return nil, newSeriesLimitError(maxSeries)
 	}
 
 	if GetRangeType(q.params) == InstantType {
@@ -288,10 +276,6 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 				T: ts,
 				V: p.V,
 			})
-		}
-		// as we slowly build the full query for each steps, make sure we don't go over the limit of unique series.
-		if len(seriesIndex) > maxSeries {
-			return nil, newSeriesLimitError(maxSeries)
 		}
 		next, ts, vec = stepEvaluator.Next()
 		if stepEvaluator.Error() != nil {

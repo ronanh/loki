@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/logql"
 	"github.com/weaveworks/common/httpgrpc"
-	"github.com/weaveworks/common/user"
 )
 
 type QueryError string
@@ -41,8 +40,6 @@ func WriteError(err error, w http.ResponseWriter) {
 	case errors.As(err, &queryErr):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, logql.ErrLimit) || errors.Is(err, logql.ErrParse) || errors.Is(err, logql.ErrPipeline):
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, user.ErrNoOrgID):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		if grpcErr, ok := httpgrpc.HTTPResponseFromError(err); ok {

@@ -13,7 +13,6 @@ import (
 	"github.com/ronanh/loki/util"
 	"github.com/stretchr/testify/require"
 	"github.com/weaveworks/common/httpgrpc"
-	"github.com/weaveworks/common/user"
 )
 
 func Test_writeError(t *testing.T) {
@@ -27,7 +26,6 @@ func Test_writeError(t *testing.T) {
 		{"cancelled", context.Canceled, ErrClientCanceled, StatusClientClosedRequest},
 		{"cancelled multi", util.MultiError{context.Canceled, context.Canceled}, ErrClientCanceled, StatusClientClosedRequest},
 		{"cancelled storage", promql.ErrStorage{Err: context.Canceled}, ErrClientCanceled, StatusClientClosedRequest},
-		{"orgid", user.ErrNoOrgID, user.ErrNoOrgID.Error(), http.StatusBadRequest},
 		{"deadline", context.DeadlineExceeded, ErrDeadlineExceeded, http.StatusGatewayTimeout},
 		{"parse error", logql.ParseError{}, "parse error : ", http.StatusBadRequest},
 		{"httpgrpc", httpgrpc.Errorf(http.StatusBadRequest, errors.New("foo").Error()), "foo", http.StatusBadRequest},

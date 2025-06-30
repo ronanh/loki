@@ -8,7 +8,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0
-	github.com/go-kit/kit v0.10.0
+	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // remember to update loki-build-image/Dockerfile too
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
 	github.com/gorilla/mux v1.7.3
@@ -26,7 +26,6 @@ require (
 	github.com/weaveworks/common v0.0.0-20210112142934-23c8d7fa6120
 	go.uber.org/atomic v1.7.0 // indirect
 	google.golang.org/grpc v1.34.0
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (

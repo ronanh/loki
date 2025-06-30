@@ -7,7 +7,6 @@ import (
 
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/weaveworks/common/httpgrpc"
-	"github.com/weaveworks/common/user"
 
 	"github.com/ronanh/loki/loghttp"
 	"github.com/ronanh/loki/logql"
@@ -51,11 +50,6 @@ func (q *HttpQuerier) RangeQueryHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := q.validateEntriesLimits(ctx, request.Query, request.Limit); err != nil {
-		serverutil.WriteError(err, w)
-		return
-	}
-
 	params := logql.NewLiteralParams(
 		request.Query,
 		request.Start,
@@ -88,11 +82,6 @@ func (q *HttpQuerier) InstantQueryHandler(w http.ResponseWriter, r *http.Request
 	request, err := loghttp.ParseInstantQuery(r)
 	if err != nil {
 		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
-		return
-	}
-
-	if err := q.validateEntriesLimits(ctx, request.Query, request.Limit); err != nil {
-		serverutil.WriteError(err, w)
 		return
 	}
 
@@ -164,28 +153,4 @@ func (q *HttpQuerier) SeriesHandler(w http.ResponseWriter, r *http.Request) {
 		serverutil.WriteError(err, w)
 		return
 	}
-}
-
-func (q *HttpQuerier) validateEntriesLimits(ctx context.Context, query string, limit uint32) error {
-	userID, err := user.ExtractOrgID(ctx)
-	if err != nil {
-		return httpgrpc.Errorf(http.StatusBadRequest, err.Error())
-	}
-
-	expr, err := logql.ParseExpr(query)
-	if err != nil {
-		return err
-	}
-
-	// entry limit does not apply to metric queries.
-	if _, ok := expr.(logql.SampleExpr); ok {
-		return nil
-	}
-
-	maxEntriesLimit := q.limits.MaxEntriesLimitPerQuery(userID)
-	if int(limit) > maxEntriesLimit && maxEntriesLimit != 0 {
-		return httpgrpc.Errorf(http.StatusBadRequest,
-			"max entries limit per query exceeded, limit > max_entries_limit (%d > %d)", limit, maxEntriesLimit)
-	}
-	return nil
 }
