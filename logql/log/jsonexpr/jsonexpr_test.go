@@ -8,10 +8,6 @@ import (
 )
 
 func TestJSONExpressionParser(t *testing.T) {
-	// {"app":"foo","field with space":"value","field with
-	// ÜFT8👌":true,"namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar",
-	// "params": [{"param": true},2,3]}}}
-
 	tests := []struct {
 		name       string
 		expression string
