@@ -566,10 +566,7 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 			promql.Vector{promql.Sample{Point: promql.Point{T: 60 * 1000, V: 1}, Metric: labels.FromStrings("app", "foo")}},
 		},
 	} {
-		test := test
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
-			t.Parallel()
-
 			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params))
 			q := eng.Query(LiteralParams{
 				qs:        test.qs,
