@@ -27,7 +27,8 @@ func ParseSeriesQuery(r *http.Request) (*logproto.SeriesRequest, error) {
 	sort.Strings(deduped)
 
 	// Special case to allow for an empty label matcher `{}` in a Series query,
-	// we support either not specifying the `match` query parameter at all or specifying it with a single `{}`
+	// we support either not specifying the `match` query parameter at all or specifying it with a
+	// single `{}`
 	// empty label matcher, we treat the latter case here as if no `match` was supplied at all.
 	if len(deduped) == 1 {
 		matcher := deduped[0]
@@ -37,7 +38,8 @@ func ParseSeriesQuery(r *http.Request) (*logproto.SeriesRequest, error) {
 		}
 	}
 
-	// ensure matchers are valid before fanning out to ingesters/store as well as returning valuable parsing errors
+	// ensure matchers are valid before fanning out to ingesters/store as well as returning valuable
+	// parsing errors
 	// instead of 500s
 	_, err = Match(deduped)
 	if err != nil {
@@ -49,7 +51,6 @@ func ParseSeriesQuery(r *http.Request) (*logproto.SeriesRequest, error) {
 		End:    end,
 		Groups: deduped,
 	}, nil
-
 }
 
 func union(cols ...[]string) []string {

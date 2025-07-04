@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/logproto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseRangeQuery(t *testing.T) {
@@ -23,48 +22,78 @@ func TestParseRangeQuery(t *testing.T) {
 	}{
 		{"bad start", &http.Request{URL: mustParseURL(`?query={foo="bar"}&start=t`)}, nil, true},
 		{"bad end", &http.Request{URL: mustParseURL(`?query={foo="bar"}&end=t`)}, nil, true},
-		{"end before start", &http.Request{URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2015-06-10T21:42:24.760738998Z`)}, nil, true},
-		{"bad limit", &http.Request{URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=h`)}, nil, true},
+		{
+			"end before start",
+			&http.Request{
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2015-06-10T21:42:24.760738998Z`,
+				),
+			},
+			nil,
+			true,
+		},
+		{
+			"bad limit",
+			&http.Request{
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=h`,
+				),
+			},
+			nil,
+			true,
+		},
 		{
 			"bad direction",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=fw`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=fw`,
+				),
 			}, nil, true,
 		},
 		{
 			"bad step",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=FORWARD&step=h`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=FORWARD&step=h`,
+				),
 			}, nil, true,
 		},
 		{
 			"negative step",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=BACKWARD&step=-1`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=BACKWARD&step=-1`,
+				),
 			}, nil, true,
 		},
 		{
 			"too small step",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=BACKWARD&step=1`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=BACKWARD&step=1`,
+				),
 			}, nil, true,
 		},
 		{
 			"negative interval",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=BACKWARD&step=1,interval=-1`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2016-06-10T21:42:24.760738998Z&end=2017-06-10T21:42:24.760738998Z&limit=100&direction=BACKWARD&step=1,interval=-1`,
+				),
 			}, nil, true,
 		},
 		{
 			"good",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z&limit=1000&direction=BACKWARD&step=3600`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z&limit=1000&direction=BACKWARD&step=3600`,
+				),
 			}, &RangeQuery{
 				Step:      time.Hour,
 				Query:     `{foo="bar"}`,
 				Direction: logproto.BACKWARD,
-				Start:     time.Date(2017, 06, 10, 21, 42, 24, 760738998, time.UTC),
-				End:       time.Date(2017, 07, 10, 21, 42, 24, 760738998, time.UTC),
+				Start:     time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC),
+				End:       time.Date(2017, 0o7, 10, 21, 42, 24, 760738998, time.UTC),
 				Limit:     1000,
 			}, false,
 		},
@@ -94,21 +123,32 @@ func TestParseInstantQuery(t *testing.T) {
 		wantErr bool
 	}{
 		{"bad time", &http.Request{URL: mustParseURL(`?query={foo="bar"}&time=t`)}, nil, true},
-		{"bad limit", &http.Request{URL: mustParseURL(`?query={foo="bar"}&time=2016-06-10T21:42:24.760738998Z&limit=h`)}, nil, true},
+		{
+			"bad limit",
+			&http.Request{
+				URL: mustParseURL(`?query={foo="bar"}&time=2016-06-10T21:42:24.760738998Z&limit=h`),
+			},
+			nil,
+			true,
+		},
 		{
 			"bad direction",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&time=2016-06-10T21:42:24.760738998Z&limit=100&direction=fw`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&time=2016-06-10T21:42:24.760738998Z&limit=100&direction=fw`,
+				),
 			}, nil, true,
 		},
 		{
 			"good",
 			&http.Request{
-				URL: mustParseURL(`?query={foo="bar"}&time=2017-06-10T21:42:24.760738998Z&limit=1000&direction=BACKWARD`),
+				URL: mustParseURL(
+					`?query={foo="bar"}&time=2017-06-10T21:42:24.760738998Z&limit=1000&direction=BACKWARD`,
+				),
 			}, &InstantQuery{
 				Query:     `{foo="bar"}`,
 				Direction: logproto.BACKWARD,
-				Ts:        time.Date(2017, 06, 10, 21, 42, 24, 760738998, time.UTC),
+				Ts:        time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC),
 				Limit:     1000,
 			}, false,
 		},

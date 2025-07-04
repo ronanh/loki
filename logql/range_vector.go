@@ -6,9 +6,8 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
-	"github.com/ronanh/loki/logql/log"
-
 	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logql/log"
 )
 
 // RangeVectorAggregator aggregates samples for a given range of samples.
@@ -25,13 +24,11 @@ type RangeVectorIterator interface {
 	Error() error
 }
 
-var (
-	rangeVectorIteratorPool = sync.Pool{
-		New: func() interface{} {
-			return &rangeVectorIterator{}
-		},
-	}
-)
+var rangeVectorIteratorPool = sync.Pool{
+	New: func() interface{} {
+		return &rangeVectorIterator{}
+	},
+}
 
 type rangeVectorIterator struct {
 	iter                         iter.PeekingSampleIterator
@@ -58,7 +55,8 @@ type wrappedSeries struct {
 
 func newRangeVectorIterator(
 	it iter.PeekingSampleIterator,
-	selRange, step, start, end int64) *rangeVectorIterator {
+	selRange, step, start, end int64,
+) *rangeVectorIterator {
 	// forces at least one step.
 	if step == 0 {
 		step = 1
@@ -70,7 +68,8 @@ func newRangeVectorIterator(
 
 func (r *rangeVectorIterator) init(
 	it iter.PeekingSampleIterator,
-	selRange, step, start, end int64) {
+	selRange, step, start, end int64,
+) {
 	// forces at least one step.
 	if step == 0 {
 		step = 1
@@ -249,7 +248,8 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			// the series is full, double the capacity.
 			// or shift the points to the allocPoints
 			if 2*len(series.Points) <= cap(series.allocPoints) ||
-				cap(series.Points) < cap(series.allocPoints) && 2*cap(series.allocPoints) > maxAllocPointsCacheSize {
+				cap(series.Points) < cap(series.allocPoints) &&
+					2*cap(series.allocPoints) > maxAllocPointsCacheSize {
 				// reuse the allocated points
 				series.Points = append(series.allocPoints, series.Points...)
 			} else {

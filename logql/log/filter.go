@@ -49,7 +49,8 @@ func (n notFilter) ToStage() Stage {
 // newNotFilter creates a new filter which matches only if the base filter doesn't match.
 // If the base filter is a `or` it will recursively simplify with `and` operations.
 func newNotFilter(base Filterer) Filterer {
-	// not(a|b) = not(a) and not(b) , and operation can't benefit from this optimization because both legs always needs to be executed.
+	// not(a|b) = not(a) and not(b) , and operation can't benefit from this optimization because
+	// both legs always needs to be executed.
 	if or, ok := base.(orFilter); ok {
 		return NewAndFilter(newNotFilter(or.left), newNotFilter(or.right))
 	}
@@ -235,7 +236,8 @@ func parseRegexpFilter(re string, match bool) (Filterer, error) {
 	return newNotFilter(f), nil
 }
 
-// simplify a regexp expression by replacing it, when possible, with a succession of literal filters.
+// simplify a regexp expression by replacing it, when possible, with a succession of literal
+// filters.
 // For example `(foo|bar)` will be replaced by  `containsFilter(foo) or containsFilter(bar)`
 func simplify(reg *syntax.Regexp) (Filterer, bool) {
 	switch reg.Op {
@@ -294,7 +296,8 @@ func simplifyAlternate(reg *syntax.Regexp) (Filterer, bool) {
 // simplifyConcat attempt to simplify concat operations.
 // Concat operations are either literal and star such as foo.* .*foo.* .*foo
 // which is a literalFilter.
-// Or a literal and alternates operation (see simplifyConcatAlternate), which represent a multiplication of alternates.
+// Or a literal and alternates operation (see simplifyConcatAlternate), which represent a
+// multiplication of alternates.
 // Anything else is rejected.
 func simplifyConcat(reg *syntax.Regexp, baseLiteral []byte) (Filterer, bool) {
 	clearCapture(reg.Sub...)
@@ -344,7 +347,8 @@ func simplifyConcat(reg *syntax.Regexp, baseLiteral []byte) (Filterer, bool) {
 }
 
 // simplifyConcatAlternate simplifies concat alternate operations.
-// A concat alternate is found when a concat operation has a sub alternate and is preceded by a literal.
+// A concat alternate is found when a concat operation has a sub alternate and is preceded by a
+// literal.
 // For instance bar|b|buzz is expressed as b(ar|(?:)|uzz) => b concat alternate(ar,(?:),uzz).
 // (?:) being an OpEmptyMatch and b being the literal to concat all alternates (ar,(?:),uzz) with.
 func simplifyConcatAlternate(reg *syntax.Regexp, literal []byte, curr Filterer) (Filterer, bool) {

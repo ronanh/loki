@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
-
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
@@ -274,7 +273,11 @@ func newLineFilterExpr(left *lineFilterExpr, ty labels.MatchType, match string) 
 }
 
 // AddFilterExpr adds a filter expression to a logselector expression.
-func AddFilterExpr(expr LogSelectorExpr, ty labels.MatchType, match string) (LogSelectorExpr, error) {
+func AddFilterExpr(
+	expr LogSelectorExpr,
+	ty labels.MatchType,
+	match string,
+) (LogSelectorExpr, error) {
 	filter := newLineFilterExpr(nil, ty, match)
 	switch e := expr.(type) {
 	case *matchersExpr:
@@ -714,17 +717,38 @@ type rangeAggregationExpr struct {
 
 var _ GroupBuilder = &rangeAggregationExpr{}
 
-func newRangeAggregationExpr(left *logRange, operation string, gr *grouping, stringParams *string) SampleExpr {
+func newRangeAggregationExpr(
+	left *logRange,
+	operation string,
+	gr *grouping,
+	stringParams *string,
+) SampleExpr {
 	var params *float64
 	if stringParams != nil {
 		if operation != OpRangeTypeQuantile {
-			panic(newParseError(fmt.Sprintf("parameter %s not supported for operation %s", *stringParams, operation), 0, 0))
+			panic(
+				newParseError(
+					fmt.Sprintf(
+						"parameter %s not supported for operation %s",
+						*stringParams,
+						operation,
+					),
+					0,
+					0,
+				),
+			)
 		}
 		var err error
 		params = new(float64)
 		*params, err = strconv.ParseFloat(*stringParams, 64)
 		if err != nil {
-			panic(newParseError(fmt.Sprintf("invalid parameter for operation %s: %s", operation, err), 0, 0))
+			panic(
+				newParseError(
+					fmt.Sprintf("invalid parameter for operation %s: %s", operation, err),
+					0,
+					0,
+				),
+			)
 		}
 
 	} else {
@@ -759,23 +783,42 @@ func (e *rangeAggregationExpr) Interval() time.Duration {
 func (e rangeAggregationExpr) validate() error {
 	if e.grouping != nil {
 		switch e.operation {
-		case OpRangeTypeAvg, OpRangeTypeStddev, OpRangeTypeStdvar, OpRangeTypeQuantile, OpRangeTypeMax,
-			OpRangeTypeMin, OpRangeTypeFirst, OpRangeTypeLast:
+		case OpRangeTypeAvg,
+			OpRangeTypeStddev,
+			OpRangeTypeStdvar,
+			OpRangeTypeQuantile,
+			OpRangeTypeMax,
+			OpRangeTypeMin,
+			OpRangeTypeFirst,
+			OpRangeTypeLast:
 		default:
 			return fmt.Errorf("grouping not allowed for %s aggregation", e.operation)
 		}
 	}
 	if e.left.unwrap != nil {
 		switch e.operation {
-		case OpRangeTypeRate, OpRangeTypeAvg, OpRangeTypeSum, OpRangeTypeMax, OpRangeTypeMin, OpRangeTypeStddev,
-			OpRangeTypeStdvar, OpRangeTypeQuantile, OpRangeTypeAbsent, OpRangeTypeFirst, OpRangeTypeLast:
+		case OpRangeTypeRate,
+			OpRangeTypeAvg,
+			OpRangeTypeSum,
+			OpRangeTypeMax,
+			OpRangeTypeMin,
+			OpRangeTypeStddev,
+			OpRangeTypeStdvar,
+			OpRangeTypeQuantile,
+			OpRangeTypeAbsent,
+			OpRangeTypeFirst,
+			OpRangeTypeLast:
 			return nil
 		default:
 			return fmt.Errorf("invalid aggregation %s with unwrap", e.operation)
 		}
 	}
 	switch e.operation {
-	case OpRangeTypeBytes, OpRangeTypeBytesRate, OpRangeTypeCount, OpRangeTypeRate, OpRangeTypeAbsent:
+	case OpRangeTypeBytes,
+		OpRangeTypeBytesRate,
+		OpRangeTypeCount,
+		OpRangeTypeRate,
+		OpRangeTypeAbsent:
 		return nil
 	default:
 		return fmt.Errorf("invalid aggregation %s without unwrap", e.operation)
@@ -866,13 +909,20 @@ type vectorAggregationExpr struct {
 
 var _ GroupBuilder = &vectorAggregationExpr{}
 
-func mustNewVectorAggregationExpr(left SampleExpr, operation string, gr *grouping, params *string) SampleExpr {
+func mustNewVectorAggregationExpr(
+	left SampleExpr,
+	operation string,
+	gr *grouping,
+	params *string,
+) SampleExpr {
 	var p int
 	var err error
 	switch operation {
 	case OpTypeBottomK, OpTypeTopK:
 		if params == nil {
-			panic(newParseError(fmt.Sprintf("parameter required for operation %s", operation), 0, 0))
+			panic(
+				newParseError(fmt.Sprintf("parameter required for operation %s", operation), 0, 0),
+			)
 		}
 		if p, err = strconv.Atoi(*params); err != nil {
 			panic(newParseError(fmt.Sprintf("invalid parameter %s(%s,", operation, *params), 0, 0))
@@ -880,7 +930,13 @@ func mustNewVectorAggregationExpr(left SampleExpr, operation string, gr *groupin
 
 	default:
 		if params != nil {
-			panic(newParseError(fmt.Sprintf("unsupported parameter for operation %s(%s,", operation, *params), 0, 0))
+			panic(
+				newParseError(
+					fmt.Sprintf("unsupported parameter for operation %s(%s,", operation, *params),
+					0,
+					0,
+				),
+			)
 		}
 	}
 	if gr == nil {
@@ -901,7 +957,8 @@ func (e *vectorAggregationExpr) Selector() LogSelectorExpr {
 func (e *vectorAggregationExpr) Extractor() (log.SampleExtractor, error) {
 	// inject in the range vector extractor the outer groups to improve performance.
 	// This is only possible if the operation is a sum. Anything else needs all labels.
-	if r, ok := e.left.(*rangeAggregationExpr); ok && canInjectVectorGrouping(e.operation, r.operation) {
+	if r, ok := e.left.(*rangeAggregationExpr); ok &&
+		canInjectVectorGrouping(e.operation, r.operation) {
 		// if the range vec operation has no grouping we can push down the vec one.
 		if r.grouping == nil {
 			return r.extractor(e.grouping)
@@ -914,7 +971,8 @@ func (e *vectorAggregationExpr) Leaves() []Expr {
 	return []Expr{e.left}
 }
 
-// canInjectVectorGrouping tells if a vector operation can inject grouping into the nested range vector.
+// canInjectVectorGrouping tells if a vector operation can inject grouping into the nested range
+// vector.
 func canInjectVectorGrouping(vecOp, rangeOp string) bool {
 	if vecOp != OpTypeSum {
 		return false
@@ -946,7 +1004,9 @@ func (e *vectorAggregationExpr) AddGroup(group string) {
 func (e *vectorAggregationExpr) String() string {
 	if e.params != 0 {
 		if e.grouping != nil {
-			return e.operation + e.grouping.String() + "(" + strconv.Itoa(e.params) + "," + e.left.String() + ")"
+			return e.operation + e.grouping.String() + "(" + strconv.Itoa(
+				e.params,
+			) + "," + e.left.String() + ")"
 		}
 		return e.operation + "(" + strconv.Itoa(e.params) + "," + e.left.String() + ")"
 	}
@@ -1033,9 +1093,10 @@ func mustNewBinOpExpr(op string, opts BinOpOptions, lhs, rhs Expr) SampleExpr {
 	}
 }
 
-// Reduces a binary operation expression. A binop is reducible if both of its legs are literal expressions.
-// This is because literals need match all labels, which is currently difficult to encode into StepEvaluators.
-// Therefore, we ensure a binop can be reduced/simplified, maintaining the invariant that it does not have two literal
+// Reduces a binary operation expression. A binop is reducible if both of its legs are literal
+// expressions. This is because literals need match all labels, which is currently difficult to
+// encode into StepEvaluators. Therefore, we ensure a binop can be reduced/simplified, maintaining
+// the invariant that it does not have two literal
 // legs.
 func reduceBinOp(op string, left, right *literalExpr) *literalExpr {
 	var res promql.Sample
@@ -1058,7 +1119,9 @@ type literalExpr struct {
 func mustNewLiteralExpr(s string, invert bool) *literalExpr {
 	n, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		panic(newParseError(fmt.Sprintf("unable to parse literal as a float: %s", err.Error()), 0, 0))
+		panic(
+			newParseError(fmt.Sprintf("unable to parse literal as a float: %s", err.Error()), 0, 0),
+		)
 	}
 
 	if invert {
@@ -1074,7 +1137,8 @@ func (e *literalExpr) String() string {
 	return fmt.Sprint(e.value)
 }
 
-// literlExpr impls SampleExpr & LogSelectorExpr mainly to reduce the need for more complicated typings
+// literlExpr impls SampleExpr & LogSelectorExpr mainly to reduce the need for more complicated
+// typings
 // to facilitate sum types. We'll be type switching when evaluating them anyways
 // and they will only be present in binary operation legs.
 func (e *literalExpr) Selector() LogSelectorExpr               { return e }
@@ -1094,7 +1158,10 @@ type labelReplaceExpr struct {
 	implicit
 }
 
-func mustNewLabelReplaceExpr(left SampleExpr, dst, replacement, src, regex string) *labelReplaceExpr {
+func mustNewLabelReplaceExpr(
+	left SampleExpr,
+	dst, replacement, src, regex string,
+) *labelReplaceExpr {
 	re, err := regexp.Compile("^(?:" + regex + ")$")
 	if err != nil {
 		panic(newParseError(fmt.Sprintf("invalid regex in label_replace: %s", err.Error()), 0, 0))

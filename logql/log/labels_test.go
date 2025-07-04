@@ -88,9 +88,18 @@ func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
 		labels.Label{Name: "cluster", Value: "us-central1"},
 	}
 	sort.Sort(lbs)
-	b := NewBaseLabelsBuilderWithGrouping([]string{"namespace"}, nil, false, false).ForLabels(lbs, lbs.Hash())
+	b := NewBaseLabelsBuilderWithGrouping(
+		[]string{"namespace"},
+		nil,
+		false,
+		false,
+	).ForLabels(lbs, lbs.Hash())
 	b.Reset()
-	assertLabelResult(t, labels.Labels{labels.Label{Name: "namespace", Value: "loki"}}, b.GroupedLabels())
+	assertLabelResult(
+		t,
+		labels.Labels{labels.Label{Name: "namespace", Value: "loki"}},
+		b.GroupedLabels(),
+	)
 	b.SetErr("err")
 	withErr := append(lbs, labels.Label{Name: ErrorLabel, Value: "err"})
 	sort.Sort(withErr)
@@ -109,16 +118,38 @@ func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
 	// cached.
 	assertLabelResult(t, expected, b.GroupedLabels())
 
-	b = NewBaseLabelsBuilderWithGrouping([]string{"job"}, nil, false, false).ForLabels(lbs, lbs.Hash())
-	assertLabelResult(t, labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}}, b.GroupedLabels())
-	assertLabelResult(t, labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}}, b.GroupedLabels())
+	b = NewBaseLabelsBuilderWithGrouping(
+		[]string{"job"},
+		nil,
+		false,
+		false,
+	).ForLabels(lbs, lbs.Hash())
+	assertLabelResult(
+		t,
+		labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}},
+		b.GroupedLabels(),
+	)
+	assertLabelResult(
+		t,
+		labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}},
+		b.GroupedLabels(),
+	)
 	b.Del("job")
 	assertLabelResult(t, labels.Labels{}, b.GroupedLabels())
 	b.Reset()
 	b.Set("namespace", "tempo")
-	assertLabelResult(t, labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}}, b.GroupedLabels())
+	assertLabelResult(
+		t,
+		labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}},
+		b.GroupedLabels(),
+	)
 
-	b = NewBaseLabelsBuilderWithGrouping([]string{"job"}, nil, true, false).ForLabels(lbs, lbs.Hash())
+	b = NewBaseLabelsBuilderWithGrouping(
+		[]string{"job"},
+		nil,
+		true,
+		false,
+	).ForLabels(lbs, lbs.Hash())
 	b.Del("job")
 	b.Set("foo", "bar")
 	b.Set("job", "something")
@@ -141,7 +172,6 @@ func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
 	}
 	sort.Sort(expected)
 	assertLabelResult(t, expected, b.GroupedLabels())
-
 }
 
 func assertLabelResult(t *testing.T, lbs labels.Labels, res LabelsResult) {

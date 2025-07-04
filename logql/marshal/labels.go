@@ -2,7 +2,6 @@ package marshal
 
 import (
 	"github.com/prometheus/prometheus/promql/parser"
-
 	"github.com/ronanh/loki/loghttp"
 )
 

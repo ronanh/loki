@@ -2,7 +2,8 @@ package logproto
 
 import "github.com/prometheus/prometheus/pkg/labels"
 
-// Note, this is not very efficient and use should be minimized as it requires label construction on each comparison
+// Note, this is not very efficient and use should be minimized as it requires label construction on
+// each comparison
 type SeriesIdentifiers []SeriesIdentifier
 
 func (ids SeriesIdentifiers) Len() int      { return len(ids) }

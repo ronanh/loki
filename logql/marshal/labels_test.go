@@ -8,7 +8,6 @@ import (
 )
 
 func TestNewLabelSet(t *testing.T) {
-
 	tests := []struct {
 		lbs     string
 		want    loghttp.LabelSet

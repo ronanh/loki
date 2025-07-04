@@ -10,12 +10,11 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/loghttp"
 	legacy "github.com/ronanh/loki/loghttp/legacy"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	"github.com/stretchr/testify/require"
 )
 
 // covers responses from /loki/api/v1/query_range and /loki/api/v1/query
@@ -447,7 +446,13 @@ func Test_LabelResponseMarshalLoop(t *testing.T) {
 		jsonOut, err := json.Marshal(r)
 		require.NoError(t, err)
 
-		testJSONBytesEqual(t, []byte(labelTest.expected), jsonOut, "Label Marshal Loop %d failed", i)
+		testJSONBytesEqual(
+			t,
+			[]byte(labelTest.expected),
+			jsonOut,
+			"Label Marshal Loop %d failed",
+			i,
+		)
 	}
 }
 
@@ -500,7 +505,13 @@ func Test_WriteSeriesResponseJSON(t *testing.T) {
 	}
 }
 
-func testJSONBytesEqual(t *testing.T, expected []byte, actual []byte, msg string, args ...interface{}) {
+func testJSONBytesEqual(
+	t *testing.T,
+	expected []byte,
+	actual []byte,
+	msg string,
+	args ...interface{},
+) {
 	var expectedValue map[string]interface{}
 	err := json.Unmarshal(expected, &expectedValue)
 	require.NoError(t, err)
@@ -530,14 +541,21 @@ func Test_WriteTailResponseJSON(t *testing.T) {
 	require.NoError(t,
 		WriteTailResponseJSON(legacy.TailResponse{
 			Streams: []logproto.Stream{
-				{Labels: `{app="foo"}`, Entries: []logproto.Entry{{Timestamp: time.Unix(0, 1), Line: `foobar`}}},
+				{
+					Labels:  `{app="foo"}`,
+					Entries: []logproto.Entry{{Timestamp: time.Unix(0, 1), Line: `foobar`}},
+				},
 			},
 			DroppedEntries: []legacy.DroppedEntry{
 				{Timestamp: time.Unix(0, 2), Labels: `{app="dropped"}`},
 			},
 		},
 			WebsocketWriterFunc(func(i int, b []byte) error {
-				require.Equal(t, `{"streams":[{"stream":{"app":"foo"},"values":[["1","foobar"]]}],"dropped_entries":[{"timestamp":"2","labels":{"app":"dropped"}}]}`, string(b))
+				require.Equal(
+					t,
+					`{"streams":[{"stream":{"app":"foo"},"values":[["1","foobar"]]}],"dropped_entries":[{"timestamp":"2","labels":{"app":"dropped"}}]}`,
+					string(b),
+				)
 				return nil
 			}),
 		),

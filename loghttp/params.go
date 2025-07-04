@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
-
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
 )
@@ -162,7 +161,10 @@ func parseSecondsOrDuration(value string) (time.Duration, error) {
 	if d, err := strconv.ParseFloat(value, 64); err == nil {
 		ts := d * float64(time.Second)
 		if ts > float64(math.MaxInt64) || ts < float64(math.MinInt64) {
-			return 0, errors.Errorf("cannot parse %q to a valid duration. It overflows int64", value)
+			return 0, errors.Errorf(
+				"cannot parse %q to a valid duration. It overflows int64",
+				value,
+			)
 		}
 		return time.Duration(ts), nil
 	}

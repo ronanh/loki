@@ -28,7 +28,11 @@ func nilClose() error {
 
 var nilStepEvaluatorFnErr = errors.New("nil step evaluator fn")
 
-func newStepEvaluator(fn func() (bool, int64, promql.Vector), close func() error, err func() error) (StepEvaluator, error) {
+func newStepEvaluator(
+	fn func() (bool, int64, promql.Vector),
+	close func() error,
+	err func() error,
+) (StepEvaluator, error) {
 	if fn == nil {
 		return nil, nilStepEvaluatorFnErr
 	}

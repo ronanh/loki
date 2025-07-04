@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/promql"
-
 	"github.com/ronanh/loki/logql/log"
 )
 

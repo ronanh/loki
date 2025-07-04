@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/promql/parser"
-	"github.com/weaveworks/common/httpgrpc"
-
 	"github.com/ronanh/loki/loghttp"
 	"github.com/ronanh/loki/logql"
 	"github.com/ronanh/loki/logql/marshal"
 	serverutil "github.com/ronanh/loki/util/server"
 	"github.com/ronanh/loki/util/validation"
+	"github.com/weaveworks/common/httpgrpc"
 )
 
 type HttpQuerier struct {

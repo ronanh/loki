@@ -62,12 +62,42 @@ type Limits struct {
 
 // RegisterFlags adds the flags required to config this to the given FlagSet
 func (l *Limits) RegisterFlags(f *flag.FlagSet) {
-	f.StringVar(&l.IngestionRateStrategy, "distributor.ingestion-rate-limit-strategy", "local", "Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).")
-	f.Float64Var(&l.IngestionRateMB, "distributor.ingestion-rate-limit-mb", 4, "Per-user ingestion rate limit in sample size per second. Units in MB.")
-	f.Float64Var(&l.IngestionBurstSizeMB, "distributor.ingestion-burst-size-mb", 6, "Per-user allowed ingestion burst size (in sample size). Units in MB.")
-	f.IntVar(&l.MaxLabelNameLength, "validation.max-length-label-name", 1024, "Maximum length accepted for label names")
-	f.IntVar(&l.MaxLabelValueLength, "validation.max-length-label-value", 2048, "Maximum length accepted for label value. This setting also applies to the metric name")
-	f.IntVar(&l.MaxLabelNamesPerSeries, "validation.max-label-names-per-series", 30, "Maximum number of label names per series.")
+	f.StringVar(
+		&l.IngestionRateStrategy,
+		"distributor.ingestion-rate-limit-strategy",
+		"local",
+		"Whether the ingestion rate limit should be applied individually to each distributor instance (local), or evenly shared across the cluster (global).",
+	)
+	f.Float64Var(
+		&l.IngestionRateMB,
+		"distributor.ingestion-rate-limit-mb",
+		4,
+		"Per-user ingestion rate limit in sample size per second. Units in MB.",
+	)
+	f.Float64Var(
+		&l.IngestionBurstSizeMB,
+		"distributor.ingestion-burst-size-mb",
+		6,
+		"Per-user allowed ingestion burst size (in sample size). Units in MB.",
+	)
+	f.IntVar(
+		&l.MaxLabelNameLength,
+		"validation.max-length-label-name",
+		1024,
+		"Maximum length accepted for label names",
+	)
+	f.IntVar(
+		&l.MaxLabelValueLength,
+		"validation.max-length-label-value",
+		2048,
+		"Maximum length accepted for label value. This setting also applies to the metric name",
+	)
+	f.IntVar(
+		&l.MaxLabelNamesPerSeries,
+		"validation.max-label-names-per-series",
+		30,
+		"Maximum number of label names per series.",
+	)
 	f.BoolVar(&l.RejectOldSamples, "validation.reject-old-samples", false, "Reject old samples.")
 	f.DurationVar(
 		&l.RejectOldSamplesMaxAge,
@@ -350,7 +380,8 @@ func (o *Overrides) MaxConcurrentTailRequests(userID string) int {
 	return o.getOverridesForUser(userID).MaxConcurrentTailRequests
 }
 
-// MaxEntriesLimitPerQuery returns the limit to number of entries the querier should return per query.
+// MaxEntriesLimitPerQuery returns the limit to number of entries the querier should return per
+// query.
 func (o *Overrides) MaxEntriesLimitPerQuery(userID string) int {
 	return o.getOverridesForUser(userID).MaxEntriesLimitPerQuery
 }

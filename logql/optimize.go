@@ -1,6 +1,7 @@
 package logql
 
-// optimizeSampleExpr Attempt to optimize the SampleExpr to another that will run faster but will produce the same result.
+// optimizeSampleExpr Attempt to optimize the SampleExpr to another that will run faster but will
+// produce the same result.
 func optimizeSampleExpr(expr SampleExpr) (SampleExpr, error) {
 	// clone the expr.
 	q := expr.String()
@@ -35,7 +36,8 @@ func removeLineformat(expr SampleExpr) {
 				temp = append(temp, s)
 				continue
 			}
-			// we found a lineFmtExpr, we need to check if it's followed by a labelParser or lineFilter
+			// we found a lineFmtExpr, we need to check if it's followed by a labelParser or
+			// lineFilter
 			// in which case it could be useful for further processing.
 			var found bool
 			for j := i; j < len(pipelineExpr.pipeline); j++ {

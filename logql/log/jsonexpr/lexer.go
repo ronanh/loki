@@ -109,7 +109,7 @@ func (sc *Scanner) scanField() string {
 
 func (sc *Scanner) scanStr() string {
 	var str []rune
-	//begin with ", end with "
+	// begin with ", end with "
 	r := sc.read()
 	if r != '"' {
 		sc.err = fmt.Errorf("unexpected char %c", r)

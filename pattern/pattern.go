@@ -8,10 +8,12 @@ import (
 )
 
 var (
-	errSuccessiveCapturesNotAllowed = errors.New("cannot have 2 successive captures without at least 1 litteral in between")
-	errZeroNamedCaptures            = errors.New("there must be at least 1 named capture")
-	errZeroParts                    = errors.New("pattern contained no literals nor captures")
-	errDuplicateCapture             = errors.New("found duplicate capture")
+	errSuccessiveCapturesNotAllowed = errors.New(
+		"cannot have 2 successive captures without at least 1 litteral in between",
+	)
+	errZeroNamedCaptures = errors.New("there must be at least 1 named capture")
+	errZeroParts         = errors.New("pattern contained no literals nor captures")
+	errDuplicateCapture  = errors.New("found duplicate capture")
 )
 
 func isInvalidCaptureName(b []byte) bool {

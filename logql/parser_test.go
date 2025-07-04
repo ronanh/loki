@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/logql/log"
+	"github.com/stretchr/testify/require"
 )
 
 func NewStringLabelFilter(s string) *string {
@@ -2365,11 +2364,25 @@ func Test_PipelineCombined(t *testing.T) {
 	p, err := expr.Pipeline()
 	require.Nil(t, err)
 	sp := p.ForStream(labels.Labels{})
-	line, lbs, ok := sp.Process([]byte(`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`))
+	line, lbs, ok := sp.Process(
+		[]byte(
+			`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`,
+		),
+	)
 	require.True(t, ok)
 	require.Equal(
 		t,
-		labels.Labels{labels.Label{Name: "caller", Value: "logging.go:66"}, labels.Label{Name: "duration", Value: "1.5s"}, labels.Label{Name: "level", Value: "debug"}, labels.Label{Name: "method", Value: "POST"}, labels.Label{Name: "msg", Value: "POST /api/prom/api/v1/query_range (200) 1.5s"}, labels.Label{Name: "path", Value: "/api/prom/api/v1/query_range"}, labels.Label{Name: "status", Value: "200"}, labels.Label{Name: "traceID", Value: "a9d4d8a928d8db1"}, labels.Label{Name: "ts", Value: "2020-10-02T10:10:42.092268913Z"}},
+		labels.Labels{
+			labels.Label{Name: "caller", Value: "logging.go:66"},
+			labels.Label{Name: "duration", Value: "1.5s"},
+			labels.Label{Name: "level", Value: "debug"},
+			labels.Label{Name: "method", Value: "POST"},
+			labels.Label{Name: "msg", Value: "POST /api/prom/api/v1/query_range (200) 1.5s"},
+			labels.Label{Name: "path", Value: "/api/prom/api/v1/query_range"},
+			labels.Label{Name: "status", Value: "200"},
+			labels.Label{Name: "traceID", Value: "a9d4d8a928d8db1"},
+			labels.Label{Name: "ts", Value: "2020-10-02T10:10:42.092268913Z"},
+		},
 		lbs.Labels(),
 	)
 	require.Equal(t, string([]byte(`1.5s|POST|200`)), string(line))
@@ -2384,7 +2397,11 @@ func Test_PipelineCombinedPattern(t *testing.T) {
 	p, err := expr.Pipeline()
 	require.Nil(t, err)
 	sp := p.ForStream(labels.Labels{})
-	line, lbs, ok := sp.Process([]byte(`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`))
+	line, lbs, ok := sp.Process(
+		[]byte(
+			`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`,
+		),
+	)
 	require.True(t, ok)
 	require.Equal(
 		t,

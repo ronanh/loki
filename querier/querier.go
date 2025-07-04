@@ -20,7 +20,12 @@ type Config struct {
 // RegisterFlags register flags.
 func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 	cfg.Engine.RegisterFlagsWithPrefix("querier", f)
-	f.DurationVar(&cfg.QueryTimeout, "querier.query-timeout", 1*time.Minute, "Timeout when querying backends (ingesters or storage) during the execution of a query request")
+	f.DurationVar(
+		&cfg.QueryTimeout,
+		"querier.query-timeout",
+		1*time.Minute,
+		"Timeout when querying backends (ingesters or storage) during the execution of a query request",
+	)
 }
 
 // Querier handlers queries.

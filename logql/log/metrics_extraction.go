@@ -5,10 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
-
-	"github.com/dustin/go-humanize"
 )
 
 const (
@@ -47,7 +46,12 @@ type lineSampleExtractor struct {
 
 // NewLineSampleExtractor creates a SampleExtractor from a LineExtractor.
 // Multiple log stages are run before converting the log line.
-func NewLineSampleExtractor(ex LineExtractor, stages []Stage, groups []string, without, noLabels bool) (SampleExtractor, error) {
+func NewLineSampleExtractor(
+	ex LineExtractor,
+	stages []Stage,
+	groups []string,
+	without, noLabels bool,
+) (SampleExtractor, error) {
 	s := ReduceStages(stages)
 	hints := newParserHint(s.RequiredLabelNames(), groups, without, noLabels, "")
 	return &lineSampleExtractor{
@@ -110,7 +114,8 @@ type labelSampleExtractor struct {
 }
 
 // LabelExtractorWithStages creates a SampleExtractor that will extract metrics from a labels.
-// A set of log stage is executed before the conversion. A Filtering stage is executed after the conversion allowing
+// A set of log stage is executed before the conversion. A Filtering stage is executed after the
+// conversion allowing
 // to remove sample containing the __error__ label.
 func LabelExtractorWithStages(
 	labelName, conversion string,
@@ -135,7 +140,13 @@ func LabelExtractorWithStages(
 		sort.Strings(groups)
 	}
 	preStage := ReduceStages(preStages)
-	hints := newParserHint(append(preStage.RequiredLabelNames(), postFilter.RequiredLabelNames()...), groups, without, noLabels, labelName)
+	hints := newParserHint(
+		append(preStage.RequiredLabelNames(), postFilter.RequiredLabelNames()...),
+		groups,
+		without,
+		noLabels,
+		labelName,
+	)
 	return &labelSampleExtractor{
 		preStage:         preStage,
 		conversionFn:     convFn,

@@ -9,15 +9,18 @@ import (
 
 	json "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"
-
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 )
 
 var (
-	errEndBeforeStart   = errors.New("end timestamp must not be before or equal to start time")
-	errNegativeStep     = errors.New("zero or negative query resolution step widths are not accepted. Try a positive integer")
-	errStepTooSmall     = errors.New("exceeded maximum resolution of 11,000 points per timeseries. Try decreasing the query resolution (?step=XX)")
+	errEndBeforeStart = errors.New("end timestamp must not be before or equal to start time")
+	errNegativeStep   = errors.New(
+		"zero or negative query resolution step widths are not accepted. Try a positive integer",
+	)
+	errStepTooSmall = errors.New(
+		"exceeded maximum resolution of 11,000 points per timeseries. Try decreasing the query resolution (?step=XX)",
+	)
 	errNegativeInterval = errors.New("interval must be >= 0")
 )
 

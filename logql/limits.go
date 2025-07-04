@@ -4,9 +4,7 @@ import (
 	"math"
 )
 
-var (
-	NoLimits = &fakeLimits{maxSeries: math.MaxInt32}
-)
+var NoLimits = &fakeLimits{maxSeries: math.MaxInt32}
 
 // Limits allow the engine to fetch limits for a given users.
 type Limits interface {

@@ -4,10 +4,9 @@ import (
 	"testing"
 
 	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/ronanh/loki/logql/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ronanh/loki/logql/log"
 )
 
 func Test_logSelectorExpr_String(t *testing.T) {
@@ -30,7 +29,10 @@ func Test_logSelectorExpr_String(t *testing.T) {
 		{`{foo="bar"} |= "baz" |~ "blip" != "flip" !~ "flap" | unpack | foo>5`, true},
 		{`{foo="bar"} |= "baz" |~ "blip" != "flip" !~ "flap" | logfmt | b>=10GB`, true},
 		{`{foo="bar"} |= "baz" |~ "blip" != "flip" !~ "flap" | regexp "(?P<foo>foo|bar)"`, true},
-		{`{foo="bar"} |= "baz" |~ "blip" != "flip" !~ "flap" | regexp "(?P<foo>foo|bar)" | ( ( foo<5.01 , bar>20ms ) or foo="bar" ) | line_format "blip{{.boop}}bap" | label_format foo=bar,bar="blip{{.blop}}"`, true},
+		{
+			`{foo="bar"} |= "baz" |~ "blip" != "flip" !~ "flap" | regexp "(?P<foo>foo|bar)" | ( ( foo<5.01 , bar>20ms ) or foo="bar" ) | line_format "blip{{.boop}}bap" | label_format foo=bar,bar="blip{{.blop}}"`,
+			true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -287,7 +289,6 @@ func TestStringer(t *testing.T) {
 			out: `(0 > bool count_over_time({foo="bar"}[1m]))`,
 		},
 		{
-
 			in:  `0 > count_over_time({foo="bar"}[1m])`,
 			out: `(0 > count_over_time({foo="bar"}[1m]))`,
 		},

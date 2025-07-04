@@ -57,5 +57,4 @@ func BenchmarkStreamAdapter(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-
 }

@@ -60,7 +60,6 @@ func Test_Parse(t *testing.T) {
 			nil,
 		},
 	} {
-
 		t.Run(tc.input, func(t *testing.T) {
 			actual, err := CompileFromString(tc.input)
 			if tc.err != nil || err != nil {
@@ -71,7 +70,6 @@ func Test_Parse(t *testing.T) {
 			} else {
 				require.Equal(t, tc.expected, actual.parts)
 			}
-
 		})
 	}
 }
@@ -82,13 +80,14 @@ func BenchmarkParseExpr(b *testing.B) {
 	var err error
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		result, err = CompileFromString(`level=info <_> caller=main.go:107 msg="Starting Grafana Enterprise Traces" version="version=weekly-r138-f1920489, branch=weekly-r138, revision=<revision>"`)
+		result, err = CompileFromString(
+			`level=info <_> caller=main.go:107 msg="Starting Grafana Enterprise Traces" version="version=weekly-r138-f1920489, branch=weekly-r138, revision=<revision>"`,
+		)
 	}
 	require.NoError(b, err)
 }
 
 func TestMatch(t *testing.T) {
-
 	pat, _ := Compile([]byte("<pipo>ef"))
 
 	iter := pat.Match([]byte("abcdef"))
@@ -163,7 +162,6 @@ func TestMatchIter(t *testing.T) {
 		},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
-
 			pat, _ := Compile([]byte(scenario.expression))
 			iter := pat.Match([]byte(scenario.line))
 
@@ -177,13 +175,10 @@ func TestMatchIter(t *testing.T) {
 			assert.False(t, ok)
 			assert.Equal(t, MatchItem{}, kv)
 		})
-
 	}
-
 }
 
 func TestCompile(t *testing.T) {
-
 	for _, scenario := range []struct {
 		in  string
 		out *Pattern
@@ -411,7 +406,6 @@ func TestCompile(t *testing.T) {
 			assert.Equal(t, scenario.out, v)
 		})
 	}
-
 }
 
 var fixtures = []struct {
@@ -491,7 +485,13 @@ var fixtures = []struct {
 		// Combined Log Format
 		`<ip> - - [<_>] "<method> <path> <_>" <status> <size> `,
 		`35.191.8.106 - - [19/May/2021:07:21:49 +0000] "GET /api/plugins/versioncheck?slugIn=snuids-trafficlights-panel,input,gel&grafanaVersion=7.0.0-beta1 HTTP/1.1" 200 107 "-" "Go-http-client/2.0" "80.153.74.144, 34.120.177.193" "TLSv1.3" "DE" "DEBW"`,
-		[]string{"35.191.8.106", "GET", "/api/plugins/versioncheck?slugIn=snuids-trafficlights-panel,input,gel&grafanaVersion=7.0.0-beta1", "200", "107"},
+		[]string{
+			"35.191.8.106",
+			"GET",
+			"/api/plugins/versioncheck?slugIn=snuids-trafficlights-panel,input,gel&grafanaVersion=7.0.0-beta1",
+			"200",
+			"107",
+		},
 		false,
 	},
 	{
@@ -547,14 +547,30 @@ var fixtures = []struct {
 		// Elastic
 		`<_>][<level>][<component>] [<id>] [<index>]`,
 		`[2021-05-19T06:54:06,994][INFO ][o.e.c.m.MetaDataMappingService] [1f605d47-8454-4bfb-a67f-49f318bf837a] [usage-stats-2021.05.19/O2Je9IbmR8CqFyUvNpTttA] update_mapping [report]`,
-		[]string{"INFO ", "o.e.c.m.MetaDataMappingService", "1f605d47-8454-4bfb-a67f-49f318bf837a", "usage-stats-2021.05.19/O2Je9IbmR8CqFyUvNpTttA"},
+		[]string{
+			"INFO ",
+			"o.e.c.m.MetaDataMappingService",
+			"1f605d47-8454-4bfb-a67f-49f318bf837a",
+			"usage-stats-2021.05.19/O2Je9IbmR8CqFyUvNpTttA",
+		},
 		false,
 	},
 	{
 		// Envoy
 		`<_> "<method> <path> <_>" <status> <_> <received_bytes> <sent_bytes> <duration> <upstream_time> "<forward_for>" "<agent>" <_> <_> "<upstream>"`,
 		`[2016-04-15T20:17:00.310Z] "POST /api/v1/locations HTTP/2" 204 - 154 0 226 100 "10.0.35.28" "nsq2http" "cc21d9b0-cf5c-432b-8c7e-98aeb7988cd2" "locations" "tcp://10.0.2.1:80"`,
-		[]string{"POST", "/api/v1/locations", "204", "154", "0", "226", "100", "10.0.35.28", "nsq2http", "tcp://10.0.2.1:80"},
+		[]string{
+			"POST",
+			"/api/v1/locations",
+			"204",
+			"154",
+			"0",
+			"226",
+			"100",
+			"10.0.35.28",
+			"nsq2http",
+			"tcp://10.0.2.1:80",
+		},
 		true,
 	},
 	{

@@ -9,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/sloghandler"
+	"github.com/stretchr/testify/require"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestQueryType(t *testing.T) {
@@ -32,9 +31,19 @@ func TestQueryType(t *testing.T) {
 		{"filter string extracted label", `{app="foo"} | json | foo="a"`, QueryTypeFilter, false},
 		{"filter duration", `{app="foo"} | json | duration > 5s`, QueryTypeFilter, false},
 		{"metrics", `rate({app="foo"} |= "foo"[5m])`, QueryTypeMetric, false},
-		{"metrics binary", `rate({app="foo"} |= "foo"[5m]) + count_over_time({app="foo"} |= "foo"[5m]) / rate({app="foo"} |= "foo"[5m]) `, QueryTypeMetric, false},
+		{
+			"metrics binary",
+			`rate({app="foo"} |= "foo"[5m]) + count_over_time({app="foo"} |= "foo"[5m]) / rate({app="foo"} |= "foo"[5m]) `,
+			QueryTypeMetric,
+			false,
+		},
 		{"filters", `{app="foo"} |= "foo" |= "f" != "b"`, QueryTypeFilter, false},
-		{"filters and labels filters", `{app="foo"} |= "foo" |= "f" != "b" | json | a > 5`, QueryTypeFilter, false},
+		{
+			"filters and labels filters",
+			`{app="foo"} |= "foo" |= "f" != "b" | json | a > 5`,
+			QueryTypeFilter,
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -86,5 +95,9 @@ func TestLogSlowQuery(t *testing.T) {
 	require.Contains(t, loggedLine, "length=1h0m0s")
 	require.Contains(t, loggedLine, "step=1m0s")
 	require.Contains(t, loggedLine, "latency=slow")
-	require.Contains(t, loggedLine, "duration=25.25s status=200 limit=1000 returned_lines=10 throughput=100kB total_bytes=100kB")
+	require.Contains(
+		t,
+		loggedLine,
+		"duration=25.25s status=200 limit=1000 returned_lines=10 throughput=100kB total_bytes=100kB",
+	)
 }

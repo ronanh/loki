@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-
 	"github.com/ronanh/loki/logproto"
 )
 
@@ -25,7 +24,8 @@ func (l LabelSet) Map() map[string]string {
 	return l
 }
 
-// String implements the Stringer interface.  It returns a formatted/sorted set of label key/value pairs.
+// String implements the Stringer interface.  It returns a formatted/sorted set of label key/value
+// pairs.
 func (l LabelSet) String() string {
 	var b bytes.Buffer
 

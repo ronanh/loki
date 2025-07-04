@@ -63,12 +63,19 @@ func Benchmark_Pipeline(b *testing.B) {
 			NewDurationLabelFilter(LabelFilterGreaterThan, "duration", 10*time.Millisecond),
 			NewNumericLabelFilter(LabelFilterEqual, "status", 200.0),
 		),
-		mustNewLabelsFormatter([]LabelFmt{NewRenameLabelFmt("caller_foo", "caller"), NewTemplateLabelFmt("new", "{{.query_type}}:{{.range_type}}")}),
+		mustNewLabelsFormatter(
+			[]LabelFmt{
+				NewRenameLabelFmt("caller_foo", "caller"),
+				NewTemplateLabelFmt("new", "{{.query_type}}:{{.range_type}}"),
+			},
+		),
 		NewJSONParser(),
 		NewStringLabelFilter(labels.MustNewMatcher(labels.MatchEqual, ErrorLabel, errJSON)),
 		newMustLineFormatter("Q=>{{.query}},D=>{{.duration}}"),
 	})
-	line := []byte(`level=info ts=2020-10-18T18:04:22.147378997Z caller=metrics.go:81 org_id=29 traceID=29a0f088b047eb8c latency=fast query="{stream=\"stdout\",pod=\"loki-canary-xmjzp\"}" query_type=limited range_type=range length=20s step=1s duration=58.126671ms status=200 throughput_mb=2.496547 total_bytes_mb=0.145116`)
+	line := []byte(
+		`level=info ts=2020-10-18T18:04:22.147378997Z caller=metrics.go:81 org_id=29 traceID=29a0f088b047eb8c latency=fast query="{stream=\"stdout\",pod=\"loki-canary-xmjzp\"}" query_type=limited range_type=range length=20s step=1s duration=58.126671ms status=200 throughput_mb=2.496547 total_bytes_mb=0.145116`,
+	)
 	lbs := labels.Labels{
 		{Name: "cluster", Value: "ops-tool1"},
 		{Name: "name", Value: "querier"},
@@ -84,7 +91,6 @@ func Benchmark_Pipeline(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		resLine, resLbs, resOK = sp.Process(line)
 	}
-
 }
 
 func mustFilter(f Filterer, err error) Filterer {
@@ -101,7 +107,9 @@ func jsonBenchmark(b *testing.B, parser Stage) {
 		mustFilter(NewFilter("metrics.go", labels.MatchEqual)).ToStage(),
 		parser,
 	})
-	line := []byte(`{"ts":"2020-12-27T09:15:54.333026285Z","error":"action could not be completed", "context":{"file": "metrics.go"}}`)
+	line := []byte(
+		`{"ts":"2020-12-27T09:15:54.333026285Z","error":"action could not be completed", "context":{"file": "metrics.go"}}`,
+	)
 	lbs := labels.Labels{
 		{Name: "cluster", Value: "ops-tool1"},
 		{Name: "name", Value: "querier"},

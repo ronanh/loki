@@ -210,7 +210,8 @@ func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
 			mergeBinOp(tc.op, tc.lhs, tc.rhs, false, true, &res)
 			require.Equal(t, tc.expected, &res)
 
-			// vector-vector comparing when not filtering should propagate the labels for nil right hand side matches,
+			// vector-vector comparing when not filtering should propagate the labels for nil right
+			// hand side matches,
 			// but set the value to zero.
 			mergeBinOp(tc.op, tc.lhs, nil, false, true, &res)
 			require.Equal(
@@ -235,7 +236,6 @@ func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
 				require.False(t, merged)
 
 			}
-
 		})
 	}
 }

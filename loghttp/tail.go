@@ -7,7 +7,6 @@ import (
 	"time"
 
 	json "github.com/json-iterator/go"
-
 	"github.com/ronanh/loki/logproto"
 )
 
@@ -46,7 +45,6 @@ func (s *DroppedStream) UnmarshalJSON(data []byte) error {
 	}{}
 
 	err := json.Unmarshal(data, &unmarshal)
-
 	if err != nil {
 		return err
 	}

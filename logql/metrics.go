@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
-
 	"github.com/ronanh/loki/logql/stats"
 )
 
@@ -30,8 +29,31 @@ var (
 		Namespace: "loki",
 		Name:      "logql_querystats_bytes_processed_per_seconds",
 		Help:      "Distribution of bytes processed per second for LogQL queries.",
-		// 50MB 100MB 200MB 400MB 600MB 800MB 1GB 2GB 3GB 4GB 5GB 6GB 7GB 8GB 9GB 10GB 15GB 20GB 30GB, 40GB 50GB 60GB
-		Buckets: []float64{50 * 1e6, 100 * 1e6, 400 * 1e6, 600 * 1e6, 800 * 1e6, 1 * 1e9, 2 * 1e9, 3 * 1e9, 4 * 1e9, 5 * 1e9, 6 * 1e9, 7 * 1e9, 8 * 1e9, 9 * 1e9, 10 * 1e9, 15 * 1e9, 20 * 1e9, 30 * 1e9, 40 * 1e9, 50 * 1e9, 60 * 1e9},
+		// 50MB 100MB 200MB 400MB 600MB 800MB 1GB 2GB 3GB 4GB 5GB 6GB 7GB 8GB 9GB 10GB 15GB 20GB
+		// 30GB, 40GB 50GB 60GB
+		Buckets: []float64{
+			50 * 1e6,
+			100 * 1e6,
+			400 * 1e6,
+			600 * 1e6,
+			800 * 1e6,
+			1 * 1e9,
+			2 * 1e9,
+			3 * 1e9,
+			4 * 1e9,
+			5 * 1e9,
+			6 * 1e9,
+			7 * 1e9,
+			8 * 1e9,
+			9 * 1e9,
+			10 * 1e9,
+			15 * 1e9,
+			20 * 1e9,
+			30 * 1e9,
+			40 * 1e9,
+			50 * 1e9,
+			60 * 1e9,
+		},
 	}, []string{"status_code", "type", "range", "latency_type"})
 	execLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "loki",
@@ -64,7 +86,13 @@ var (
 	})
 )
 
-func RecordMetrics(ctx context.Context, p Params, status string, stats stats.Result, result promql_parser.Value) {
+func RecordMetrics(
+	ctx context.Context,
+	p Params,
+	status string,
+	stats stats.Result,
+	result promql_parser.Value,
+) {
 	var (
 		rt            = string(GetRangeType(p))
 		latencyType   = latencyTypeFast
@@ -86,19 +114,33 @@ func RecordMetrics(ctx context.Context, p Params, status string, stats stats.Res
 	}
 
 	// we also log queries, useful for troubleshooting slow queries.
-	slog.InfoContext(ctx, "record query metrics",
-		"latency", latencyType, // this can be used to filter log lines.
-		"query", p.Query(),
-		"query_type", queryType,
-		"range_type", rt,
-		"length", p.End().Sub(p.Start()),
-		"step", p.Step(),
-		"duration", time.Duration(int64(stats.Summary.ExecTime*float64(time.Second))),
-		"status", status,
-		"limit", p.Limit(),
-		"returned_lines", returnedLines,
-		"throughput", strings.Replace(humanize.Bytes(uint64(stats.Summary.BytesProcessedPerSecond)), " ", "", 1),
-		"total_bytes", strings.Replace(humanize.Bytes(uint64(stats.Summary.TotalBytesProcessed)), " ", "", 1),
+	slog.InfoContext(
+		ctx,
+		"record query metrics",
+		"latency",
+		latencyType, // this can be used to filter log lines.
+		"query",
+		p.Query(),
+		"query_type",
+		queryType,
+		"range_type",
+		rt,
+		"length",
+		p.End().Sub(p.Start()),
+		"step",
+		p.Step(),
+		"duration",
+		time.Duration(int64(stats.Summary.ExecTime*float64(time.Second))),
+		"status",
+		status,
+		"limit",
+		p.Limit(),
+		"returned_lines",
+		returnedLines,
+		"throughput",
+		strings.Replace(humanize.Bytes(uint64(stats.Summary.BytesProcessedPerSecond)), " ", "", 1),
+		"total_bytes",
+		strings.Replace(humanize.Bytes(uint64(stats.Summary.TotalBytesProcessed)), " ", "", 1),
 	)
 
 	bytesPerSecond.WithLabelValues(status, queryType, rt, latencyType).

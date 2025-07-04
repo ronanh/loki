@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
-
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
@@ -76,9 +75,24 @@ type EngineOpts struct {
 }
 
 func (opts *EngineOpts) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.DurationVar(&opts.Timeout, prefix+".engine.timeout", 5*time.Minute, "Timeout for query execution.")
-	f.DurationVar(&opts.MaxLookBackPeriod, prefix+".engine.max-lookback-period", 30*time.Second, "The maximum amount of time to look back for log lines. Used only for instant log queries.")
-	f.BoolVar(&opts.RecordMetrics, prefix+".engine.record-metrics", true, "Record metrics for queries.")
+	f.DurationVar(
+		&opts.Timeout,
+		prefix+".engine.timeout",
+		5*time.Minute,
+		"Timeout for query execution.",
+	)
+	f.DurationVar(
+		&opts.MaxLookBackPeriod,
+		prefix+".engine.max-lookback-period",
+		30*time.Second,
+		"The maximum amount of time to look back for log lines. Used only for instant log queries.",
+	)
+	f.BoolVar(
+		&opts.RecordMetrics,
+		prefix+".engine.record-metrics",
+		true,
+		"Record metrics for queries.",
+	)
 	f.BoolVar(&opts.LogStats, prefix+".engine.log-stats", true, "Log query statistics.")
 }
 
@@ -140,7 +154,6 @@ type query struct {
 
 // Exec Implements `Query`. It handles instrumentation & defers to Eval.
 func (q *query) Exec(ctx context.Context) (Result, error) {
-
 	rangeType := GetRangeType(q.params)
 	timer := prometheus.NewTimer(queryTime.WithLabelValues(string(rangeType)))
 	defer timer.ObserveDuration()
@@ -242,11 +255,22 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 	}
 
 	if GetRangeType(q.params) == InstantType {
-		sort.Slice(vec, func(i, j int) bool { return labels.Compare(vec[i].Metric, vec[j].Metric) < 0 })
+		sort.Slice(
+			vec,
+			func(i, j int) bool { return labels.Compare(vec[i].Metric, vec[j].Metric) < 0 },
+		)
 		return vec, nil
 	}
 
-	stepCount := int(math.Ceil(float64(q.params.End().Sub(q.params.Start()).Nanoseconds()) / float64(q.params.Step().Nanoseconds())))
+	stepCount := int(
+		math.Ceil(
+			float64(
+				q.params.End().Sub(q.params.Start()).Nanoseconds(),
+			) / float64(
+				q.params.Step().Nanoseconds(),
+			),
+		),
+	)
 	if stepCount <= 0 {
 		stepCount = 1
 	}
@@ -326,10 +350,16 @@ func PopulateMatrixFromScalar(data promql.Scalar, params Params) promql.Matrix {
 	return promql.Matrix{series}
 }
 
-func readStreams(i iter.EntryIterator, size uint32, dir logproto.Direction, interval time.Duration) (Streams, error) {
+func readStreams(
+	i iter.EntryIterator,
+	size uint32,
+	dir logproto.Direction,
+	interval time.Duration,
+) (Streams, error) {
 	streams := map[string]*logproto.Stream{}
 	respSize := uint32(0)
-	// lastEntry should be a really old time so that the first comparison is always true, we use a negative
+	// lastEntry should be a really old time so that the first comparison is always true, we use a
+	// negative
 	// value here because many unit tests start at time.Unix(0,0)
 	lastEntry := lastEntryMinTime
 	for respSize < size && i.Next() {
@@ -339,7 +369,8 @@ func readStreams(i iter.EntryIterator, size uint32, dir logproto.Direction, inte
 		backwardShouldOutput := dir == logproto.BACKWARD &&
 			(i.Entry().Timestamp.Equal(lastEntry.Add(-interval)) || i.Entry().Timestamp.Before(lastEntry.Add(-interval)))
 		// If step == 0 output every line.
-		// If lastEntry.Unix < 0 this is the first pass through the loop and we should output the line.
+		// If lastEntry.Unix < 0 this is the first pass through the loop and we should output the
+		// line.
 		// Then check to see if the entry is equal to, or past a forward or reverse step
 		if interval == 0 || lastEntry.Unix() < 0 || forwardShouldOutput || backwardShouldOutput {
 			stream, ok := streams[labels]

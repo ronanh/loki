@@ -10,14 +10,14 @@ import (
 // We are not using the proto generated version but this custom one so that we
 // can improve serialization see benchmark.
 type Stream struct {
-	Labels  string  `protobuf:"bytes,1,opt,name=labels,proto3" json:"labels"`
+	Labels  string  `protobuf:"bytes,1,opt,name=labels,proto3"                          json:"labels"`
 	Entries []Entry `protobuf:"bytes,2,rep,name=entries,proto3,customtype=EntryAdapter" json:"entries"`
 }
 
 // Entry is a log entry with a timestamp.
 type Entry struct {
 	Timestamp time.Time `protobuf:"bytes,1,opt,name=timestamp,proto3,stdtime" json:"ts"`
-	Line      string    `protobuf:"bytes,2,opt,name=line,proto3" json:"line"`
+	Line      string    `protobuf:"bytes,2,opt,name=line,proto3"              json:"line"`
 }
 
 func (m *Stream) MarshalTo(dAtA []byte) (int, error) {
@@ -373,6 +373,7 @@ func (m *Stream) Equal(that interface{}) bool {
 	}
 	return true
 }
+
 func (m *Entry) Equal(that interface{}) bool {
 	if that == nil {
 		return m == nil

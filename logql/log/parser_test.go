@@ -18,7 +18,9 @@ func Test_jsonParser_Parse(t *testing.T) {
 	}{
 		{
 			"multi depth",
-			[]byte(`{"app":"foo","namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar"}}}`),
+			[]byte(
+				`{"app":"foo","namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar"}}}`,
+			),
 			labels.Labels{},
 			labels.Labels{
 				{Name: "app", Value: "foo"},
@@ -62,7 +64,9 @@ func Test_jsonParser_Parse(t *testing.T) {
 		},
 		{
 			"duplicate extraction",
-			[]byte(`{"app":"foo","namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar"}},"next":{"err":false}}`),
+			[]byte(
+				`{"app":"foo","namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar"}},"next":{"err":false}}`,
+			),
 			labels.Labels{
 				{Name: "app", Value: "bar"},
 			},
@@ -89,7 +93,9 @@ func Test_jsonParser_Parse(t *testing.T) {
 }
 
 func TestJSONExpressionParser(t *testing.T) {
-	testLine := []byte(`{"app":"foo","field with space":"value","field with ÜFT8👌":"value","null_field":null,"bool_field":false,"namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar", "params": [1,2,3]}}}`)
+	testLine := []byte(
+		`{"app":"foo","field with space":"value","field with ÜFT8👌":"value","null_field":null,"bool_field":false,"namespace":"prod","pod":{"uuid":"foo","deployment":{"ref":"foobar", "params": [1,2,3]}}}`,
+	)
 
 	tests := []struct {
 		name        string
@@ -375,7 +381,15 @@ func TestJSONExpressionParserFailures(t *testing.T) {
 			_, err := NewJSONExpressionParser([]JSONExpression{tt.expression})
 
 			require.NotNil(t, err)
-			require.Equal(t, err.Error(), fmt.Sprintf("cannot parse expression [%s]: syntax error: %s", tt.expression.Expression, tt.error))
+			require.Equal(
+				t,
+				err.Error(),
+				fmt.Sprintf(
+					"cannot parse expression [%s]: syntax error: %s",
+					tt.expression.Expression,
+					tt.error,
+				),
+			)
 		})
 	}
 }
@@ -384,7 +398,10 @@ func Benchmark_Parser(b *testing.B) {
 	lbs := labels.Labels{
 		{Name: "cluster", Value: "qa-us-central1"},
 		{Name: "namespace", Value: "qa"},
-		{Name: "filename", Value: "/var/log/pods/ingress-nginx_nginx-ingress-controller-7745855568-blq6t_1f8962ef-f858-4188-a573-ba276a3cacc3/ingress-nginx/0.log"},
+		{
+			Name:  "filename",
+			Value: "/var/log/pods/ingress-nginx_nginx-ingress-controller-7745855568-blq6t_1f8962ef-f858-4188-a573-ba276a3cacc3/ingress-nginx/0.log",
+		},
 		{Name: "job", Value: "ingress-nginx/nginx-ingress-controller"},
 		{Name: "name", Value: "nginx-ingress-controller"},
 		{Name: "pod", Value: "nginx-ingress-controller-7745855568-blq6t"},
@@ -422,7 +439,13 @@ func Benchmark_Parser(b *testing.B) {
 
 			b.Run("labels hints", func(b *testing.B) {
 				builder := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
-				builder.parserKeyHints = newParserHint(tt.LabelParseHints, tt.LabelParseHints, false, false, "")
+				builder.parserKeyHints = newParserHint(
+					tt.LabelParseHints,
+					tt.LabelParseHints,
+					false,
+					false,
+					"",
+				)
 				for n := 0; n < b.N; n++ {
 					builder.Reset()
 					_, _ = tt.s.Process(line, builder)
@@ -715,7 +738,9 @@ func Test_unpackParser_Parse(t *testing.T) {
 	}{
 		{
 			"should extract only map[string]string",
-			[]byte(`{"bar":1,"app":"foo","namespace":"prod","_entry":"some message","pod":{"uid":"1"}}`),
+			[]byte(
+				`{"bar":1,"app":"foo","namespace":"prod","_entry":"some message","pod":{"uid":"1"}}`,
+			),
 			labels.Labels{{Name: "cluster", Value: "us-central1"}},
 			labels.Labels{
 				{Name: "app", Value: "foo"},
@@ -745,7 +770,9 @@ func Test_unpackParser_Parse(t *testing.T) {
 		},
 		{
 			"should rename",
-			[]byte(`{"bar":1,"app":"foo","namespace":"prod","_entry":"some message","pod":{"uid":"1"}}`),
+			[]byte(
+				`{"bar":1,"app":"foo","namespace":"prod","_entry":"some message","pod":{"uid":"1"}}`,
+			),
 			labels.Labels{
 				{Name: "cluster", Value: "us-central1"},
 				{Name: "app", Value: "bar"},
@@ -773,7 +800,9 @@ func Test_unpackParser_Parse(t *testing.T) {
 		},
 		{
 			"non json with escaped quotes",
-			[]byte(`{"_entry":"I0303 17:49:45.976518    1526 kubelet_getters.go:178] \"Pod status updated\" pod=\"openshift-etcd/etcd-ip-10-0-150-50.us-east-2.compute.internal\" status=Running"}`),
+			[]byte(
+				`{"_entry":"I0303 17:49:45.976518    1526 kubelet_getters.go:178] \"Pod status updated\" pod=\"openshift-etcd/etcd-ip-10-0-150-50.us-east-2.compute.internal\" status=Running"}`,
+			),
 			labels.Labels{
 				{Name: "app", Value: "bar"},
 				{Name: "cluster", Value: "us-central1"},
@@ -782,7 +811,9 @@ func Test_unpackParser_Parse(t *testing.T) {
 				{Name: "app", Value: "bar"},
 				{Name: "cluster", Value: "us-central1"},
 			},
-			[]byte(`I0303 17:49:45.976518    1526 kubelet_getters.go:178] "Pod status updated" pod="openshift-etcd/etcd-ip-10-0-150-50.us-east-2.compute.internal" status=Running`),
+			[]byte(
+				`I0303 17:49:45.976518    1526 kubelet_getters.go:178] "Pod status updated" pod="openshift-etcd/etcd-ip-10-0-150-50.us-east-2.compute.internal" status=Running`,
+			),
 		},
 	}
 	for _, tt := range tests {
@@ -810,7 +841,9 @@ func Test_PatternParser(t *testing.T) {
 	}{
 		{
 			`<ip> <userid> <user> [<_>] "<method> <path> <_>" <status> <size>`,
-			[]byte(`127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326`),
+			[]byte(
+				`127.0.0.1 user-identifier frank [10/Oct/2000:13:55:36 -0700] "GET /apache_pb.gif HTTP/1.0" 200 2326`,
+			),
 			labels.FromStrings("foo", "bar"),
 			labels.FromStrings("foo", "bar",
 				"ip", "127.0.0.1",
@@ -824,7 +857,9 @@ func Test_PatternParser(t *testing.T) {
 		},
 		{
 			`<_> msg="<method> <path> (<status>) <duration>"`,
-			[]byte(`level=debug ts=2021-05-19T07:54:26.864644382Z caller=logging.go:66 traceID=7fbb92fd0eb9c65d msg="POST /loki/api/v1/push (204) 1.238734ms"`),
+			[]byte(
+				`level=debug ts=2021-05-19T07:54:26.864644382Z caller=logging.go:66 traceID=7fbb92fd0eb9c65d msg="POST /loki/api/v1/push (204) 1.238734ms"`,
+			),
 			labels.FromStrings("method", "bar"),
 			labels.FromStrings("method", "bar",
 				"method_extracted", "POST",

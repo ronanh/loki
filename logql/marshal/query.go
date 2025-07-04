@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
-
 	"github.com/ronanh/loki/loghttp"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
@@ -28,7 +27,6 @@ func NewResultValue(v parser.Value) (loghttp.ResultValue, error) {
 		}
 
 		value, err = NewStreams(s)
-
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +70,6 @@ func NewStreams(s logql.Streams) (loghttp.Streams, error) {
 
 	for i, stream := range s {
 		ret[i], err = NewStream(stream)
-
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +110,6 @@ func NewScalar(s promql.Scalar) loghttp.Scalar {
 		Timestamp: model.Time(s.T),
 		Value:     model.SampleValue(s.V),
 	}
-
 }
 
 // NewVector constructs a Vector from a promql.Vector
@@ -129,7 +125,6 @@ func NewVector(v promql.Vector) loghttp.Vector {
 
 // NewSample constructs a model.Sample from a promql.Sample
 func NewSample(s promql.Sample) model.Sample {
-
 	ret := model.Sample{
 		Value:     model.SampleValue(s.V),
 		Timestamp: model.Time(s.T),

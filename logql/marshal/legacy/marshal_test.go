@@ -6,11 +6,10 @@ import (
 	"time"
 
 	json "github.com/json-iterator/go"
-	"github.com/stretchr/testify/require"
-
 	loghttp "github.com/ronanh/loki/loghttp/legacy"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	"github.com/stretchr/testify/require"
 )
 
 // covers responses from /api/prom/query
@@ -106,8 +105,11 @@ var tailTests = []struct {
 				{
 					Entries: []logproto.Entry{
 						{
-							Timestamp: mustParse(time.RFC3339Nano, "2019-09-13T18:32:22.380001319Z"),
-							Line:      "super line",
+							Timestamp: mustParse(
+								time.RFC3339Nano,
+								"2019-09-13T18:32:22.380001319Z",
+							),
+							Line: "super line",
 						},
 					},
 					Labels: "{test=\"test\"}",
@@ -143,7 +145,6 @@ var tailTests = []struct {
 }
 
 func Test_MarshalTailResponse(t *testing.T) {
-
 	for i, tailTest := range tailTests {
 		// marshal model object
 		bytes, err := json.Marshal(tailTest.actual)
@@ -163,7 +164,13 @@ func Test_QueryResponseMarshalLoop(t *testing.T) {
 		jsonOut, err := json.Marshal(r)
 		require.NoError(t, err)
 
-		testJSONBytesEqual(t, []byte(queryTest.expected), jsonOut, "Query Marshal Loop %d failed", i)
+		testJSONBytesEqual(
+			t,
+			[]byte(queryTest.expected),
+			jsonOut,
+			"Query Marshal Loop %d failed",
+			i,
+		)
 	}
 }
 
@@ -181,7 +188,13 @@ func Test_TailResponseMarshalLoop(t *testing.T) {
 	}
 }
 
-func testJSONBytesEqual(t *testing.T, expected []byte, actual []byte, msg string, args ...interface{}) {
+func testJSONBytesEqual(
+	t *testing.T,
+	expected []byte,
+	actual []byte,
+	msg string,
+	args ...interface{},
+) {
 	var expectedValue map[string]interface{}
 	err := json.Unmarshal(expected, &expectedValue)
 	require.NoError(t, err)

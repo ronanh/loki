@@ -76,7 +76,8 @@ func Test_SimplifiedRegex(t *testing.T) {
 			f, err := parseRegexpFilter(test.re, test.match)
 			require.NoError(t, err)
 
-			// if we don't expect simplification then the filter should be the same as the default one.
+			// if we don't expect simplification then the filter should be the same as the default
+			// one.
 			if !test.simplified {
 				require.Equal(t, d, f)
 				return
@@ -87,7 +88,14 @@ func Test_SimplifiedRegex(t *testing.T) {
 			// tests all lines with both filter, they should have the same result.
 			for _, line := range fixtures {
 				l := []byte(line)
-				require.Equal(t, d.Filter(l), f.Filter(l), "regexp %s failed line: %s", test.re, line)
+				require.Equal(
+					t,
+					d.Filter(l),
+					f.Filter(l),
+					"regexp %s failed line: %s",
+					test.re,
+					line,
+				)
 			}
 		})
 	}

@@ -33,7 +33,10 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertFloat, nil, false, true, nil, NoopStage,
 			)),
-			labels.Labels{labels.Label{Name: "foo", Value: "15.0"}, labels.Label{Name: "bar", Value: "buzz"}},
+			labels.Labels{
+				labels.Label{Name: "foo", Value: "15.0"},
+				labels.Label{Name: "bar", Value: "buzz"},
+			},
 			15,
 			labels.Labels{},
 			true,
@@ -128,9 +131,20 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 }
 
 func Test_Extract_ExpectedLabels(t *testing.T) {
-	ex := mustSampleExtractor(LabelExtractorWithStages("duration", ConvertDuration, []string{"foo"}, false, false, []Stage{NewJSONParser()}, NoopStage))
+	ex := mustSampleExtractor(
+		LabelExtractorWithStages(
+			"duration",
+			ConvertDuration,
+			[]string{"foo"},
+			false,
+			false,
+			[]Stage{NewJSONParser()},
+			NoopStage,
+		),
+	)
 
-	f, lbs, ok := ex.ForStream(labels.Labels{{Name: "bar", Value: "foo"}}).ProcessString(`{"duration":"20ms","foo":"json"}`)
+	f, lbs, ok := ex.ForStream(labels.Labels{{Name: "bar", Value: "foo"}}).
+		ProcessString(`{"duration":"20ms","foo":"json"}`)
 	require.True(t, ok)
 	require.Equal(t, (20 * time.Millisecond).Seconds(), f)
 	require.Equal(t, labels.Labels{{Name: "foo", Value: "json"}}, lbs.Labels())
@@ -165,7 +179,13 @@ func TestNewLineSampleExtractor(t *testing.T) {
 	filter, err := NewFilter("foo", labels.MatchEqual)
 	require.NoError(t, err)
 
-	se, err = NewLineSampleExtractor(BytesExtractor, []Stage{filter.ToStage()}, []string{"namespace"}, false, false)
+	se, err = NewLineSampleExtractor(
+		BytesExtractor,
+		[]Stage{filter.ToStage()},
+		[]string{"namespace"},
+		false,
+		false,
+	)
 	require.NoError(t, err)
 	sse = se.ForStream(lbs)
 	f, l, ok = sse.Process([]byte(`foo`))

@@ -18,7 +18,6 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		wantLbs labels.Labels
 		in      []byte
 	}{
-
 		{
 			"combining",
 			newMustLineFormatter("foo{{.foo}}buzz{{  .bar  }}"),
@@ -81,18 +80,38 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"urlencode",
-			newMustLineFormatter(`{{.foo | urlencode }} {{ urlencode .foo }}`), // assert both syntax forms
-			labels.FromStrings("foo", `/loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"}`),
-			[]byte("%2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D %2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D"),
-			labels.FromStrings("foo", `/loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"}`),
+			newMustLineFormatter(
+				`{{.foo | urlencode }} {{ urlencode .foo }}`,
+			), // assert both syntax forms
+			labels.FromStrings(
+				"foo",
+				`/loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"}`,
+			),
+			[]byte(
+				"%2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D %2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D",
+			),
+			labels.FromStrings(
+				"foo",
+				`/loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"}`,
+			),
 			nil,
 		},
 		{
 			"urldecode",
-			newMustLineFormatter(`{{.foo | urldecode }} {{ urldecode .foo }}`), // assert both syntax forms
-			labels.FromStrings("foo", `%2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D`),
-			[]byte(`/loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"} /loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"}`),
-			labels.FromStrings("foo", `%2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D`),
+			newMustLineFormatter(
+				`{{.foo | urldecode }} {{ urldecode .foo }}`,
+			), // assert both syntax forms
+			labels.FromStrings(
+				"foo",
+				`%2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D`,
+			),
+			[]byte(
+				`/loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"} /loki/api/v1/query?query=sum(count_over_time({stream_filter="some_stream",environment="prod", host=~"someec2.*"}`,
+			),
+			labels.FromStrings(
+				"foo",
+				`%2Floki%2Fapi%2Fv1%2Fquery%3Fquery%3Dsum%28count_over_time%28%7Bstream_filter%3D%22some_stream%22%2Cenvironment%3D%22prod%22%2C+host%3D~%22someec2.%2A%22%7D`,
+			),
 			nil,
 		},
 		{
@@ -121,7 +140,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"contains",
-			newMustLineFormatter(`{{ if  .foo | contains "p"}}yes{{end}}-{{ if  .foo | contains "z"}}no{{end}}`),
+			newMustLineFormatter(
+				`{{ if  .foo | contains "p"}}yes{{end}}-{{ if  .foo | contains "z"}}no{{end}}`,
+			),
 			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("yes-"),
 			labels.FromStrings("foo", "BLIp", "bar", "blop"),
@@ -129,7 +150,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"hasPrefix",
-			newMustLineFormatter(`{{ if  .foo | hasPrefix "BL" }}yes{{end}}-{{ if  .foo | hasPrefix "p"}}no{{end}}`),
+			newMustLineFormatter(
+				`{{ if  .foo | hasPrefix "BL" }}yes{{end}}-{{ if  .foo | hasPrefix "p"}}no{{end}}`,
+			),
 			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("yes-"),
 			labels.FromStrings("foo", "BLIp", "bar", "blop"),
@@ -137,7 +160,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"hasSuffix",
-			newMustLineFormatter(`{{ if  .foo | hasSuffix "Ip" }}yes{{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`),
+			newMustLineFormatter(
+				`{{ if  .foo | hasSuffix "Ip" }}yes{{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`,
+			),
 			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("yes-"),
 			labels.FromStrings("foo", "BLIp", "bar", "blop"),
@@ -203,7 +228,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"mathfloatround",
-			newMustLineFormatter("{{ round (addf .foo 1.5 | subf .bar | mulf .baz | divf .bazz) 5 .2}}"),
+			newMustLineFormatter(
+				"{{ round (addf .foo 1.5 | subf .bar | mulf .baz | divf .bazz) 5 .2}}",
+			),
 			labels.FromStrings("foo", "1.5", "bar", "3.5", "baz", "10.5", "bazz", "20.4"),
 			[]byte("3.88572"),
 			labels.FromStrings("foo", "1.5", "bar", "3.5", "baz", "10.5", "bazz", "20.4"),
@@ -211,7 +238,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"min",
-			newMustLineFormatter("min is {{ min .foo .bar .baz }} and max is {{ max .foo .bar .baz }}"),
+			newMustLineFormatter(
+				"min is {{ min .foo .bar .baz }} and max is {{ max .foo .bar .baz }}",
+			),
 			labels.FromStrings("foo", "5", "bar", "10", "baz", "15"),
 			[]byte("min is 5 and max is 15"),
 			labels.FromStrings("foo", "5", "bar", "10", "baz", "15"),
@@ -219,7 +248,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"max",
-			newMustLineFormatter("minf is {{ minf .foo .bar .baz }} and maxf is {{maxf .foo .bar .baz}}"),
+			newMustLineFormatter(
+				"minf is {{ minf .foo .bar .baz }} and maxf is {{maxf .foo .bar .baz}}",
+			),
 			labels.FromStrings("foo", "5.3", "bar", "10.5", "baz", "15.2"),
 			[]byte("minf is 5.3 and maxf is 15.2"),
 			labels.FromStrings("foo", "5.3", "bar", "10.5", "baz", "15.2"),
@@ -259,7 +290,9 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		},
 		{
 			"default",
-			newMustLineFormatter(`{{.foo | default "-" }}{{.bar | default "-"}}{{.unknown | default "-"}}`),
+			newMustLineFormatter(
+				`{{.foo | default "-" }}{{.bar | default "-"}}{{.unknown | default "-"}}`,
+			),
 			labels.FromStrings("foo", "blip", "bar", ""),
 			[]byte("blip--"),
 			labels.FromStrings("foo", "blip", "bar", ""),
@@ -344,6 +377,7 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		})
 	}
 }
+
 func Test_lineFormatter_Format(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -429,21 +463,27 @@ func Test_lineFormatter_Format(t *testing.T) {
 		},
 		{
 			"contains",
-			newMustLineFormatter(`{{ if  .foo | contains "p"}}yes{{end}}-{{ if  .foo | contains "z"}}no{{end}}`),
+			newMustLineFormatter(
+				`{{ if  .foo | contains "p"}}yes{{end}}-{{ if  .foo | contains "z"}}no{{end}}`,
+			),
 			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
 			[]byte("yes-"),
 			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
 		},
 		{
 			"hasPrefix",
-			newMustLineFormatter(`{{ if  .foo | hasPrefix "BL" }}yes{{end}}-{{ if  .foo | hasPrefix "p"}}no{{end}}`),
+			newMustLineFormatter(
+				`{{ if  .foo | hasPrefix "BL" }}yes{{end}}-{{ if  .foo | hasPrefix "p"}}no{{end}}`,
+			),
 			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
 			[]byte("yes-"),
 			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
 		},
 		{
 			"hasSuffix",
-			newMustLineFormatter(`{{ if  .foo | hasSuffix "Ip" }}yes{{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`),
+			newMustLineFormatter(
+				`{{ if  .foo | hasSuffix "Ip" }}yes{{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`,
+			),
 			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
 			[]byte("yes-"),
 			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
@@ -467,7 +507,11 @@ func Test_lineFormatter_Format(t *testing.T) {
 			newMustLineFormatter(`{{.foo Replace "foo"}}`),
 			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
 			nil,
-			labels.Labels{{Name: ErrorLabel, Value: errTemplateFormat}, {Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.Labels{
+				{Name: ErrorLabel, Value: errTemplateFormat},
+				{Name: "foo", Value: "blip"},
+				{Name: "bar", Value: "blop"},
+			},
 		},
 		{
 			"missing",
@@ -549,8 +593,8 @@ func Test_labelsFormatter_Format(t *testing.T) {
 		})
 	}
 }
-func Test_labelsFormatter_Format2(t *testing.T) {
 
+func Test_labelsFormatter_Format2(t *testing.T) {
 	tests := []struct {
 		name  string
 		fmter *LabelsFormatter
@@ -600,7 +644,9 @@ func Test_labelsFormatter_Format2(t *testing.T) {
 		},
 		{
 			"math",
-			mustNewLabelsFormatter([]LabelFmt{NewTemplateLabelFmt("status", "{{div .status 100 }}")}),
+			mustNewLabelsFormatter(
+				[]LabelFmt{NewTemplateLabelFmt("status", "{{div .status 100 }}")},
+			),
 			labels.FromStrings("status", "200"),
 			labels.FromStrings("status", "2"),
 		},
@@ -614,7 +660,9 @@ func Test_labelsFormatter_Format2(t *testing.T) {
 		},
 		{
 			"template error",
-			mustNewLabelsFormatter([]LabelFmt{NewTemplateLabelFmt("bar", "{{replace \"test\" .foo}}")}),
+			mustNewLabelsFormatter(
+				[]LabelFmt{NewTemplateLabelFmt("bar", "{{replace \"test\" .foo}}")},
+			),
 			labels.FromStrings("foo", "blip", "bar", "blop"),
 			labels.FromStrings("foo", "blip",
 				"bar", "blop",
@@ -671,6 +719,7 @@ func Test_labelsFormatter_Format2(t *testing.T) {
 		})
 	}
 }
+
 func mustNewLabelsFormatter(fmts []LabelFmt) *LabelsFormatter {
 	lf, err := NewLabelsFormatter(fmts)
 	if err != nil {
@@ -685,8 +734,16 @@ func Test_validate(t *testing.T) {
 		fmts    []LabelFmt
 		wantErr bool
 	}{
-		{"no dup", []LabelFmt{NewRenameLabelFmt("foo", "bar"), NewRenameLabelFmt("bar", "foo")}, false},
-		{"dup", []LabelFmt{NewRenameLabelFmt("foo", "bar"), NewRenameLabelFmt("foo", "blip")}, true},
+		{
+			"no dup",
+			[]LabelFmt{NewRenameLabelFmt("foo", "bar"), NewRenameLabelFmt("bar", "foo")},
+			false,
+		},
+		{
+			"dup",
+			[]LabelFmt{NewRenameLabelFmt("foo", "bar"), NewRenameLabelFmt("foo", "blip")},
+			true,
+		},
 		{"no error", []LabelFmt{NewRenameLabelFmt(ErrorLabel, "bar")}, true},
 	}
 	for _, tt := range tests {
@@ -706,9 +763,15 @@ func TestLineFormatter_RequiredLabelNames(t *testing.T) {
 		{`{{.foo}} and {{.bar}}`, []string{"foo", "bar"}},
 		{`{{ .foo | ToUpper | .buzz }} and {{.bar}}`, []string{"foo", "buzz", "bar"}},
 		{`{{ regexReplaceAllLiteral "(p)" .foo "${1}" }}`, []string{"foo"}},
-		{`{{ if  .foo | hasSuffix "Ip" }} {{.bar}} {{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`, []string{"foo", "bar"}},
+		{
+			`{{ if  .foo | hasSuffix "Ip" }} {{.bar}} {{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`,
+			[]string{"foo", "bar"},
+		},
 		{`{{with .foo}}{{printf "%q" .}} {{end}}`, []string{"foo"}},
-		{`{{with .foo}}{{printf "%q" .}} {{else}} {{ .buzz | lower }} {{end}}`, []string{"foo", "buzz"}},
+		{
+			`{{with .foo}}{{printf "%q" .}} {{else}} {{ .buzz | lower }} {{end}}`,
+			[]string{"foo", "buzz"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.fmt, func(t *testing.T) {
@@ -724,8 +787,22 @@ func TestLabelFormatter_RequiredLabelNames(t *testing.T) {
 		want []string
 	}{
 		{"rename", []LabelFmt{NewRenameLabelFmt("foo", "bar")}, []string{"bar"}},
-		{"rename and fmt", []LabelFmt{NewRenameLabelFmt("fuzz", "bar"), NewTemplateLabelFmt("1", "{{ .foo | ToUpper | .buzz }} and {{.bar}}")}, []string{"bar", "foo", "buzz"}},
-		{"fmt", []LabelFmt{NewTemplateLabelFmt("1", "{{.blip}}"), NewTemplateLabelFmt("2", "{{ .foo | ToUpper | .buzz }} and {{.bar}}")}, []string{"blip", "foo", "buzz", "bar"}},
+		{
+			"rename and fmt",
+			[]LabelFmt{
+				NewRenameLabelFmt("fuzz", "bar"),
+				NewTemplateLabelFmt("1", "{{ .foo | ToUpper | .buzz }} and {{.bar}}"),
+			},
+			[]string{"bar", "foo", "buzz"},
+		},
+		{
+			"fmt",
+			[]LabelFmt{
+				NewTemplateLabelFmt("1", "{{.blip}}"),
+				NewTemplateLabelFmt("2", "{{ .foo | ToUpper | .buzz }} and {{.bar}}"),
+			},
+			[]string{"blip", "foo", "buzz", "bar"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

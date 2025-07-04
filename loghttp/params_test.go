@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/ronanh/loki/logproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/ronanh/loki/logproto"
 )
 
 func TestHttp_defaultQueryRangeStep(t *testing.T) {
@@ -193,7 +192,6 @@ func Test_interval(t *testing.T) {
 }
 
 func Test_parseTimestamp(t *testing.T) {
-
 	now := time.Now()
 
 	tests := []struct {
@@ -205,10 +203,34 @@ func Test_parseTimestamp(t *testing.T) {
 	}{
 		{"default", "", now, now, false},
 		{"unix timestamp", "1571332130", now, time.Unix(1571332130, 0), false},
-		{"unix nano timestamp", "1571334162051000000", now, time.Unix(0, 1571334162051000000), false},
-		{"unix timestamp with subseconds", "1571332130.934", now, time.Unix(1571332130, 934*1e6), false},
-		{"RFC3339 format", "2002-10-02T15:00:00Z", now, time.Date(2002, 10, 02, 15, 0, 0, 0, time.UTC), false},
-		{"RFC3339nano format", "2009-11-10T23:00:00.000000001Z", now, time.Date(2009, 11, 10, 23, 0, 0, 1, time.UTC), false},
+		{
+			"unix nano timestamp",
+			"1571334162051000000",
+			now,
+			time.Unix(0, 1571334162051000000),
+			false,
+		},
+		{
+			"unix timestamp with subseconds",
+			"1571332130.934",
+			now,
+			time.Unix(1571332130, 934*1e6),
+			false,
+		},
+		{
+			"RFC3339 format",
+			"2002-10-02T15:00:00Z",
+			now,
+			time.Date(2002, 10, 0o2, 15, 0, 0, 0, time.UTC),
+			false,
+		},
+		{
+			"RFC3339nano format",
+			"2009-11-10T23:00:00.000000001Z",
+			now,
+			time.Date(2009, 11, 10, 23, 0, 0, 1, time.UTC),
+			false,
+		},
 		{"invalid", "we", now, time.Time{}, true},
 	}
 	for _, tt := range tests {
@@ -226,7 +248,6 @@ func Test_parseTimestamp(t *testing.T) {
 }
 
 func Test_match(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		input   []string
@@ -272,7 +293,6 @@ func Test_match(t *testing.T) {
 			} else {
 				require.Equal(t, tt.want, got)
 			}
-
 		})
 	}
 }

@@ -140,7 +140,8 @@ type BytesLabelFilter struct {
 	Type  LabelFilterType
 }
 
-// NewBytesLabelFilter creates a new label filterer which parses bytes string representation (1KB) from the value of the named label
+// NewBytesLabelFilter creates a new label filterer which parses bytes string representation (1KB)
+// from the value of the named label
 // and compares it with the given b value.
 func NewBytesLabelFilter(t LabelFilterType, name string, b uint64) *BytesLabelFilter {
 	return &BytesLabelFilter{
@@ -204,7 +205,8 @@ type DurationLabelFilter struct {
 	Type  LabelFilterType
 }
 
-// NewDurationLabelFilter creates a new label filterer which parses duration string representation (5s)
+// NewDurationLabelFilter creates a new label filterer which parses duration string representation
+// (5s)
 // from the value of the named label and compares it with the given d value.
 func NewDurationLabelFilter(t LabelFilterType, name string, d time.Duration) *DurationLabelFilter {
 	return &DurationLabelFilter{
@@ -262,7 +264,8 @@ type NumericLabelFilter struct {
 	Type  LabelFilterType
 }
 
-// NewNumericLabelFilter creates a new label filterer which parses float64 string representation (5.2)
+// NewNumericLabelFilter creates a new label filterer which parses float64 string representation
+// (5.2)
 // from the value of the named label and compares it with the given f value.
 func NewNumericLabelFilter(t LabelFilterType, name string, v float64) *NumericLabelFilter {
 	return &NumericLabelFilter{
@@ -304,7 +307,6 @@ func (n *NumericLabelFilter) Process(line []byte, lbs *LabelsBuilder) ([]byte, b
 		lbs.SetErr(errLabelFilter)
 		return line, true
 	}
-
 }
 
 func (n *NumericLabelFilter) RequiredLabelNames() []string {
@@ -321,7 +323,8 @@ type StringLabelFilter struct {
 
 // NewStringLabelFilter creates a new label filterer which compares string label.
 // This is the only LabelFilterer that can filter out the __error__ label.
-// Unlike other LabelFilterer which apply conversion, if the label name doesn't exist it is compared with an empty value.
+// Unlike other LabelFilterer which apply conversion, if the label name doesn't exist it is compared
+// with an empty value.
 func NewStringLabelFilter(m *labels.Matcher) *StringLabelFilter {
 	return &StringLabelFilter{
 		Matcher: m,

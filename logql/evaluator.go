@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
-
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
@@ -109,14 +108,26 @@ type Evaluator interface {
 }
 
 type SampleEvaluator interface {
-	// StepEvaluator returns a StepEvaluator for a given SampleExpr. It's explicitly passed another StepEvaluator// in order to enable arbitrary computation of embedded expressions. This allows more modular & extensible
+	// StepEvaluator returns a StepEvaluator for a given SampleExpr. It's explicitly passed another
+	// StepEvaluator// in order to enable arbitrary computation of embedded expressions. This allows
+	// more modular & extensible
 	// StepEvaluator implementations which can be composed.
-	StepEvaluator(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error)
+	StepEvaluator(
+		ctx context.Context,
+		nextEvaluator SampleEvaluator,
+		expr SampleExpr,
+		p Params,
+	) (StepEvaluator, error)
 }
 
 type SampleEvaluatorFunc func(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error)
 
-func (s SampleEvaluatorFunc) StepEvaluator(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error) {
+func (s SampleEvaluatorFunc) StepEvaluator(
+	ctx context.Context,
+	nextEvaluator SampleEvaluator,
+	expr SampleExpr,
+	p Params,
+) (StepEvaluator, error) {
 	return s(ctx, nextEvaluator, expr, p)
 }
 
@@ -125,7 +136,8 @@ type EntryEvaluator interface {
 	Iterator(context.Context, LogSelectorExpr, Params) (iter.EntryIterator, error)
 }
 
-// EvaluatorUnsupportedType is a helper for signaling that an evaluator does not support an Expr type
+// EvaluatorUnsupportedType is a helper for signaling that an evaluator does not support an Expr
+// type
 func EvaluatorUnsupportedType(expr Expr, ev Evaluator) error {
 	return errors.Errorf("unexpected expr type (%T) for Evaluator type (%T) ", expr, ev)
 }
@@ -143,7 +155,11 @@ func NewDefaultEvaluator(querier Querier, maxLookBackPeriod time.Duration) *Defa
 	}
 }
 
-func (ev *DefaultEvaluator) Iterator(ctx context.Context, expr LogSelectorExpr, q Params) (iter.EntryIterator, error) {
+func (ev *DefaultEvaluator) Iterator(
+	ctx context.Context,
+	expr LogSelectorExpr,
+	q Params,
+) (iter.EntryIterator, error) {
 	params := SelectLogParams{
 		QueryRequest: &logproto.QueryRequest{
 			Start:     q.Start(),
@@ -211,13 +227,11 @@ func (ev *DefaultEvaluator) StepEvaluator(
 	}
 }
 
-var (
-	evaluatorGroupsPool = sync.Pool{
-		New: func() interface{} {
-			return newEvaluatorGroups()
-		},
-	}
-)
+var evaluatorGroupsPool = sync.Pool{
+	New: func() interface{} {
+		return newEvaluatorGroups()
+	},
+}
 
 const (
 	maxUnsortedGroups = 8
@@ -279,7 +293,11 @@ func (eg *evaluatorGroups) searchLabels(hash uint64) int {
 	return len(eg.groups)
 }
 
-func (eg *evaluatorGroups) getLabelsGroup(lbls labels.Labels, groups []string, without bool) *metricGroup {
+func (eg *evaluatorGroups) getLabelsGroup(
+	lbls labels.Labels,
+	groups []string,
+	without bool,
+) *metricGroup {
 	// switch to sorted mode if the number of groups is greater than maxUnsortedLabels
 	if !eg.sorted && len(eg.groups) > maxUnsortedGroups {
 		eg.sorted = true
@@ -544,7 +562,13 @@ func rangeAggEvaluator(
 		return nil, err
 	}
 	iter := rangeVectorIteratorPool.Get().(*rangeVectorIterator)
-	iter.init(it, expr.left.interval.Nanoseconds(), q.Step().Nanoseconds(), q.Start().UnixNano(), q.End().UnixNano())
+	iter.init(
+		it,
+		expr.left.interval.Nanoseconds(),
+		q.Step().Nanoseconds(),
+		q.Start().UnixNano(),
+		q.End().UnixNano(),
+	)
 
 	if expr.operation == OpRangeTypeAbsent {
 		return &absentRangeVectorEvaluator{
@@ -832,7 +856,12 @@ func newBinOpStepEvaluator(
 	}, nil
 }
 
-func mergeBinOp(op string, left, right *promql.Sample, filter, isVectorComparison bool, out *promql.Sample) bool {
+func mergeBinOp(
+	op string,
+	left, right *promql.Sample,
+	filter, isVectorComparison bool,
+	out *promql.Sample,
+) bool {
 	var merger func(left, right, out *promql.Sample) bool
 
 	switch op {
@@ -1071,7 +1100,8 @@ func mergeBinOp(op string, left, right *promql.Sample, filter, isVectorCompariso
 	}
 
 	// This only leaves vector comparisons which are not filters.
-	// If we could not find a match but we have a left node to compare, create an entry with a 0 value.
+	// If we could not find a match but we have a left node to compare, create an entry with a 0
+	// value.
 	// This can occur when we don't find a matching label set in the vectors.
 	if !res && left != nil && right == nil {
 		*out = *left
@@ -1093,7 +1123,8 @@ type literalStepEvaluator struct {
 }
 
 // newLiteralStepEvaluator merges a literal with a StepEvaluator. Since order matters in
-// non commutative operations, inverted should be true when the literalExpr is not the left argument.
+// non commutative operations, inverted should be true when the literalExpr is not the left
+// argument.
 func newLiteralStepEvaluator(
 	op string,
 	lit *literalExpr,

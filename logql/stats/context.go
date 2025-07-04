@@ -44,29 +44,51 @@ const (
 
 // Log logs a query statistics result.
 func (r Result) Log(ctx context.Context, lvl slog.Level, log *slog.Logger) {
-	log.Log(ctx, lvl, "query statistics result",
-		"Ingester.TotalReached", r.Ingester.TotalReached,
-		"Ingester.TotalChunksMatched", r.Ingester.TotalChunksMatched,
-		"Ingester.TotalBatches", r.Ingester.TotalBatches,
-		"Ingester.TotalLinesSent", r.Ingester.TotalLinesSent,
+	log.Log(
+		ctx,
+		lvl,
+		"query statistics result",
+		"Ingester.TotalReached",
+		r.Ingester.TotalReached,
+		"Ingester.TotalChunksMatched",
+		r.Ingester.TotalChunksMatched,
+		"Ingester.TotalBatches",
+		r.Ingester.TotalBatches,
+		"Ingester.TotalLinesSent",
+		r.Ingester.TotalLinesSent,
 
-		"Ingester.HeadChunkBytes", humanize.Bytes(uint64(r.Ingester.HeadChunkBytes)),
-		"Ingester.HeadChunkLines", r.Ingester.HeadChunkLines,
-		"Ingester.DecompressedBytes", humanize.Bytes(uint64(r.Ingester.DecompressedBytes)),
-		"Ingester.DecompressedLines", r.Ingester.DecompressedLines,
-		"Ingester.CompressedBytes", humanize.Bytes(uint64(r.Ingester.CompressedBytes)),
-		"Ingester.TotalDuplicates", r.Ingester.TotalDuplicates,
+		"Ingester.HeadChunkBytes",
+		humanize.Bytes(uint64(r.Ingester.HeadChunkBytes)),
+		"Ingester.HeadChunkLines",
+		r.Ingester.HeadChunkLines,
+		"Ingester.DecompressedBytes",
+		humanize.Bytes(uint64(r.Ingester.DecompressedBytes)),
+		"Ingester.DecompressedLines",
+		r.Ingester.DecompressedLines,
+		"Ingester.CompressedBytes",
+		humanize.Bytes(uint64(r.Ingester.CompressedBytes)),
+		"Ingester.TotalDuplicates",
+		r.Ingester.TotalDuplicates,
 
-		"Store.TotalChunksRef", r.Store.TotalChunksRef,
-		"Store.TotalChunksDownloaded", r.Store.TotalChunksDownloaded,
-		"Store.ChunksDownloadTime", time.Duration(int64(r.Store.ChunksDownloadTime*float64(time.Second))),
+		"Store.TotalChunksRef",
+		r.Store.TotalChunksRef,
+		"Store.TotalChunksDownloaded",
+		r.Store.TotalChunksDownloaded,
+		"Store.ChunksDownloadTime",
+		time.Duration(int64(r.Store.ChunksDownloadTime*float64(time.Second))),
 
-		"Store.HeadChunkBytes", humanize.Bytes(uint64(r.Store.HeadChunkBytes)),
-		"Store.HeadChunkLines", r.Store.HeadChunkLines,
-		"Store.DecompressedBytes", humanize.Bytes(uint64(r.Store.DecompressedBytes)),
-		"Store.DecompressedLines", r.Store.DecompressedLines,
-		"Store.CompressedBytes", humanize.Bytes(uint64(r.Store.CompressedBytes)),
-		"Store.TotalDuplicates", r.Store.TotalDuplicates,
+		"Store.HeadChunkBytes",
+		humanize.Bytes(uint64(r.Store.HeadChunkBytes)),
+		"Store.HeadChunkLines",
+		r.Store.HeadChunkLines,
+		"Store.DecompressedBytes",
+		humanize.Bytes(uint64(r.Store.DecompressedBytes)),
+		"Store.DecompressedLines",
+		r.Store.DecompressedLines,
+		"Store.CompressedBytes",
+		humanize.Bytes(uint64(r.Store.CompressedBytes)),
+		"Store.TotalDuplicates",
+		r.Store.TotalDuplicates,
 	)
 	r.Summary.Log(ctx, lvl, log)
 }
@@ -174,7 +196,6 @@ func Snapshot(ctx context.Context, execTime time.Duration) Result {
 	existing.Merge(res)
 	existing.ComputeSummary(execTime)
 	return *existing
-
 }
 
 // ComputeSummary calculates the summary based on store and ingester data.
@@ -186,17 +207,14 @@ func (r *Result) ComputeSummary(execTime time.Duration) {
 		r.Ingester.DecompressedLines + r.Ingester.HeadChunkLines
 	r.Summary.ExecTime = execTime.Seconds()
 	if execTime != 0 {
-		r.Summary.BytesProcessedPerSecond =
-			int64(float64(r.Summary.TotalBytesProcessed) /
-				execTime.Seconds())
-		r.Summary.LinesProcessedPerSecond =
-			int64(float64(r.Summary.TotalLinesProcessed) /
-				execTime.Seconds())
+		r.Summary.BytesProcessedPerSecond = int64(float64(r.Summary.TotalBytesProcessed) /
+			execTime.Seconds())
+		r.Summary.LinesProcessedPerSecond = int64(float64(r.Summary.TotalLinesProcessed) /
+			execTime.Seconds())
 	}
 }
 
 func (r *Result) Merge(m Result) {
-
 	r.Store.TotalChunksRef += m.Store.TotalChunksRef
 	r.Store.TotalChunksDownloaded += m.Store.TotalChunksDownloaded
 	r.Store.ChunksDownloadTime += m.Store.ChunksDownloadTime
@@ -218,7 +236,9 @@ func (r *Result) Merge(m Result) {
 	r.Ingester.CompressedBytes += m.Ingester.CompressedBytes
 	r.Ingester.TotalDuplicates += m.Ingester.TotalDuplicates
 
-	r.ComputeSummary(time.Duration(int64((r.Summary.ExecTime + m.Summary.ExecTime) * float64(time.Second))))
+	r.ComputeSummary(
+		time.Duration(int64((r.Summary.ExecTime + m.Summary.ExecTime) * float64(time.Second))),
+	)
 }
 
 // JoinResults merges a Result with the embedded Result in a context in a concurrency-safe manner.

@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/logproto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseLabelQuery(t *testing.T) {
@@ -22,25 +21,38 @@ func TestParseLabelQuery(t *testing.T) {
 		wantErr bool
 	}{
 		{"bad start", &http.Request{URL: mustParseURL(`?&start=t`)}, nil, true},
-		{"bad end", &http.Request{URL: mustParseURL(`?&start=2016-06-10T21:42:24.760738998Z&end=h`)}, nil, true},
-		{"good no name in the pah",
+		{
+			"bad end",
+			&http.Request{URL: mustParseURL(`?&start=2016-06-10T21:42:24.760738998Z&end=h`)},
+			nil,
+			true,
+		},
+		{
+			"good no name in the pah",
 			requestWithVar(&http.Request{
-				URL: mustParseURL(`?start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z`),
+				URL: mustParseURL(
+					`?start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z`,
+				),
 			}, "name", "test"), &logproto.LabelRequest{
 				Name:   "test",
 				Values: true,
-				Start:  timePtr(time.Date(2017, 06, 10, 21, 42, 24, 760738998, time.UTC)),
-				End:    timePtr(time.Date(2017, 07, 10, 21, 42, 24, 760738998, time.UTC)),
-			}, false},
-		{"good with name",
+				Start:  timePtr(time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC)),
+				End:    timePtr(time.Date(2017, 0o7, 10, 21, 42, 24, 760738998, time.UTC)),
+			}, false,
+		},
+		{
+			"good with name",
 			&http.Request{
-				URL: mustParseURL(`?start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z`),
+				URL: mustParseURL(
+					`?start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z`,
+				),
 			}, &logproto.LabelRequest{
 				Name:   "",
 				Values: false,
-				Start:  timePtr(time.Date(2017, 06, 10, 21, 42, 24, 760738998, time.UTC)),
-				End:    timePtr(time.Date(2017, 07, 10, 21, 42, 24, 760738998, time.UTC)),
-			}, false},
+				Start:  timePtr(time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC)),
+				End:    timePtr(time.Date(2017, 0o7, 10, 21, 42, 24, 760738998, time.UTC)),
+			}, false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

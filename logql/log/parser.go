@@ -6,12 +6,11 @@ import (
 	"io"
 	"regexp"
 
+	jsoniter "github.com/json-iterator/go"
+	"github.com/prometheus/common/model"
 	"github.com/ronanh/loki/logql/log/jsonexpr"
 	"github.com/ronanh/loki/logql/log/logfmt"
 	"github.com/ronanh/loki/pattern"
-
-	jsoniter "github.com/json-iterator/go"
-	"github.com/prometheus/common/model"
 )
 
 const (
@@ -185,8 +184,9 @@ type RegexpParser struct {
 	keys internedStringSet
 }
 
-// NewRegexpParser creates a new log stage that can extract labels from a log line using a regex expression.
-// The regex expression must contains at least one named match. If the regex doesn't match the line is not filtered out.
+// NewRegexpParser creates a new log stage that can extract labels from a log line using a regex
+// expression. The regex expression must contains at least one named match. If the regex doesn't
+// match the line is not filtered out.
 func NewRegexpParser(re string) (*RegexpParser, error) {
 	regex, err := regexp.Compile(re)
 	if err != nil {
@@ -360,8 +360,9 @@ type UnpackParser struct {
 }
 
 // NewUnpackParser creates a new unpack stage.
-// The unpack stage will parse a json log line as map[string]string where each key will be translated into labels.
-// A special key _entry will also be used to replace the original log line. This is to be used in conjunction with Promtail pack stage.
+// The unpack stage will parse a json log line as map[string]string where each key will be
+// translated into labels. A special key _entry will also be used to replace the original log line.
+// This is to be used in conjunction with Promtail pack stage.
 // see https://grafana.com/docs/loki/latest/clients/promtail/stages/pack/
 func NewUnpackParser() *UnpackParser {
 	return &UnpackParser{
@@ -388,7 +389,11 @@ func (u *UnpackParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	return entry, true
 }
 
-func (u *UnpackParser) unpack(it *jsoniter.Iterator, entry []byte, lbs *LabelsBuilder) ([]byte, error) {
+func (u *UnpackParser) unpack(
+	it *jsoniter.Iterator,
+	entry []byte,
+	lbs *LabelsBuilder,
+) ([]byte, error) {
 	// we only care about object and values.
 	if nextType := it.WhatIsNext(); nextType != jsoniter.ObjectValue {
 		return nil, fmt.Errorf("expecting json object(%d), got %d", jsoniter.ObjectValue, nextType)
@@ -399,7 +404,8 @@ func (u *UnpackParser) unpack(it *jsoniter.Iterator, entry []byte, lbs *LabelsBu
 		case jsoniter.StringValue:
 			// we only unpack map[string]string. Anything else is skipped.
 			if field == PackedEntryKey {
-				// todo(ctovena): we should just reslice the original line since the property is contiguous
+				// todo(ctovena): we should just reslice the original line since the property is
+				// contiguous
 				// but jsoniter doesn't allow us to do this right now.
 				// https://github.com/buger/jsonparser might do a better job at this.
 				entry = []byte(iter.ReadString())

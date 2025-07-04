@@ -31,6 +31,7 @@ func EnsureIsV1(v Version) error {
 	}
 	return ErrUnsupportedAPIVersion
 }
+
 func EnsureHasV1(uri string) error {
 	return EnsureIsV1(GetVersion(uri))
 }

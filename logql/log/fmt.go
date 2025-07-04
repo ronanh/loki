@@ -270,7 +270,10 @@ func validate(fmts []LabelFmt) error {
 			return fmt.Errorf("%s cannot be formatted", f.Name)
 		}
 		if _, ok := uniqueLabelName[f.Name]; ok {
-			return fmt.Errorf("multiple label name '%s' not allowed in a single format operation", f.Name)
+			return fmt.Errorf(
+				"multiple label name '%s' not allowed in a single format operation",
+				f.Name,
+			)
 		}
 		uniqueLabelName[f.Name] = struct{}{}
 	}

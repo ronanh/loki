@@ -201,12 +201,13 @@ func TestResult_Merge(t *testing.T) {
 			TotalDuplicates:       2 * 10,
 		},
 		Summary: Summary{
-			ExecTime:                2 * 2 * time.Second.Seconds(),
-			BytesProcessedPerSecond: int64(42), // 2 requests at the same pace should give the same bytes/lines per sec
+			ExecTime: 2 * 2 * time.Second.Seconds(),
+			BytesProcessedPerSecond: int64(
+				42,
+			), // 2 requests at the same pace should give the same bytes/lines per sec
 			LinesProcessedPerSecond: int64(50),
 			TotalBytesProcessed:     2 * int64(84),
 			TotalLinesProcessed:     2 * int64(100),
 		},
 	}, res)
-
 }

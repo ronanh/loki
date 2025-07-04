@@ -5,10 +5,8 @@ import (
 	"github.com/ronanh/loki/util"
 )
 
-var (
-	// NoopStage is a stage that doesn't process a log line.
-	NoopStage Stage = &noopStage{}
-)
+// NoopStage is a stage that doesn't process a log line.
+var NoopStage Stage = &noopStage{}
 
 // Pipeline can create pipelines for each log stream.
 type Pipeline interface {
@@ -149,7 +147,8 @@ func (p *streamPipeline) ProcessString(line string) (string, LabelsResult, bool)
 	lb := unsafeGetBytes(line)
 	lb, lr, ok := p.Process(lb)
 	// either the line is unchanged and we can just send back the same string.
-	// or we created a new buffer for it in which case it is still safe to avoid the string(byte) copy.
+	// or we created a new buffer for it in which case it is still safe to avoid the string(byte)
+	// copy.
 	return unsafeGetString(lb), lr, ok
 }
 

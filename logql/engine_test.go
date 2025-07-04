@@ -13,13 +13,12 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -76,7 +75,8 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 		{
 			`rate({app="foo"}[30s])`, time.Unix(60, 0), logproto.FORWARD, 10,
 			[][]logproto.Series{
-				// 30s range the lower bound of the range is not inclusive only 15 samples will make it 60 included
+				// 30s range the lower bound of the range is not inclusive only 15 samples will make
+				// it 60 included
 				{newSeries(testSize, offset(46, identity), `{app="foo"}`)},
 			},
 			[]SelectSampleParams{
@@ -87,7 +87,8 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 		{
 			`rate({app="foo"} | unwrap foo [30s])`, time.Unix(60, 0), logproto.FORWARD, 10,
 			[][]logproto.Series{
-				// 30s range the lower bound of the range is not inclusive only 15 samples will make it 60 included
+				// 30s range the lower bound of the range is not inclusive only 15 samples will make
+				// it 60 included
 				{newSeries(testSize, offset(46, constantValue(2)), `{app="foo"}`)},
 			},
 			[]SelectSampleParams{
@@ -1792,7 +1793,10 @@ func (statsQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.Ent
 	return iter.NoopIterator, nil
 }
 
-func (statsQuerier) SelectSamples(ctx context.Context, p SelectSampleParams) (iter.SampleIterator, error) {
+func (statsQuerier) SelectSamples(
+	ctx context.Context,
+	p SelectSampleParams,
+) (iter.SampleIterator, error) {
 	st := stats.GetChunkData(ctx)
 	st.DecompressedBytes++
 	return iter.NoopIterator, nil
@@ -1818,11 +1822,17 @@ type errorIteratorQuerier struct {
 	entries []iter.EntryIterator
 }
 
-func (e errorIteratorQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.EntryIterator, error) {
+func (e errorIteratorQuerier) SelectLogs(
+	ctx context.Context,
+	p SelectLogParams,
+) (iter.EntryIterator, error) {
 	return iter.NewHeapIterator(ctx, e.entries, p.Direction), nil
 }
 
-func (e errorIteratorQuerier) SelectSamples(ctx context.Context, p SelectSampleParams) (iter.SampleIterator, error) {
+func (e errorIteratorQuerier) SelectSamples(
+	ctx context.Context,
+	p SelectSampleParams,
+) (iter.SampleIterator, error) {
 	return iter.NewHeapSampleIterator(ctx, e.samples), nil
 }
 
@@ -1885,7 +1895,8 @@ func TestStepEvaluator_Error(t *testing.T) {
 	}
 }
 
-// go test -mod=vendor ./pkg/logql/ -bench=.  -benchmem -memprofile memprofile.out -cpuprofile cpuprofile.out
+// go test -mod=vendor ./pkg/logql/ -bench=.  -benchmem -memprofile memprofile.out -cpuprofile
+// cpuprofile.out
 func BenchmarkRangeQuery100000(b *testing.B) {
 	benchmarkRangeQuery(int64(100000), b)
 }
@@ -2028,7 +2039,10 @@ func newQuerierRecorder(t *testing.T, data interface{}, params interface{}) *que
 	}
 }
 
-func (q *querierRecorder) SelectLogs(ctx context.Context, p SelectLogParams) (iter.EntryIterator, error) {
+func (q *querierRecorder) SelectLogs(
+	ctx context.Context,
+	p SelectLogParams,
+) (iter.EntryIterator, error) {
 	if !q.match {
 		for _, s := range q.streams {
 			return iter.NewStreamsIterator(ctx, s, p.Direction), nil
@@ -2046,7 +2060,10 @@ func (q *querierRecorder) SelectLogs(ctx context.Context, p SelectLogParams) (it
 	return iter.NewHeapIterator(ctx, iters, p.Direction), nil
 }
 
-func (q *querierRecorder) SelectSamples(ctx context.Context, p SelectSampleParams) (iter.SampleIterator, error) {
+func (q *querierRecorder) SelectSamples(
+	ctx context.Context,
+	p SelectSampleParams,
+) (iter.SampleIterator, error) {
 	if !q.match {
 		for _, s := range q.series {
 			return iter.NewMultiSeriesIterator(ctx, s), nil
@@ -2107,7 +2124,9 @@ func newSeries(n int64, f generator, labels string) logproto.Series {
 
 func newIntervalStream(n int64, step time.Duration, f generator, labels string) logproto.Stream {
 	entries := []logproto.Entry{}
-	lastEntry := int64(-100) // Start with a really small value (negative) so we always output the first item
+	lastEntry := int64(
+		-100,
+	) // Start with a really small value (negative) so we always output the first item
 	for i := int64(0); int64(len(entries)) < n; i++ {
 		if float64(lastEntry)+step.Seconds() <= float64(i) {
 			entries = append(entries, f(i).Entry)
@@ -2131,9 +2150,16 @@ func newBackwardStream(n int64, f generator, labels string) logproto.Stream {
 	}
 }
 
-func newBackwardIntervalStream(n, expectedResults int64, step time.Duration, f generator, labels string) logproto.Stream {
+func newBackwardIntervalStream(
+	n, expectedResults int64,
+	step time.Duration,
+	f generator,
+	labels string,
+) logproto.Stream {
 	entries := []logproto.Entry{}
-	lastEntry := int64(100000) // Start with some really big value so that we always output the first item
+	lastEntry := int64(
+		100000,
+	) // Start with some really big value so that we always output the first item
 	for i := n - 1; int64(len(entries)) < expectedResults; i-- {
 		if float64(lastEntry)-step.Seconds() >= float64(i) {
 			entries = append(entries, f(i).Entry)

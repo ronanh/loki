@@ -11,7 +11,6 @@ import (
 )
 
 func TestBinary_Filter(t *testing.T) {
-
 	tests := []struct {
 		f   LabelFilterer
 		lbs labels.Labels
@@ -20,13 +19,19 @@ func TestBinary_Filter(t *testing.T) {
 		wantLbs labels.Labels
 	}{
 		{
-			NewAndLabelFilter(NewNumericLabelFilter(LabelFilterEqual, "foo", 5), NewDurationLabelFilter(LabelFilterEqual, "bar", 1*time.Second)),
+			NewAndLabelFilter(
+				NewNumericLabelFilter(LabelFilterEqual, "foo", 5),
+				NewDurationLabelFilter(LabelFilterEqual, "bar", 1*time.Second),
+			),
 			labels.Labels{{Name: "foo", Value: "5"}, {Name: "bar", Value: "1s"}},
 			true,
 			labels.Labels{{Name: "foo", Value: "5"}, {Name: "bar", Value: "1s"}},
 		},
 		{
-			NewAndLabelFilter(NewNumericLabelFilter(LabelFilterEqual, "foo", 5), NewBytesLabelFilter(LabelFilterEqual, "bar", 42000)),
+			NewAndLabelFilter(
+				NewNumericLabelFilter(LabelFilterEqual, "foo", 5),
+				NewBytesLabelFilter(LabelFilterEqual, "bar", 42000),
+			),
 			labels.Labels{{Name: "foo", Value: "5"}, {Name: "bar", Value: "42kB"}},
 			true,
 			labels.Labels{{Name: "foo", Value: "5"}, {Name: "bar", Value: "42kB"}},
@@ -219,7 +224,6 @@ func TestErrorFiltering(t *testing.T) {
 			},
 		},
 		{
-
 			NewStringLabelFilter(labels.MustNewMatcher(labels.MatchNotRegexp, ErrorLabel, ".+")),
 			labels.Labels{
 				{Name: "status", Value: "200"},
@@ -234,7 +238,6 @@ func TestErrorFiltering(t *testing.T) {
 			},
 		},
 		{
-
 			NewStringLabelFilter(labels.MustNewMatcher(labels.MatchNotRegexp, ErrorLabel, ".+")),
 			labels.Labels{
 				{Name: "status", Value: "200"},
@@ -248,7 +251,6 @@ func TestErrorFiltering(t *testing.T) {
 			},
 		},
 		{
-
 			NewStringLabelFilter(labels.MustNewMatcher(labels.MatchNotEqual, ErrorLabel, errJSON)),
 			labels.Labels{
 				{Name: "status", Value: "200"},
@@ -283,15 +285,24 @@ func TestReduceAndLabelFilter(t *testing.T) {
 		want    LabelFilterer
 	}{
 		{"empty", nil, NoopLabelFilter},
-		{"1", []LabelFilterer{NewBytesLabelFilter(LabelFilterEqual, "foo", 5)}, NewBytesLabelFilter(LabelFilterEqual, "foo", 5)},
-		{"2",
+		{
+			"1",
+			[]LabelFilterer{NewBytesLabelFilter(LabelFilterEqual, "foo", 5)},
+			NewBytesLabelFilter(LabelFilterEqual, "foo", 5),
+		},
+		{
+			"2",
 			[]LabelFilterer{
 				NewBytesLabelFilter(LabelFilterEqual, "foo", 5),
 				NewBytesLabelFilter(LabelFilterGreaterThanOrEqual, "bar", 6),
 			},
-			NewAndLabelFilter(NewBytesLabelFilter(LabelFilterEqual, "foo", 5), NewBytesLabelFilter(LabelFilterGreaterThanOrEqual, "bar", 6)),
+			NewAndLabelFilter(
+				NewBytesLabelFilter(LabelFilterEqual, "foo", 5),
+				NewBytesLabelFilter(LabelFilterGreaterThanOrEqual, "bar", 6),
+			),
 		},
-		{"3",
+		{
+			"3",
 			[]LabelFilterer{
 				NewBytesLabelFilter(LabelFilterEqual, "foo", 5),
 				NewBytesLabelFilter(LabelFilterGreaterThanOrEqual, "bar", 6),

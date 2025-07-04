@@ -14,7 +14,8 @@ const MaxInternedStrings = 1024
 
 var emptyLabelsResult = NewLabelsResult(labels.Labels{}, labels.Labels{}.Hash())
 
-// LabelsResult is a computed labels result that contains the labels set with associated string and hash.
+// LabelsResult is a computed labels result that contains the labels set with associated string and
+// hash.
 // The is mainly used for caching and returning labels computations out of pipelines and stages.
 type LabelsResult interface {
 	String() string
@@ -192,8 +193,13 @@ type LabelsBuilder struct {
 	*BaseLabelsBuilder
 }
 
-// NewBaseLabelsBuilderWithGrouping creates a new base labels builder with grouping to compute results.
-func NewBaseLabelsBuilderWithGrouping(groups []string, parserKeyHints ParserHint, without, noLabels bool) *BaseLabelsBuilder {
+// NewBaseLabelsBuilderWithGrouping creates a new base labels builder with grouping to compute
+// results.
+func NewBaseLabelsBuilderWithGrouping(
+	groups []string,
+	parserKeyHints ParserHint,
+	without, noLabels bool,
+) *BaseLabelsBuilder {
 	return &BaseLabelsBuilder{
 		// del:            make([]string, 0, 5),
 		// add:            make([]labels.Label, 0, 16),

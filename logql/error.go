@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/prometheus/prometheus/pkg/labels"
-
 	"github.com/ronanh/loki/logql/log"
 )
 

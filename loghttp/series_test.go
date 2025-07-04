@@ -5,9 +5,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ronanh/loki/logproto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseSeriesQuery(t *testing.T) {

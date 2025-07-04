@@ -7,17 +7,18 @@ import (
 	"net"
 	"testing"
 
+	"github.com/ronanh/loki/logproto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
-
-	"github.com/ronanh/loki/logproto"
 )
 
 const bufSize = 1024 * 1024
 
-var lis *bufconn.Listener
-var server *grpc.Server
+var (
+	lis    *bufconn.Listener
+	server *grpc.Server
+)
 
 func init() {
 	lis = bufconn.Listen(bufSize)
@@ -30,7 +31,12 @@ func bufDialer(context.Context, string) (net.Conn, error) {
 
 func TestCollectTrailer(t *testing.T) {
 	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+	conn, err := grpc.DialContext(
+		ctx,
+		"bufnet",
+		grpc.WithContextDialer(bufDialer),
+		grpc.WithInsecure(),
+	)
 	if err != nil {
 		t.Fatalf("Failed to dial bufnet: %v", err)
 	}
@@ -69,7 +75,11 @@ func TestCollectTrailer(t *testing.T) {
 	if err != nil && err != io.EOF {
 		t.Fatal(err)
 	}
-	clientSamples, err := ingClient.QuerySample(ctx, &logproto.SampleQueryRequest{}, CollectTrailer(ctx))
+	clientSamples, err := ingClient.QuerySample(
+		ctx,
+		&logproto.SampleQueryRequest{},
+		CollectTrailer(ctx),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,20 +110,35 @@ func (i ingesterFn) Query(_ *logproto.QueryRequest, s logproto.Querier_QueryServ
 	return i(s)
 }
 
-func (i ingesterFn) QuerySample(_ *logproto.SampleQueryRequest, s logproto.Querier_QuerySampleServer) error {
+func (i ingesterFn) QuerySample(
+	_ *logproto.SampleQueryRequest,
+	s logproto.Querier_QuerySampleServer,
+) error {
 	return i(s)
 }
+
 func (ingesterFn) Label(context.Context, *logproto.LabelRequest) (*logproto.LabelResponse, error) {
 	return nil, nil
 }
 func (ingesterFn) Tail(*logproto.TailRequest, logproto.Querier_TailServer) error { return nil }
-func (ingesterFn) Series(context.Context, *logproto.SeriesRequest) (*logproto.SeriesResponse, error) {
-	return nil, nil
-}
-func (ingesterFn) TailersCount(context.Context, *logproto.TailersCountRequest) (*logproto.TailersCountResponse, error) {
+
+func (ingesterFn) Series(
+	context.Context,
+	*logproto.SeriesRequest,
+) (*logproto.SeriesResponse, error) {
 	return nil, nil
 }
 
-func (i ingesterFn) GetChunkIDs(ctx context.Context, request *logproto.GetChunkIDsRequest) (*logproto.GetChunkIDsResponse, error) {
+func (ingesterFn) TailersCount(
+	context.Context,
+	*logproto.TailersCountRequest,
+) (*logproto.TailersCountResponse, error) {
+	return nil, nil
+}
+
+func (i ingesterFn) GetChunkIDs(
+	ctx context.Context,
+	request *logproto.GetChunkIDsRequest,
+) (*logproto.GetChunkIDsResponse, error) {
 	return nil, nil
 }
