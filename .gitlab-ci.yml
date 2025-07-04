@@ -1,6 +1,6 @@
 include:
-  - component: $CI_SERVER_FQDN/components/go/test@0.3.0
-  - component: $CI_SERVER_FQDN/components/go/build@0.3.0
+  - component: $CI_SERVER_FQDN/components/go/test@0.3.1
+  - component: $CI_SERVER_FQDN/components/go/build@0.3.1
     inputs:
       binary_directory: ""
 
