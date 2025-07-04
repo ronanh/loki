@@ -1,4 +1,8 @@
-image: golang:latest
+include:
+  - component: $CI_SERVER_FQDN/components/go/test@0.3.0
+  - component: $CI_SERVER_FQDN/components/go/build@0.3.0
+    inputs:
+      binary_directory: ""
 
 stages:
   - test
@@ -8,26 +12,8 @@ default:
   interruptible: true
 
 lint:
+  image: golang:latest
   stage: test
   script:
     - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
     - make ci-check
-
-test:
-  stage: test
-  script:
-    - make test-coverage
-    - go tool cover -func coverage.txt
-    - go get github.com/boumenot/gocover-cobertura
-    - go run github.com/boumenot/gocover-cobertura < coverage.txt > coverage.xml
-  coverage: /total:\s+\(statements\)\s+\d+.\d+%/
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-
-compile:
-  stage: build
-  script:
-    - go build ./...
