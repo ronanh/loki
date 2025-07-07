@@ -65,7 +65,9 @@ func TestLogSlowQuery(t *testing.T) {
 	defer slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
 	ctx := context.Background()
-	ctx, sp := tracesdk.NewTracerProvider().Tracer("test").Start(ctx, "test")
+	provider, err := tracesdk.NewProvider()
+	require.Nil(t, err)
+	ctx, sp := provider.Tracer("test").Start(ctx, "test")
 
 	defer sp.End()
 
@@ -87,7 +89,7 @@ func TestLogSlowQuery(t *testing.T) {
 	}, Streams{logproto.Stream{Entries: make([]logproto.Entry, 10)}})
 	loggedLine := buf.String()
 	require.Contains(t, loggedLine, "level=INFO")
-	require.Contains(t, loggedLine, fmt.Sprint("traceID=", sp.SpanContext().TraceID()))
+	require.Contains(t, loggedLine, fmt.Sprint("traceID=", sp.SpanContext().TraceID))
 	require.Contains(t, loggedLine, "returned_lines=10")
 	require.Contains(t, loggedLine, "query=\"{foo=\\\"bar\\\"} |= \\\"buzz\\\"\"")
 	require.Contains(t, loggedLine, "query_type=filter")

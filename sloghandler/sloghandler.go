@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/api/trace"
 )
 
 func New(inner slog.Handler) slog.Handler {
@@ -16,9 +16,9 @@ type handlerImpl struct {
 }
 
 func (ch *handlerImpl) Handle(ctx context.Context, r slog.Record) error {
-	spanCtx := trace.SpanContextFromContext(ctx)
+	spanCtx := trace.SpanFromContext(ctx).SpanContext()
 	if spanCtx.HasTraceID() {
-		traceID := spanCtx.TraceID().String()
+		traceID := spanCtx.TraceID.String()
 		r.Add("traceID", slog.StringValue(traceID))
 	}
 
