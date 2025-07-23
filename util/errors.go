@@ -13,7 +13,7 @@ import (
 // Errors used to construct it.
 type MultiError []error
 
-// Returns a concatenated string of the contained errors
+// Returns a concatenated string of the contained errors.
 func (es MultiError) Error() string {
 	var buf bytes.Buffer
 
@@ -36,7 +36,8 @@ func (es *MultiError) Add(err error) {
 	if err == nil {
 		return
 	}
-	if merr, ok := err.(MultiError); ok {
+	var merr MultiError
+	if errors.As(err, &merr) {
 		*es = append(*es, merr...)
 	} else {
 		*es = append(*es, err)

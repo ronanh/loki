@@ -66,7 +66,7 @@ func TestLogSlowQuery(t *testing.T) {
 
 	ctx := context.Background()
 	provider, err := tracesdk.NewProvider()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ctx, sp := provider.Tracer("test").Start(ctx, "test")
 
 	defer sp.End()

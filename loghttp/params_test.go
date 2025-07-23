@@ -1,6 +1,7 @@
 package loghttp
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
@@ -38,7 +39,6 @@ func TestHttp_defaultQueryRangeStep(t *testing.T) {
 	}
 
 	for testName, testData := range tests {
-		testData := testData
 
 		t.Run(testName, func(t *testing.T) {
 			assert.Equal(t, testData.expected, defaultQueryRangeStep(testData.start, testData.end))
@@ -122,12 +122,11 @@ func TestHttp_ParseRangeQuery_Step(t *testing.T) {
 	}
 
 	for testName, testData := range tests {
-		testData := testData
 
 		t.Run(testName, func(t *testing.T) {
-			req := httptest.NewRequest("GET", testData.reqPath, nil)
+			req := httptest.NewRequest(http.MethodGet, testData.reqPath, nil)
 			err := req.ParseForm()
-			require.Nil(t, err)
+			require.NoError(t, err)
 			actual, err := ParseRangeQuery(req)
 
 			require.NoError(t, err)
@@ -175,12 +174,11 @@ func Test_interval(t *testing.T) {
 		},
 	}
 	for _, testData := range tests {
-		testData := testData
 
 		t.Run(testData.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", testData.reqPath, nil)
+			req := httptest.NewRequest(http.MethodGet, testData.reqPath, nil)
 			err := req.ParseForm()
-			require.Nil(t, err)
+			require.NoError(t, err)
 			actual, err := interval(req)
 			if testData.wantErr {
 				require.Error(t, err)

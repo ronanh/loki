@@ -114,7 +114,7 @@ func NewFormatter(tmpl string) (*LineFormatter, error) {
 	}
 	t, err := template.New("line").Option("missingkey=zero").Funcs(funcMap).Parse(tmpl)
 	if err != nil {
-		return nil, fmt.Errorf("invalid line template: %s", err)
+		return nil, fmt.Errorf("invalid line template: %w", err)
 	}
 	lineFormatter.Template = t
 	return lineFormatter, nil
@@ -251,7 +251,7 @@ func NewLabelsFormatter(fmts []LabelFmt) (*LabelsFormatter, error) {
 		if !fm.Rename {
 			t, err := template.New("label").Option("missingkey=zero").Funcs(funcMap).Parse(fm.Value)
 			if err != nil {
-				return nil, fmt.Errorf("invalid template for label '%s': %s", fm.Name, err)
+				return nil, fmt.Errorf("invalid template for label '%s': %w", fm.Name, err)
 			}
 			toAdd.tmpl = t
 		}

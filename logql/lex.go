@@ -65,7 +65,7 @@ var tokens = map[string]int{
 	OpDrop: DROP,
 }
 
-// functionTokens are tokens that needs to be suffixes with parenthesis
+// functionTokens are tokens that needs to be suffixes with parenthesis.
 var functionTokens = map[string]int{
 	// range vec ops
 	OpRangeTypeRate:      RATE,
@@ -102,6 +102,7 @@ var functionTokens = map[string]int{
 
 type lexer struct {
 	scanner.Scanner
+
 	errs []ParseError
 }
 
@@ -111,7 +112,7 @@ func (l *lexer) Lex(lval *exprSymType) int {
 	switch r {
 	case '#':
 		// Scan until a newline or EOF is encountered
-		for next := l.Peek(); !(next == '\n' || next == scanner.EOF); next = l.Next() {
+		for next := l.Peek(); next != '\n' && next != scanner.EOF; next = l.Next() {
 		}
 
 		return l.Lex(lval)

@@ -3,6 +3,7 @@ package iter
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -85,15 +86,15 @@ func TestIterator(t *testing.T) {
 			labels:    "{foobar: \"bazbar\"}",
 		},
 	} {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			for i := int64(0); i < tc.length; i++ {
-				assert.Equal(t, true, tc.iterator.Next())
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			for i := range int64(tc.length) {
+				assert.True(t, tc.iterator.Next())
 				assert.Equal(t, tc.generator(i), tc.iterator.Entry(), fmt.Sprintln("iteration", i))
 				assert.Equal(t, tc.labels, tc.iterator.Labels(), fmt.Sprintln("iteration", i))
 			}
 
-			assert.Equal(t, false, tc.iterator.Next())
-			assert.Equal(t, nil, tc.iterator.Error())
+			assert.False(t, tc.iterator.Next())
+			assert.NoError(t, tc.iterator.Error())
 			assert.NoError(t, tc.iterator.Close())
 		})
 	}
@@ -142,15 +143,15 @@ func TestIteratorMultipleLabels(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			for i := int64(0); i < tc.length; i++ {
-				assert.Equal(t, true, tc.iterator.Next())
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			for i := range int64(tc.length) {
+				assert.True(t, tc.iterator.Next())
 				assert.Equal(t, tc.generator(i), tc.iterator.Entry(), fmt.Sprintln("iteration", i))
 				assert.Equal(t, tc.labels(i), tc.iterator.Labels(), fmt.Sprintln("iteration", i))
 			}
 
-			assert.Equal(t, false, tc.iterator.Next())
-			assert.Equal(t, nil, tc.iterator.Error())
+			assert.False(t, tc.iterator.Next())
+			assert.NoError(t, tc.iterator.Error())
 			assert.NoError(t, tc.iterator.Close())
 		})
 	}
@@ -175,7 +176,6 @@ func TestHeapIteratorPrefetch(t *testing.T) {
 	}
 
 	for testName, testFunc := range tests {
-		testFunc := testFunc
 
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
@@ -194,7 +194,7 @@ type generator func(i int64) logproto.Entry
 
 func mkStreamIterator(f generator, labels string) EntryIterator {
 	entries := []logproto.Entry{}
-	for i := int64(0); i < testSize; i++ {
+	for i := range testSize {
 		entries = append(entries, f(i))
 	}
 	return NewStreamIterator(logproto.Stream{
@@ -206,7 +206,7 @@ func mkStreamIterator(f generator, labels string) EntryIterator {
 func identity(i int64) logproto.Entry {
 	return logproto.Entry{
 		Timestamp: time.Unix(i, 0),
-		Line:      fmt.Sprintf("%d", i),
+		Line:      strconv.FormatInt(i, 10),
 	}
 }
 
@@ -250,7 +250,7 @@ func TestHeapIteratorDeduplication(t *testing.T) {
 		},
 	}
 	assertIt := func(it EntryIterator, reversed bool, length int) {
-		for i := 0; i < length; i++ {
+		for i := range length {
 			j := i
 			if reversed {
 				j = length - 1 - i
@@ -264,7 +264,6 @@ func TestHeapIteratorDeduplication(t *testing.T) {
 			require.NoError(t, it.Error())
 			require.Equal(t, foo.Labels, it.Labels())
 			require.Equal(t, foo.Entries[j], it.Entry())
-
 		}
 		require.False(t, it.Next())
 		require.NoError(t, it.Error())
@@ -315,16 +314,16 @@ func TestReverseIterator(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := int64((testSize / 2) + 1); i <= testSize; i++ {
-		assert.Equal(t, true, reversedIter.Next())
+		assert.True(t, reversedIter.Next())
 		assert.Equal(t, identity(i), reversedIter.Entry(), fmt.Sprintln("iteration", i))
 		assert.Equal(t, reversedIter.Labels(), itr2.Labels())
-		assert.Equal(t, true, reversedIter.Next())
+		assert.True(t, reversedIter.Next())
 		assert.Equal(t, identity(i), reversedIter.Entry(), fmt.Sprintln("iteration", i))
 		assert.Equal(t, reversedIter.Labels(), itr1.Labels())
 	}
 
-	assert.Equal(t, false, reversedIter.Next())
-	assert.Equal(t, nil, reversedIter.Error())
+	assert.False(t, reversedIter.Next())
+	assert.NoError(t, reversedIter.Error())
 	assert.NoError(t, reversedIter.Close())
 }
 
@@ -335,13 +334,13 @@ func TestReverseEntryIterator(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := int64(testSize - 1); i >= 0; i-- {
-		assert.Equal(t, true, reversedIter.Next())
+		assert.True(t, reversedIter.Next())
 		assert.Equal(t, identity(i), reversedIter.Entry(), fmt.Sprintln("iteration", i))
-		assert.Equal(t, reversedIter.Labels(), defaultLabels)
+		assert.Equal(t, defaultLabels, reversedIter.Labels())
 	}
 
-	assert.Equal(t, false, reversedIter.Next())
-	assert.Equal(t, nil, reversedIter.Error())
+	assert.False(t, reversedIter.Next())
+	assert.NoError(t, reversedIter.Error())
 	assert.NoError(t, reversedIter.Close())
 }
 

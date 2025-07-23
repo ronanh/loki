@@ -1,7 +1,7 @@
 package jsonexpr
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -85,31 +85,31 @@ func TestJSONExpressionParser(t *testing.T) {
 			"invalid field access",
 			`field with space`,
 			nil,
-			fmt.Errorf("syntax error: unexpected FIELD"),
+			errors.New("syntax error: unexpected FIELD"),
 		},
 		{
 			"missing opening square bracket",
 			`"pod"]`,
 			nil,
-			fmt.Errorf("syntax error: unexpected STRING, expecting LSB or FIELD"),
+			errors.New("syntax error: unexpected STRING, expecting LSB or FIELD"),
 		},
 		{
 			"missing closing square bracket",
 			`["pod"`,
 			nil,
-			fmt.Errorf("syntax error: unexpected $end, expecting RSB"),
+			errors.New("syntax error: unexpected $end, expecting RSB"),
 		},
 		{
 			"missing closing square bracket",
 			`["pod""deployment"]`,
 			nil,
-			fmt.Errorf("syntax error: unexpected STRING, expecting RSB"),
+			errors.New("syntax error: unexpected STRING, expecting RSB"),
 		},
 		{
 			"invalid nesting",
 			`pod..uuid`,
 			nil,
-			fmt.Errorf("syntax error: unexpected DOT, expecting FIELD"),
+			errors.New("syntax error: unexpected DOT, expecting FIELD"),
 		},
 	}
 	for _, tt := range tests {
@@ -122,7 +122,7 @@ func TestJSONExpressionParser(t *testing.T) {
 				return
 			}
 
-			require.NotNil(t, err)
+			require.Error(t, err)
 			require.Equal(t, tt.error.Error(), err.Error())
 		})
 	}

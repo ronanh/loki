@@ -7,7 +7,7 @@ import (
 // BytesToStr interprets `bs` as a utf8 encoded string
 // without allocating a new buffer
 //
-// The returned string is mutated if the underlying buffer is mutated
+// The returned string is mutated if the underlying buffer is mutated.
 func BytesToStr(bs []byte) string {
 	if len(bs) == 0 {
 		return ""
@@ -18,7 +18,7 @@ func BytesToStr(bs []byte) string {
 // StrToBytes returns raw byte slice representation
 // of `str` without allocation
 //
-// Mutating the returned buffer updates the `str`
+// Mutating the returned buffer updates the `str`.
 func StrToBytes(str string) []byte {
 	if str == "" {
 		return nil

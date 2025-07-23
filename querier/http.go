@@ -21,7 +21,7 @@ type HttpQuerier struct {
 	limits  *validation.Overrides
 }
 
-// NewHttpQuerier Create a new HttpQuerier
+// NewHttpQuerier Create a new HttpQuerier.
 func NewHttpQuerier(cfg Config, q Querier, limits *validation.Overrides) (*HttpQuerier, error) {
 	hq := HttpQuerier{
 		querier: q,

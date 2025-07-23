@@ -144,14 +144,14 @@ func TestMatrixStepper(t *testing.T) {
 
 	for i := 0; i <= int(end.Sub(start)/step); i++ {
 		ok, ts, vec := s.Next()
-		require.Equal(t, ok, true)
+		require.True(t, ok)
 		require.Equal(t, start.Add(step*time.Duration(i)).UnixNano()/int64(time.Millisecond), ts)
 		require.Equal(t, expected[i], vec)
 	}
 
 	ok, _, _ := s.Next()
 
-	require.Equal(t, ok, false)
+	require.False(t, ok)
 }
 
 func Test_SingleStepMatrix(t *testing.T) {

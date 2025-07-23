@@ -37,7 +37,7 @@ func isInvalidCaptureName(b []byte) bool {
 
 	// the rest of the chars must either be, letter, digit or underscore
 	return bytes.ContainsFunc(b, func(r rune) bool {
-		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_')
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 	})
 }
 
@@ -92,7 +92,7 @@ type MatchItem struct {
 // eatLiteralAnchor ensures that `input` matches
 // the first literal of the provided pattern
 //
-// if the pattern starts with a capture, this doesn't get executed
+// if the pattern starts with a capture, this doesn't get executed.
 func (iter *MatchIter) eatLiteralAnchor() bool {
 	if iter.currPart != 0 || iter.parts[0].capture != nil {
 		return true

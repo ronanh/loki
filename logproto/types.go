@@ -1,6 +1,7 @@
 package logproto
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -91,7 +92,7 @@ func (m *Stream) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Stream: wiretype end group for non-group")
+			return errors.New("proto: Stream: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Stream: illegal tag %d (wire type %d)", fieldNum, wire)
@@ -211,7 +212,7 @@ func (m *Entry) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Entry: wiretype end group for non-group")
+			return errors.New("proto: Entry: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Entry: illegal tag %d (wire type %d)", fieldNum, wire)

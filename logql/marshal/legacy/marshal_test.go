@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// covers responses from /api/prom/query
+// covers responses from /api/prom/query.
 var queryTests = []struct {
 	actual   logql.Streams
 	expected string
@@ -77,7 +77,7 @@ var queryTests = []struct {
 	},
 }
 
-// covers responses from /api/prom/label and /api/prom/label/{name}/values
+// covers responses from /api/prom/label and /api/prom/label/{name}/values.
 var labelTests = []struct {
 	actual   logproto.LabelResponse
 	expected string
@@ -94,7 +94,7 @@ var labelTests = []struct {
 	},
 }
 
-// covers responses from /api/prom/tail and /api/prom/tail
+// covers responses from /api/prom/tail and /api/prom/tail.
 var tailTests = []struct {
 	actual   loghttp.TailResponse
 	expected string

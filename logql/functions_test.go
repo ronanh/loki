@@ -81,9 +81,9 @@ func Test_Extractor(t *testing.T) {
 	} {
 		t.Run(tc, func(t *testing.T) {
 			expr, err := ParseSampleExpr(tc)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			_, err = expr.Extractor()
-			require.Nil(t, err)
+			require.NoError(t, err)
 		})
 	}
 }

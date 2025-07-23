@@ -76,7 +76,7 @@ func interval(r *http.Request) (time.Duration, error) {
 	return parseSecondsOrDuration(value)
 }
 
-// Match extracts and parses multiple matcher groups from a slice of strings
+// Match extracts and parses multiple matcher groups from a slice of strings.
 func Match(xs []string) ([][]*labels.Matcher, error) {
 	groups := make([][]*labels.Matcher, 0, len(xs))
 	for _, x := range xs {
@@ -94,7 +94,7 @@ func Match(xs []string) ([][]*labels.Matcher, error) {
 }
 
 // defaultQueryRangeStep returns the default step used in the query range API,
-// which is dynamically calculated based on the time range
+// which is dynamically calculated based on the time range.
 func defaultQueryRangeStep(start time.Time, end time.Time) int {
 	return int(math.Max(math.Floor(end.Sub(start).Seconds()/250), 1))
 }
@@ -108,7 +108,7 @@ func tailDelay(r *http.Request) (uint32, error) {
 }
 
 // parseInt parses an int from a string
-// if the value is empty it returns a default value passed as second parameter
+// if the value is empty it returns a default value passed as second parameter.
 func parseInt(value string, def int) (int, error) {
 	if value == "" {
 		return def, nil
@@ -117,7 +117,7 @@ func parseInt(value string, def int) (int, error) {
 }
 
 // parseUnixNano parses a ns unix timestamp from a string
-// if the value is empty it returns a default value passed as second parameter
+// if the value is empty it returns a default value passed as second parameter.
 func parseTimestamp(value string, def time.Time) (time.Time, error) {
 	if value == "" {
 		return def, nil
@@ -144,7 +144,7 @@ func parseTimestamp(value string, def time.Time) (time.Time, error) {
 }
 
 // parseDirection parses a logproto.Direction from a string
-// if the value is empty it returns a default value passed as second parameter
+// if the value is empty it returns a default value passed as second parameter.
 func parseDirection(value string, def logproto.Direction) (logproto.Direction, error) {
 	if value == "" {
 		return def, nil

@@ -29,10 +29,10 @@ var (
 	lastEntryMinTime = time.Unix(-100, 0)
 )
 
-// ValueTypeStreams promql.ValueType for log streams
+// ValueTypeStreams promql.ValueType for log streams.
 const ValueTypeStreams = "streams"
 
-// Streams is promql.Value
+// Streams is promql.Value.
 type Streams []logproto.Stream
 
 func (streams Streams) Len() int      { return len(streams) }
@@ -41,10 +41,10 @@ func (streams Streams) Less(i, j int) bool {
 	return streams[i].Labels <= streams[j].Labels
 }
 
-// Type implements `promql.Value`
+// Type implements `promql.Value`.
 func (Streams) Type() promql_parser.ValueType { return ValueTypeStreams }
 
-// String implements `promql.Value`
+// String implements `promql.Value`.
 func (Streams) String() string {
 	return ""
 }
@@ -226,7 +226,7 @@ func (q *query) Eval(ctx context.Context) (promql_parser.Value, error) {
 	}
 }
 
-// evalSample evaluate a sampleExpr
+// evalSample evaluate a sampleExpr.
 func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.Value, error) {
 	if lit, ok := expr.(*literalExpr); ok {
 		return q.evalLiteral(ctx, lit)

@@ -91,7 +91,7 @@ func TestParseSeriesQuery(t *testing.T) {
 			if tc.shouldErr {
 				require.Error(t, err)
 			} else {
-				require.Nil(t, err)
+				require.NoError(t, err)
 				require.Equal(t, tc.expected, out)
 			}
 		})

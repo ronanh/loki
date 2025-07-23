@@ -5,7 +5,7 @@ import (
 	"github.com/ronanh/loki/loghttp"
 )
 
-// NewLabelSet constructs a Labelset from a promql metric list as a string
+// NewLabelSet constructs a Labelset from a promql metric list as a string.
 func NewLabelSet(s string) (loghttp.LabelSet, error) {
 	labels, err := parser.ParseMetric(s)
 	if err != nil {

@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	// Local ingestion rate strategy
+	// Local ingestion rate strategy.
 	LocalIngestionRateStrategy = "local"
 
-	// Global ingestion rate strategy
+	// Global ingestion rate strategy.
 	GlobalIngestionRateStrategy = "global"
 
 	bytesInMB = 1048576
@@ -60,7 +60,7 @@ type Limits struct {
 	PerTenantOverridePeriod time.Duration `yaml:"per_tenant_override_period"`
 }
 
-// RegisterFlags adds the flags required to config this to the given FlagSet
+// RegisterFlags adds the flags required to config this to the given FlagSet.
 func (l *Limits) RegisterFlags(f *flag.FlagSet) {
 	f.StringVar(
 		&l.IngestionRateStrategy,

@@ -26,7 +26,7 @@ func getu4(s []byte) rune {
 
 func unquoteBytes(s []byte) (t []byte, ok bool) {
 	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' {
-		return
+		return t, ok
 	}
 	s = s[1 : len(s)-1]
 
@@ -68,11 +68,11 @@ func unquoteBytes(s []byte) (t []byte, ok bool) {
 		case c == '\\':
 			r++
 			if r >= len(s) {
-				return
+				return t, ok
 			}
 			switch s[r] {
 			default:
-				return
+				return t, ok
 			case '"', '\\', '/', '\'':
 				b[w] = s[r]
 				r++
@@ -101,7 +101,7 @@ func unquoteBytes(s []byte) (t []byte, ok bool) {
 				r--
 				rr := getu4(s[r:])
 				if rr < 0 {
-					return
+					return t, ok
 				}
 				r += 6
 				if utf16.IsSurrogate(rr) {
@@ -120,7 +120,7 @@ func unquoteBytes(s []byte) (t []byte, ok bool) {
 
 		// Quote, control characters are invalid.
 		case c == '"', c < ' ':
-			return
+			return t, ok
 
 		// ASCII
 		case c < utf8.RuneSelf:

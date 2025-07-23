@@ -5,7 +5,7 @@ import (
 	legacy "github.com/ronanh/loki/loghttp/legacy"
 )
 
-// NewTailResponse constructs a TailResponse from a legacy.TailResponse
+// NewTailResponse constructs a TailResponse from a legacy.TailResponse.
 func NewTailResponse(r legacy.TailResponse) (loghttp.TailResponse, error) {
 	var err error
 	ret := loghttp.TailResponse{
@@ -30,7 +30,7 @@ func NewTailResponse(r legacy.TailResponse) (loghttp.TailResponse, error) {
 	return ret, nil
 }
 
-// NewDroppedStream constructs a DroppedStream from a legacy.DroppedEntry
+// NewDroppedStream constructs a DroppedStream from a legacy.DroppedEntry.
 func NewDroppedStream(s *legacy.DroppedEntry) (loghttp.DroppedStream, error) {
 	l, err := NewLabelSet(s.Labels)
 	if err != nil {

@@ -79,7 +79,7 @@ var result *Pattern
 func BenchmarkParseExpr(b *testing.B) {
 	var err error
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		result, err = CompileFromString(
 			`level=info <_> caller=main.go:107 msg="Starting Grafana Enterprise Traces" version="version=weekly-r138-f1920489, branch=weekly-r138, revision=<revision>"`,
 		)
@@ -622,7 +622,7 @@ func Benchmark_matcher_Matches(b *testing.B) {
 			require.NoError(b, err)
 			b.ResetTimer()
 			l := []byte(tt.in)
-			for n := 0; n < b.N; n++ {
+			for range b.N {
 				res = m.Matches(l)
 			}
 		})

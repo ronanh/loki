@@ -40,6 +40,7 @@ type rangeVectorIterator struct {
 
 type wrappedLabels struct {
 	labels.Labels
+
 	lbs           string
 	hasErrorLabel bool
 }

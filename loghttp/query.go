@@ -24,25 +24,25 @@ var (
 	errNegativeInterval = errors.New("interval must be >= 0")
 )
 
-// QueryStatus holds the status of a query
+// QueryStatus holds the status of a query.
 type QueryStatus string
 
-// QueryStatus values
+// QueryStatus values.
 const (
 	QueryStatusSuccess = "success"
 	QueryStatusFail    = "fail"
 )
 
-// QueryResponse represents the http json response to a Loki range and instant query
+// QueryResponse represents the http json response to a Loki range and instant query.
 type QueryResponse struct {
 	Status string            `json:"status"`
 	Data   QueryResponseData `json:"data"`
 }
 
-// ResultType holds the type of the result
+// ResultType holds the type of the result.
 type ResultType string
 
-// ResultType values
+// ResultType values.
 const (
 	ResultTypeStream = "streams"
 	ResultTypeScalar = "scalar"
@@ -50,31 +50,31 @@ const (
 	ResultTypeMatrix = "matrix"
 )
 
-// ResultValue interface mimics the promql.Value interface
+// ResultValue interface mimics the promql.Value interface.
 type ResultValue interface {
 	Type() ResultType
 }
 
-// QueryResponseData represents the http json response to a label query
+// QueryResponseData represents the http json response to a label query.
 type QueryResponseData struct {
 	ResultType ResultType   `json:"resultType"`
 	Result     ResultValue  `json:"result"`
 	Statistics stats.Result `json:"stats"`
 }
 
-// Type implements the promql.Value interface
+// Type implements the promql.Value interface.
 func (Streams) Type() ResultType { return ResultTypeStream }
 
-// Type implements the promql.Value interface
+// Type implements the promql.Value interface.
 func (Scalar) Type() ResultType { return ResultTypeScalar }
 
-// Type implements the promql.Value interface
+// Type implements the promql.Value interface.
 func (Vector) Type() ResultType { return ResultTypeVector }
 
-// Type implements the promql.Value interface
+// Type implements the promql.Value interface.
 func (Matrix) Type() ResultType { return ResultTypeMatrix }
 
-// Streams is a slice of Stream
+// Streams is a slice of Stream.
 type Streams []Stream
 
 func (s Streams) ToProto() []logproto.Stream {
@@ -143,7 +143,7 @@ func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Scalar is a single timestamp/float with no labels
+// Scalar is a single timestamp/float with no labels.
 type Scalar model.Scalar
 
 func (s Scalar) MarshalJSON() ([]byte, error) {
@@ -159,10 +159,10 @@ func (s *Scalar) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Vector is a slice of Samples
+// Vector is a slice of Samples.
 type Vector []model.Sample
 
-// Matrix is a slice of SampleStreams
+// Matrix is a slice of SampleStreams.
 type Matrix []model.SampleStream
 
 // InstantQuery defines a log instant query.

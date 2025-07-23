@@ -2,6 +2,7 @@ package iter
 
 import (
 	"context"
+	"errors"
 	"io"
 	"slices"
 	"sort"
@@ -49,6 +50,7 @@ type mergingSampleIterator struct {
 	its        []struct {
 		SampleIterator
 		*logproto.Sample
+
 		labels string
 	}
 	curSample logproto.Sample
@@ -76,6 +78,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 	startedIts := make([]struct {
 		SampleIterator
 		*logproto.Sample
+
 		labels string
 	}, 0, len(its))
 	startedItsSamples := make([]logproto.Sample, 0, len(its))
@@ -91,6 +94,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 			startedIts = append(startedIts, struct {
 				SampleIterator
 				*logproto.Sample
+
 				labels string
 			}{it, &startedItsSamples[len(startedItsSamples)-1], it.Labels()})
 			iActiveIts = append(iActiveIts, len(startedIts)-1)
@@ -115,7 +119,7 @@ var (
 	_ Seekable       = (*mergingSampleIterator)(nil)
 )
 
-// Close closes the iterator and frees associated ressources
+// Close closes the iterator and frees associated ressources.
 func (mi *mergingSampleIterator) Close() error {
 	for _, it := range mi.its {
 		if it.SampleIterator != nil {
@@ -129,7 +133,7 @@ func (mi *mergingSampleIterator) Close() error {
 	return nil
 }
 
-// Error returns errors encountered by the iterator
+// Error returns errors encountered by the iterator.
 func (mi *mergingSampleIterator) Error() error {
 	switch len(mi.errs) {
 	case 0:
@@ -368,7 +372,7 @@ type sampleQueryClientIterator struct {
 	curr   SampleIterator
 }
 
-// QuerySampleClient is GRPC stream client with only method used by the SampleQueryClientIterator
+// QuerySampleClient is GRPC stream client with only method used by the SampleQueryClientIterator.
 type QuerySampleClient interface {
 	Recv() (*logproto.SampleQueryResponse, error)
 	Context() context.Context
@@ -385,7 +389,7 @@ func NewSampleQueryClientIterator(client QuerySampleClient) SampleIterator {
 func (i *sampleQueryClientIterator) Next() bool {
 	for i.curr == nil || !i.curr.Next() {
 		batch, err := i.client.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return false
 		} else if err != nil {
 			i.err = err
@@ -428,7 +432,7 @@ type seriesIterator struct {
 	labels  string
 }
 
-// NewMultiSeriesIterator returns an iterator over multiple logproto.Series
+// NewMultiSeriesIterator returns an iterator over multiple logproto.Series.
 func NewMultiSeriesIterator(ctx context.Context, series []logproto.Series) SampleIterator {
 	is := make([]SampleIterator, 0, len(series))
 	for i := range series {
@@ -529,6 +533,7 @@ func (i *nonOverlappingSampleIterator) Close() error {
 
 type timeRangedSampleIterator struct {
 	SampleIterator
+
 	mint, maxt int64
 }
 

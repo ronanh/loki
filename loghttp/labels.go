@@ -10,13 +10,13 @@ import (
 	"github.com/ronanh/loki/logproto"
 )
 
-// LabelResponse represents the http json response to a label query
+// LabelResponse represents the http json response to a label query.
 type LabelResponse struct {
 	Status string   `json:"status"`
 	Data   []string `json:"data,omitempty"`
 }
 
-// LabelSet is a key/value pair mapping of labels
+// LabelSet is a key/value pair mapping of labels.
 type LabelSet map[string]string
 
 // Map coerces LabelSet into a map[string]string. This is useful for working with adapter types.

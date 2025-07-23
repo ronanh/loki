@@ -24,7 +24,7 @@ var (
 	RangeType   QueryRangeType = "range"
 )
 
-// Params details the parameters associated with a loki request
+// Params details the parameters associated with a loki request.
 type Params interface {
 	Query() string
 	Start() time.Time
@@ -56,7 +56,7 @@ func NewLiteralParams(
 	}
 }
 
-// LiteralParams impls Params
+// LiteralParams impls Params.
 type LiteralParams struct {
 	qs         string
 	start, end time.Time
@@ -69,31 +69,31 @@ type LiteralParams struct {
 
 func (p LiteralParams) Copy() LiteralParams { return p }
 
-// String impls Params
+// String impls Params.
 func (p LiteralParams) Query() string { return p.qs }
 
-// Start impls Params
+// Start impls Params.
 func (p LiteralParams) Start() time.Time { return p.start }
 
-// End impls Params
+// End impls Params.
 func (p LiteralParams) End() time.Time { return p.end }
 
-// Step impls Params
+// Step impls Params.
 func (p LiteralParams) Step() time.Duration { return p.step }
 
-// Interval impls Params
+// Interval impls Params.
 func (p LiteralParams) Interval() time.Duration { return p.interval }
 
-// Limit impls Params
+// Limit impls Params.
 func (p LiteralParams) Limit() uint32 { return p.limit }
 
-// Direction impls Params
+// Direction impls Params.
 func (p LiteralParams) Direction() logproto.Direction { return p.direction }
 
-// Shards impls Params
+// Shards impls Params.
 func (p LiteralParams) Shards() []string { return p.shards }
 
-// GetRangeType returns whether a query is an instant query or range query
+// GetRangeType returns whether a query is an instant query or range query.
 func GetRangeType(q Params) QueryRangeType {
 	if q.Start().Equal(q.End()) && q.Step() == 0 {
 		return InstantType
@@ -101,7 +101,7 @@ func GetRangeType(q Params) QueryRangeType {
 	return RangeType
 }
 
-// Evaluator is an interface for iterating over data at different nodes in the AST
+// Evaluator is an interface for iterating over data at different nodes in the AST.
 type Evaluator interface {
 	SampleEvaluator
 	EntryEvaluator
@@ -137,7 +137,7 @@ type EntryEvaluator interface {
 }
 
 // EvaluatorUnsupportedType is a helper for signaling that an evaluator does not support an Expr
-// type
+// type.
 func EvaluatorUnsupportedType(expr Expr, ev Evaluator) error {
 	return errors.Errorf("unexpected expr type (%T) for Evaluator type (%T) ", expr, ev)
 }
@@ -147,7 +147,7 @@ type DefaultEvaluator struct {
 	querier           Querier
 }
 
-// NewDefaultEvaluator constructs a DefaultEvaluator
+// NewDefaultEvaluator constructs a DefaultEvaluator.
 func NewDefaultEvaluator(querier Querier, maxLookBackPeriod time.Duration) *DefaultEvaluator {
 	return &DefaultEvaluator{
 		querier:           querier,
@@ -798,7 +798,7 @@ func (b *binOpStepEvaluator) Error() error {
 }
 
 // newBinOpStepEvaluator explicitly does not handle when both legs are literals as
-// it makes the type system simpler and these are reduced in mustNewBinOpExpr
+// it makes the type system simpler and these are reduced in mustNewBinOpExpr.
 func newBinOpStepEvaluator(
 	ctx context.Context,
 	ev SampleEvaluator,

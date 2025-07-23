@@ -17,7 +17,7 @@ import (
 	"github.com/ronanh/loki/logql/log"
 )
 
-// Expr is the root expression which can be a SampleExpr or LogSelectorExpr
+// Expr is the root expression which can be a SampleExpr or LogSelectorExpr.
 type Expr interface {
 	logQLExpr() // ensure it's not implemented accidentally
 	fmt.Stringer
@@ -33,7 +33,7 @@ type QueryParams interface {
 	GetEnd() time.Time
 }
 
-// implicit holds default implementations
+// implicit holds default implementations.
 type implicit struct{}
 
 func (implicit) logQLExpr() {}
@@ -70,7 +70,7 @@ func (s SelectSampleParams) LogSelector() (LogSelectorExpr, error) {
 }
 
 // Querier allows a LogQL expression to fetch an EntryIterator for a
-// set of matchers and filters
+// set of matchers and filters.
 type Querier interface {
 	SelectLogs(context.Context, SelectLogParams) (iter.EntryIterator, error)
 	SelectSamples(context.Context, SelectSampleParams) (iter.SampleIterator, error)
@@ -84,7 +84,7 @@ type LogSelectorExpr interface {
 	Expr
 }
 
-// Type alias for backward compatibility
+// Type alias for backward compatibility.
 type (
 	Pipeline        = log.Pipeline
 	SampleExtractor = log.SampleExtractor
@@ -96,7 +96,7 @@ type PipelineExpr interface {
 	Expr
 }
 
-// StageExpr is an expression defining a single step into a log pipeline
+// StageExpr is an expression defining a single step into a log pipeline.
 type StageExpr interface {
 	Stage() (log.Stage, error)
 	Expr
@@ -587,7 +587,7 @@ type logRange struct {
 	unwrap *unwrapExpr
 }
 
-// impls Stringer
+// impls Stringer.
 func (r logRange) String() string {
 	left := r.left.String()
 	interval := model.Duration(r.interval).String()
@@ -607,7 +607,7 @@ func newLogRange(left LogSelectorExpr, interval time.Duration, u *unwrapExpr) *l
 }
 
 const (
-	// vector ops
+	// vector ops.
 	OpTypeSum     = "sum"
 	OpTypeAvg     = "avg"
 	OpTypeMax     = "max"
@@ -618,7 +618,7 @@ const (
 	OpTypeBottomK = "bottomk"
 	OpTypeTopK    = "topk"
 
-	// range vector ops
+	// range vector ops.
 	OpRangeTypeCount     = "count_over_time"
 	OpRangeTypeRate      = "rate"
 	OpRangeTypeBytes     = "bytes_over_time"
@@ -634,12 +634,12 @@ const (
 	OpRangeTypeFirst     = "first_over_time"
 	OpRangeTypeLast      = "last_over_time"
 
-	// binops - logical/set
+	// binops - logical/set.
 	OpTypeOr     = "or"
 	OpTypeAnd    = "and"
 	OpTypeUnless = "unless"
 
-	// binops - operations
+	// binops - operations.
 	OpTypeAdd = "+"
 	OpTypeSub = "-"
 	OpTypeMul = "*"
@@ -647,7 +647,7 @@ const (
 	OpTypeMod = "%"
 	OpTypePow = "^"
 
-	// binops - comparison
+	// binops - comparison.
 	OpTypeCmpEQ = "=="
 	OpTypeNEQ   = "!="
 	OpTypeGT    = ">"
@@ -655,7 +655,7 @@ const (
 	OpTypeLT    = "<"
 	OpTypeLTE   = "<="
 
-	// parsers
+	// parsers.
 	OpParserTypeJSON    = "json"
 	OpParserTypeLogfmt  = "logfmt"
 	OpParserTypeRegexp  = "regexp"
@@ -668,14 +668,14 @@ const (
 	OpPipe   = "|"
 	OpUnwrap = "unwrap"
 
-	// conversion Op
+	// conversion Op.
 	OpConvBytes           = "bytes"
 	OpConvDuration        = "duration"
 	OpConvDurationSeconds = "duration_seconds"
 
 	OpLabelReplace = "label_replace"
 
-	// drop
+	// drop.
 	OpDrop = "drop"
 )
 
@@ -688,7 +688,7 @@ func IsComparisonOperator(op string) bool {
 	}
 }
 
-// IsLogicalBinOp tests whether an operation is a logical/set binary operation
+// IsLogicalBinOp tests whether an operation is a logical/set binary operation.
 func IsLogicalBinOp(op string) bool {
 	switch op {
 	case OpTypeOr, OpTypeAnd, OpTypeUnless:
@@ -750,7 +750,6 @@ func newRangeAggregationExpr(
 				),
 			)
 		}
-
 	} else {
 		if operation == OpRangeTypeQuantile {
 			panic(newParseError(fmt.Sprintf("parameter required for operation %s", operation), 0, 0))
@@ -841,7 +840,7 @@ func (e *rangeAggregationExpr) AddGroup(group string) {
 	e.grouping.groups = append(e.grouping.groups, group)
 }
 
-// impls Stringer
+// impls Stringer.
 func (e *rangeAggregationExpr) String() string {
 	left := e.left.String()
 	if e.params != nil && e.grouping != nil {
@@ -870,7 +869,7 @@ type grouping struct {
 	without bool
 }
 
-// impls Stringer
+// impls Stringer.
 func (g grouping) String() string {
 	if len(g.groups) == 0 && !g.without {
 		return ""
@@ -1022,6 +1021,7 @@ type BinOpOptions struct {
 
 type binOpExpr struct {
 	SampleExpr
+
 	RHS  SampleExpr
 	op   string
 	opts BinOpOptions

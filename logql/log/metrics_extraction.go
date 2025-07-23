@@ -80,6 +80,7 @@ func (l *lineSampleExtractor) ForStream(labels labels.Labels) StreamSampleExtrac
 type streamLineSampleExtractor struct {
 	Stage
 	LineExtractor
+
 	builder *LabelsBuilder
 }
 
@@ -159,6 +160,7 @@ func LabelExtractorWithStages(
 
 type streamLabelSampleExtractor struct {
 	*labelSampleExtractor
+
 	builder *LabelsBuilder
 }
 
