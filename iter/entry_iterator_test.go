@@ -194,7 +194,7 @@ type generator func(i int64) logproto.Entry
 
 func mkStreamIterator(f generator, labels string) EntryIterator {
 	entries := []logproto.Entry{}
-	for i := range testSize {
+	for i := range int64(testSize) {
 		entries = append(entries, f(i))
 	}
 	return NewStreamIterator(logproto.Stream{
