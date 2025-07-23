@@ -176,6 +176,7 @@ func TestHeapIteratorPrefetch(t *testing.T) {
 	}
 
 	for testName, testFunc := range tests {
+
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
 

@@ -1759,6 +1759,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 			},
 		},
 	} {
+
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
 			t.Parallel()
 

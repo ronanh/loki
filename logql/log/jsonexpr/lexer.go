@@ -133,7 +133,7 @@ func (sc *Scanner) scanInt() (int, error) {
 	for {
 		r := sc.read()
 		if r == '.' && len(number) > 0 {
-			return 0, errors.New("cannot use float as array index")
+			return 0, fmt.Errorf("cannot use float as array index")
 		}
 
 		if isWhitespace(r) || r == '.' || r == ']' {
