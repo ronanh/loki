@@ -219,7 +219,6 @@ func Test_ParserHints(t *testing.T) {
 			``,
 		},
 	} {
-
 		t.Run(tt.expr, func(t *testing.T) {
 			t.Parallel()
 			expr, err := logql.ParseSampleExpr(tt.expr)
