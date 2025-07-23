@@ -38,8 +38,8 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 
 		// an array of data per params will be returned by the querier.
 		// This is to cover logql that requires multiple queries.
-		data   any
-		params any
+		data   interface{}
+		params interface{}
 
 		expected promql_parser.Value
 	}{
@@ -568,7 +568,6 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
-			t.Parallel()
 			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params))
 			q := eng.Query(LiteralParams{
 				qs:        test.qs,
@@ -599,8 +598,8 @@ func TestEngine_RangeQuery(t *testing.T) {
 
 		// an array of streams per SelectParams will be returned by the querier.
 		// This is to cover logql that requires multiple queries.
-		data   any
-		params any
+		data   interface{}
+		params interface{}
 
 		expected promql_parser.Value
 	}{
@@ -1785,7 +1784,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 
 type statsQuerier struct{}
 
-func (statsQuerier) SelectLogs(ctx context.Context, _ SelectLogParams) (iter.EntryIterator, error) {
+func (statsQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.EntryIterator, error) {
 	st := stats.GetChunkData(ctx)
 	st.DecompressedBytes++
 	return iter.NoopIterator, nil
@@ -1793,7 +1792,7 @@ func (statsQuerier) SelectLogs(ctx context.Context, _ SelectLogParams) (iter.Ent
 
 func (statsQuerier) SelectSamples(
 	ctx context.Context,
-	_ SelectSampleParams,
+	p SelectSampleParams,
 ) (iter.SampleIterator, error) {
 	st := stats.GetChunkData(ctx)
 	st.DecompressedBytes++
@@ -1829,13 +1828,12 @@ func (e errorIteratorQuerier) SelectLogs(
 
 func (e errorIteratorQuerier) SelectSamples(
 	ctx context.Context,
-	_ SelectSampleParams,
+	p SelectSampleParams,
 ) (iter.SampleIterator, error) {
 	return iter.NewHeapSampleIterator(ctx, e.samples), nil
 }
 
 func TestStepEvaluator_Error(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name    string
 		qs      string
@@ -2012,7 +2010,7 @@ type querierRecorder struct {
 	match   bool
 }
 
-func newQuerierRecorder(t *testing.T, data any, params any) *querierRecorder {
+func newQuerierRecorder(t *testing.T, data interface{}, params interface{}) *querierRecorder {
 	t.Helper()
 	streams := map[string][]logproto.Stream{}
 	if streamsIn, ok := data.([][]logproto.Stream); ok {
@@ -2083,7 +2081,7 @@ func (q *querierRecorder) SelectSamples(
 	return iter.NewHeapSampleIterator(ctx, iters), nil
 }
 
-func paramsID(p any) string {
+func paramsID(p interface{}) string {
 	b, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -2093,6 +2091,7 @@ func paramsID(p any) string {
 
 type logData struct {
 	logproto.Entry
+	//nolint
 	logproto.Sample
 }
 
@@ -2184,18 +2183,21 @@ func identity(i int64) logData {
 	}
 }
 
+// nolint
 func factor(j int64, g generator) generator {
 	return func(i int64) logData {
 		return g(i * j)
 	}
 }
 
+// nolint
 func offset(j int64, g generator) generator {
 	return func(i int64) logData {
 		return g(i + j)
 	}
 }
 
+// nolint
 func constant(t int64) generator {
 	return func(i int64) logData {
 		return logData{
@@ -2212,6 +2214,7 @@ func constant(t int64) generator {
 	}
 }
 
+// nolint
 func constantValue(t int64) generator {
 	return func(i int64) logData {
 		return logData{

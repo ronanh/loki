@@ -431,7 +431,7 @@ func Test_QueryResponseResultType(t *testing.T) {
 		case loghttp.ResultTypeVector:
 			require.IsTypef(t, loghttp.Vector{}, value, "Incorrect type %d", i)
 		default:
-			require.Fail(t, "unknown result type", "got %s", value.Type())
+			require.Fail(t, "Unknown result type %s", value.Type())
 		}
 	}
 }
@@ -510,13 +510,13 @@ func testJSONBytesEqual(
 	expected []byte,
 	actual []byte,
 	msg string,
-	args ...any,
+	args ...interface{},
 ) {
-	var expectedValue map[string]any
+	var expectedValue map[string]interface{}
 	err := json.Unmarshal(expected, &expectedValue)
 	require.NoError(t, err)
 
-	var actualValue map[string]any
+	var actualValue map[string]interface{}
 	err = json.Unmarshal(actual, &actualValue)
 	require.NoError(t, err)
 
@@ -550,7 +550,7 @@ func Test_WriteTailResponseJSON(t *testing.T) {
 				{Timestamp: time.Unix(0, 2), Labels: `{app="dropped"}`},
 			},
 		},
-			WebsocketWriterFunc(func(_ int, b []byte) error {
+			WebsocketWriterFunc(func(i int, b []byte) error {
 				require.JSONEq(
 					t,
 					`{"streams":[{"stream":{"app":"foo"},"values":[["1","foobar"]]}],"dropped_entries":[{"timestamp":"2","labels":{"app":"dropped"}}]}`,

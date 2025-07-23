@@ -135,7 +135,6 @@ func Test_SampleExpr_String(t *testing.T) {
 		`last_over_time({namespace="tns"} |= "level=error" | json |foo>=5,bar<25ms | unwrap latency | __error__!~".*" | foo >5[5m])`,
 	} {
 		t.Run(tc, func(t *testing.T) {
-			t.Parallel()
 			expr, err := ParseExpr(tc)
 			require.NoError(t, err)
 
@@ -156,7 +155,6 @@ func Test_NilFilterDoesntPanic(t *testing.T) {
 		`{namespace="dev", container_name="cart"} |= "bleep" |= "bloop" |= ""`,
 	} {
 		t.Run(tc, func(t *testing.T) {
-			t.Parallel()
 			expr, err := ParseLogSelector(tc)
 			require.NoError(t, err)
 
@@ -246,10 +244,10 @@ func Test_FilterMatcher(t *testing.T) {
 		t.Run(tt.q, func(t *testing.T) {
 			t.Parallel()
 			expr, err := ParseLogSelector(tt.q)
-			require.NoError(t, err)
-			require.Equal(t, tt.expectedMatchers, expr.Matchers())
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedMatchers, expr.Matchers())
 			p, err := expr.Pipeline()
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			if tt.lines == nil {
 				assert.Equal(t, p, log.NewNoopPipeline())
 			} else {
