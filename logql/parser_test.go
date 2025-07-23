@@ -2359,10 +2359,10 @@ func Test_PipelineCombined(t *testing.T) {
 	query := `{job="cortex-ops/query-frontend"} |= "logging.go" | logfmt | line_format "{{.msg}}" | regexp "(?P<method>\\w+) (?P<path>[\\w|/]+) \\((?P<status>\\d+?)\\) (?P<duration>.*)" | (duration > 1s or status==200) and method="POST" | line_format "{{.duration}}|{{.method}}|{{.status}}"`
 
 	expr, err := ParseLogSelector(query)
-	require.NoError(t, err)
+	require.Nil(t, err)
 
 	p, err := expr.Pipeline()
-	require.NoError(t, err)
+	require.Nil(t, err)
 	sp := p.ForStream(labels.Labels{})
 	line, lbs, ok := sp.Process(
 		[]byte(
@@ -2392,10 +2392,10 @@ func Test_PipelineCombinedPattern(t *testing.T) {
 	query := `{job="cortex-ops/query-frontend"} |= "logging.go" | pattern "level=<level> ts=<ts> caller=<caller> traceID=<traceID> msg=\"<msg>\"" | line_format "{{.level}} - {{.caller}}"`
 
 	expr, err := ParseLogSelector(query)
-	require.NoError(t, err)
+	require.Nil(t, err)
 
 	p, err := expr.Pipeline()
-	require.NoError(t, err)
+	require.Nil(t, err)
 	sp := p.ForStream(labels.Labels{})
 	line, lbs, ok := sp.Process(
 		[]byte(
@@ -2422,7 +2422,7 @@ var c []*labels.Matcher
 func Benchmark_ParseMatchers(b *testing.B) {
 	s := `{cpu="10",endpoint="https",instance="10.253.57.87:9100",job="node-exporter",mode="idle",namespace="observability",pod="node-exporter-l454v",service="node-exporter"}`
 	var err error
-	for range b.N {
+	for n := 0; n < b.N; n++ {
 		c, err = ParseMatchers(s)
 		require.NoError(b, err)
 	}
@@ -2434,13 +2434,13 @@ func Benchmark_CompareParseLabels(b *testing.B) {
 	s := `{cpu="10",endpoint="https",instance="10.253.57.87:9100",job="node-exporter",mode="idle",namespace="observability",pod="node-exporter-l454v",service="node-exporter"}`
 	var err error
 	b.Run("logql", func(b *testing.B) {
-		for range b.N {
+		for n := 0; n < b.N; n++ {
 			c, err = ParseMatchers(s)
 			require.NoError(b, err)
 		}
 	})
 	b.Run("promql", func(b *testing.B) {
-		for range b.N {
+		for n := 0; n < b.N; n++ {
 			lbs, err = ParseLabels(s)
 			require.NoError(b, err)
 		}

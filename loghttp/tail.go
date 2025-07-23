@@ -14,30 +14,30 @@ const (
 	maxDelayForInTailing = 5
 )
 
-// TailResponse represents the http json response to a tail query.
+// TailResponse represents the http json response to a tail query
 type TailResponse struct {
 	Streams        []Stream        `json:"streams,omitempty"`
 	DroppedStreams []DroppedStream `json:"dropped_entries,omitempty"`
 }
 
-// DroppedStream represents a dropped stream in tail call.
+// DroppedStream represents a dropped stream in tail call
 type DroppedStream struct {
 	Timestamp time.Time
 	Labels    LabelSet
 }
 
-// MarshalJSON implements json.Marshaller.
+// MarshalJSON implements json.Marshaller
 func (s *DroppedStream) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Timestamp string   `json:"timestamp"`
 		Labels    LabelSet `json:"labels,omitempty"`
 	}{
-		Timestamp: strconv.FormatInt(s.Timestamp.UnixNano(), 10),
+		Timestamp: fmt.Sprintf("%d", s.Timestamp.UnixNano()),
 		Labels:    s.Labels,
 	})
 }
 
-// UnmarshalJSON implements json.UnMarshaller.
+// UnmarshalJSON implements json.UnMarshaller
 func (s *DroppedStream) UnmarshalJSON(data []byte) error {
 	unmarshal := struct {
 		Timestamp string   `json:"timestamp"`

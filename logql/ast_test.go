@@ -36,7 +36,7 @@ func Test_logSelectorExpr_String(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-
+		tt := tt
 		t.Run(tt.selector, func(t *testing.T) {
 			t.Parallel()
 			expr, err := ParseLogSelector(tt.selector)
@@ -137,10 +137,10 @@ func Test_SampleExpr_String(t *testing.T) {
 	} {
 		t.Run(tc, func(t *testing.T) {
 			expr, err := ParseExpr(tc)
-			require.NoError(t, err)
+			require.Nil(t, err)
 
 			expr2, err := ParseExpr(expr.String())
-			require.NoError(t, err)
+			require.Nil(t, err)
 			require.Equal(t, expr, expr2)
 		})
 	}
@@ -157,10 +157,10 @@ func Test_NilFilterDoesntPanic(t *testing.T) {
 	} {
 		t.Run(tc, func(t *testing.T) {
 			expr, err := ParseLogSelector(tc)
-			require.NoError(t, err)
+			require.Nil(t, err)
 
 			p, err := expr.Pipeline()
-			require.NoError(t, err)
+			require.Nil(t, err)
 			_, _, ok := p.ForStream(labelBar).Process([]byte("bleepbloop"))
 
 			require.True(t, ok)
@@ -242,14 +242,14 @@ func Test_FilterMatcher(t *testing.T) {
 			[]linecheck{{"duration=5m total_bytes=5kB", true}, {"duration=1s total_bytes=256B", false}, {"duration=0s", false}},
 		},
 	} {
-
+		tt := tt
 		t.Run(tt.q, func(t *testing.T) {
 			t.Parallel()
 			expr, err := ParseLogSelector(tt.q)
-			assert.NoError(t, err)
+			assert.Nil(t, err)
 			assert.Equal(t, tt.expectedMatchers, expr.Matchers())
 			p, err := expr.Pipeline()
-			assert.NoError(t, err)
+			assert.Nil(t, err)
 			if tt.lines == nil {
 				assert.Equal(t, p, log.NewNoopPipeline())
 			} else {
@@ -295,7 +295,7 @@ func TestStringer(t *testing.T) {
 	} {
 		t.Run(tc.in, func(t *testing.T) {
 			expr, err := ParseExpr(tc.in)
-			require.NoError(t, err)
+			require.Nil(t, err)
 			require.Equal(t, tc.out, expr.String())
 		})
 	}
@@ -317,7 +317,7 @@ func BenchmarkContainsFilter(b *testing.B) {
 	b.ResetTimer()
 
 	sp := p.ForStream(labelBar)
-	for range b.N {
+	for i := 0; i < b.N; i++ {
 		if _, _, ok := sp.Process(line); !ok {
 			b.Fatal("doesn't match")
 		}

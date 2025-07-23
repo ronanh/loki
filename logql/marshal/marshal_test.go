@@ -2,7 +2,7 @@ package marshal
 
 import (
 	"bytes"
-	"strconv"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// covers responses from /loki/api/v1/query_range and /loki/api/v1/query.
+// covers responses from /loki/api/v1/query_range and /loki/api/v1/query
 var queryTests = []struct {
 	actual   parser.Value
 	expected string
@@ -295,7 +295,7 @@ var queryTests = []struct {
 	},
 }
 
-// covers responses from /loki/api/v1/labels and /loki/api/v1/label/{name}/values.
+// covers responses from /loki/api/v1/labels and /loki/api/v1/label/{name}/values
 var labelTests = []struct {
 	actual   logproto.LabelResponse
 	expected string
@@ -312,7 +312,7 @@ var labelTests = []struct {
 	},
 }
 
-// covers responses from /loki/api/v1/tail.
+// covers responses from /loki/api/v1/tail
 var tailTests = []struct {
 	actual   legacy.TailResponse
 	expected string
@@ -414,7 +414,7 @@ func Test_QueryResponseMarshalLoop(t *testing.T) {
 		err = json.Unmarshal(bytes, &expected)
 		require.NoError(t, err)
 
-		require.Equalf(t, expected, q, "Query Marshal Loop %d failed", i)
+		require.Equalf(t, q, expected, "Query Marshal Loop %d failed", i)
 	}
 }
 
@@ -495,7 +495,7 @@ func Test_WriteSeriesResponseJSON(t *testing.T) {
 			`{"status":"success","data":[{"a":"1","b":"2"},{"c":"3","d":"4"}]}`,
 		},
 	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			var b bytes.Buffer
 			err := WriteSeriesResponseJSON(tc.input, &b)
 			require.NoError(t, err)
@@ -526,7 +526,7 @@ func testJSONBytesEqual(
 func Benchmark_Encode(b *testing.B) {
 	buf := bytes.NewBuffer(nil)
 
-	for range b.N {
+	for n := 0; n < b.N; n++ {
 		for _, queryTest := range queryTests {
 			require.NoError(b, WriteQueryResponseJSON(logql.Result{Data: queryTest.actual}, buf))
 		}
@@ -551,7 +551,7 @@ func Test_WriteTailResponseJSON(t *testing.T) {
 			},
 		},
 			WebsocketWriterFunc(func(i int, b []byte) error {
-				require.JSONEq(
+				require.Equal(
 					t,
 					`{"streams":[{"stream":{"app":"foo"},"values":[["1","foobar"]]}],"dropped_entries":[{"timestamp":"2","labels":{"app":"dropped"}}]}`,
 					string(b),

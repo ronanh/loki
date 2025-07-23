@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1759,7 +1758,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 			},
 		},
 	} {
-
+		test := test
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
 			t.Parallel()
 
@@ -1894,7 +1893,7 @@ func TestStepEvaluator_Error(t *testing.T) {
 }
 
 // go test -mod=vendor ./pkg/logql/ -bench=.  -benchmem -memprofile memprofile.out -cpuprofile
-// cpuprofile.out.
+// cpuprofile.out
 func BenchmarkRangeQuery100000(b *testing.B) {
 	benchmarkRangeQuery(int64(100000), b)
 }
@@ -1919,7 +1918,7 @@ func benchmarkRangeQuery(testsize int64, b *testing.B) {
 	start := time.Unix(0, 0)
 	end := time.Unix(testsize, 0)
 	b.ResetTimer()
-	for range b.N {
+	for i := 0; i < b.N; i++ {
 		for _, test := range []struct {
 			qs        string
 			direction logproto.Direction
@@ -2092,7 +2091,7 @@ func paramsID(p interface{}) string {
 
 type logData struct {
 	logproto.Entry
-	//nolint
+	// nolint
 	logproto.Sample
 }
 
@@ -2100,7 +2099,7 @@ type generator func(i int64) logData
 
 func newStream(n int64, f generator, labels string) logproto.Stream {
 	entries := []logproto.Entry{}
-	for i := range n {
+	for i := int64(0); i < n; i++ {
 		entries = append(entries, f(i).Entry)
 	}
 	return logproto.Stream{
@@ -2111,7 +2110,7 @@ func newStream(n int64, f generator, labels string) logproto.Stream {
 
 func newSeries(n int64, f generator, labels string) logproto.Series {
 	samples := []logproto.Sample{}
-	for i := range n {
+	for i := int64(0); i < n; i++ {
 		samples = append(samples, f(i).Sample)
 	}
 	return logproto.Series{
@@ -2174,7 +2173,7 @@ func identity(i int64) logData {
 	return logData{
 		Entry: logproto.Entry{
 			Timestamp: time.Unix(i, 0),
-			Line:      strconv.FormatInt(i, 10),
+			Line:      fmt.Sprintf("%d", i),
 		},
 		Sample: logproto.Sample{
 			Timestamp: time.Unix(i, 0).UnixNano(),
@@ -2232,15 +2231,15 @@ func constantValue(t int64) generator {
 	}
 }
 
-// errorIterator.
+// errorIterator
 type errorIterator struct{}
 
-// NewErrorSampleIterator return an sample iterator that errors out.
+// NewErrorSampleIterator return an sample iterator that errors out
 func NewErrorSampleIterator() iter.SampleIterator {
 	return &errorIterator{}
 }
 
-// NewErrorEntryIterator return an entry iterator that errors out.
+// NewErrorEntryIterator return an entry iterator that errors out
 func NewErrorEntryIterator() iter.EntryIterator {
 	return &errorIterator{}
 }

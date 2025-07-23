@@ -158,7 +158,7 @@ func Benchmark_LineFilter(b *testing.B) {
 }
 
 // see https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go
-// A note on compiler optimizations.
+// A note on compiler optimizations
 var res bool
 
 func benchmarkRegex(b *testing.B, re, line string, match bool) {
@@ -174,12 +174,12 @@ func benchmarkRegex(b *testing.B, re, line string, match bool) {
 	}
 	b.ResetTimer()
 	b.Run(fmt.Sprintf("default_%v_%s", match, re), func(b *testing.B) {
-		for range b.N {
+		for i := 0; i < b.N; i++ {
 			m = d.Filter(l)
 		}
 	})
 	b.Run(fmt.Sprintf("simplified_%v_%s", match, re), func(b *testing.B) {
-		for range b.N {
+		for i := 0; i < b.N; i++ {
 			m = s.Filter(l)
 		}
 	})

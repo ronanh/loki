@@ -15,7 +15,7 @@ type Filterer interface {
 	ToStage() Stage
 }
 
-// LineFilterFunc is a syntax sugar for creating line filter from a function.
+// LineFilterFunc is a syntax sugar for creating line filter from a function
 type FiltererFunc func(line []byte) bool
 
 func (f FiltererFunc) Filter(line []byte) bool {
@@ -112,7 +112,7 @@ func newOrFilter(left Filterer, right Filterer) Filterer {
 	}
 }
 
-// chainOrFilter is a syntax sugar to chain multiple `or` filters. (1 or many).
+// chainOrFilter is a syntax sugar to chain multiple `or` filters. (1 or many)
 func chainOrFilter(curr, new Filterer) Filterer {
 	if curr == nil {
 		return new
@@ -238,7 +238,7 @@ func parseRegexpFilter(re string, match bool) (Filterer, error) {
 
 // simplify a regexp expression by replacing it, when possible, with a succession of literal
 // filters.
-// For example `(foo|bar)` will be replaced by  `containsFilter(foo) or containsFilter(bar)`.
+// For example `(foo|bar)` will be replaced by  `containsFilter(foo) or containsFilter(bar)`
 func simplify(reg *syntax.Regexp) (Filterer, bool) {
 	switch reg.Op {
 	case syntax.OpAlternate:

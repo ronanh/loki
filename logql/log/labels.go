@@ -159,7 +159,7 @@ func newHasher() *hasher {
 	}
 }
 
-// Hash hashes the labels.
+// Hash hashes the labels
 func (h *hasher) Hash(lbs labels.Labels) uint64 {
 	var hash uint64
 	hash, h.buf = lbs.HashWithoutLabels(h.buf, []string(nil)...)
@@ -171,7 +171,7 @@ func (h *hasher) Hash(lbs labels.Labels) uint64 {
 type BaseLabelsBuilder struct {
 	del []string
 	add []labels.Label
-	//nolint(structcheck) https://github.com/golangci/golangci-lint/issues/826
+	// nolint(structcheck) https://github.com/golangci/golangci-lint/issues/826
 	err string
 
 	groups            []string
@@ -277,7 +277,7 @@ func (b *LabelsBuilder) HasErr() bool {
 	return b.err != ""
 }
 
-// BaseHas returns the base labels have the given key.
+// BaseHas returns the base labels have the given key
 func (b *LabelsBuilder) BaseHas(key string) bool {
 	return b.base.Has(key)
 }
@@ -406,7 +406,7 @@ func (s *stringMapPool) Put(m map[string]string) {
 var smp = newStringMapPool()
 
 // puts labels entries into an existing map, it is up to the caller to
-// properly clear the map if it is going to be reused.
+// properly clear the map if it is going to be reused
 func (b *LabelsBuilder) IntoMap(m map[string]string) {
 	if len(b.del) == 0 && len(b.add) == 0 && !b.HasErr() {
 		if b.baseMap == nil {

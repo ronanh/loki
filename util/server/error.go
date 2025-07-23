@@ -17,7 +17,7 @@ func (e QueryError) Error() string {
 }
 
 // StatusClientClosedRequest is the status code for when a client request cancellation of an http
-// request.
+// request
 const StatusClientClosedRequest = 499
 
 const (

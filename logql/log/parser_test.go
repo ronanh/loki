@@ -380,7 +380,7 @@ func TestJSONExpressionParserFailures(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewJSONExpressionParser([]JSONExpression{tt.expression})
 
-			require.Error(t, err)
+			require.NotNil(t, err)
 			require.Equal(
 				t,
 				err.Error(),
@@ -431,7 +431,7 @@ func Benchmark_Parser(b *testing.B) {
 			line := []byte(tt.line)
 			b.Run("no labels hints", func(b *testing.B) {
 				builder := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
-				for range b.N {
+				for n := 0; n < b.N; n++ {
 					builder.Reset()
 					_, _ = tt.s.Process(line, builder)
 				}
@@ -446,7 +446,7 @@ func Benchmark_Parser(b *testing.B) {
 					false,
 					"",
 				)
-				for range b.N {
+				for n := 0; n < b.N; n++ {
 					builder.Reset()
 					_, _ = tt.s.Process(line, builder)
 				}
