@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/ronanh/loki/logproto"
@@ -78,24 +77,6 @@ type HeapIterator interface {
 	Peek() time.Time
 	Len() int
 	Push(EntryIterator)
-}
-
-// heapIterator iterates over a heap of iterators.
-
-// prefetch iterates over all inner iterators to merge together, calls Next() on
-// each of them to prefetch the first entry and pushes of them - who are not
-// empty - to the heap.
-
-// requeue pushes the input ei EntryIterator to the heap, advancing it via an ei.Next()
-// call unless the advanced input parameter is true. In this latter case it expects that
-// the iterator has already been advanced before calling requeue().
-//
-// If the iterator has no more entries or an error occur while advancing it, the iterator
-// is not pushed to the heap and any possible error captured, so that can be get via Error().
-
-type tuple struct {
-	logproto.Entry
-	EntryIterator
 }
 
 type mergingIterator struct {
@@ -360,136 +341,4 @@ func (i *queryClientIterator) Error() error {
 
 func (i *queryClientIterator) Close() error {
 	return i.client.CloseSend()
-}
-
-type entryWithLabels struct {
-	entry  logproto.Entry
-	labels string
-}
-
-var entryBufferPool = sync.Pool{
-	New: func() any {
-		return &entryBuffer{
-			entries: make([]entryWithLabels, 0, 1024),
-		}
-	},
-}
-
-type entryBuffer struct {
-	entries []entryWithLabels
-}
-
-// ReadBatch reads a set of entries off an iterator.
-func ReadBatch(i EntryIterator, size uint32) (*logproto.QueryResponse, uint32, error) {
-	streams := map[string]*logproto.Stream{}
-	respSize := uint32(0)
-	for ; respSize < size && i.Next(); respSize++ {
-		labels, entry := i.Labels(), i.Entry()
-		stream, ok := streams[labels]
-		if !ok {
-			stream = &logproto.Stream{
-				Labels: labels,
-			}
-			streams[labels] = stream
-		}
-		stream.Entries = append(stream.Entries, entry)
-	}
-
-	result := logproto.QueryResponse{
-		Streams: make([]logproto.Stream, 0, len(streams)),
-	}
-	for _, stream := range streams {
-		result.Streams = append(result.Streams, *stream)
-	}
-	return &result, respSize, i.Error()
-}
-
-type peekingEntryIterator struct {
-	iter EntryIterator
-
-	cache *entryWithLabels
-	next  *entryWithLabels
-}
-
-// PeekingEntryIterator is an entry iterator that can look ahead an entry
-// using `Peek` without advancing its cursor.
-type PeekingEntryIterator interface {
-	EntryIterator
-	Peek() (string, logproto.Entry, bool)
-}
-
-// NewPeekingIterator creates a new peeking iterator.
-func NewPeekingIterator(iter EntryIterator) PeekingEntryIterator {
-	// initialize the next entry so we can peek right from the start.
-	var cache *entryWithLabels
-	next := &entryWithLabels{}
-	if iter.Next() {
-		cache = &entryWithLabels{
-			entry:  iter.Entry(),
-			labels: iter.Labels(),
-		}
-		next.entry = cache.entry
-		next.labels = cache.labels
-	}
-	return &peekingEntryIterator{
-		iter:  iter,
-		cache: cache,
-		next:  next,
-	}
-}
-
-// Next implements `EntryIterator`.
-func (it *peekingEntryIterator) Next() bool {
-	if it.cache != nil {
-		it.next.entry = it.cache.entry
-		it.next.labels = it.cache.labels
-		it.cacheNext()
-		return true
-	}
-	return false
-}
-
-// cacheNext caches the next element if it exists.
-func (it *peekingEntryIterator) cacheNext() {
-	if it.iter.Next() {
-		it.cache.entry = it.iter.Entry()
-		it.cache.labels = it.iter.Labels()
-		return
-	}
-	// nothing left removes the cached entry
-	it.cache = nil
-}
-
-// Peek implements `PeekingEntryIterator`.
-func (it *peekingEntryIterator) Peek() (string, logproto.Entry, bool) {
-	if it.cache != nil {
-		return it.cache.labels, it.cache.entry, true
-	}
-	return "", logproto.Entry{}, false
-}
-
-// Labels implements `EntryIterator`.
-func (it *peekingEntryIterator) Labels() string {
-	if it.next != nil {
-		return it.next.labels
-	}
-	return ""
-}
-
-// Entry implements `EntryIterator`.
-func (it *peekingEntryIterator) Entry() logproto.Entry {
-	if it.next != nil {
-		return it.next.entry
-	}
-	return logproto.Entry{}
-}
-
-// Error implements `EntryIterator`.
-func (it *peekingEntryIterator) Error() error {
-	return it.iter.Error()
-}
-
-// Close implements `EntryIterator`.
-func (it *peekingEntryIterator) Close() error {
-	return it.iter.Close()
 }
