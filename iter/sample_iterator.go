@@ -16,8 +16,6 @@ import (
 // SampleIterator iterates over samples in time-order.
 type SampleIterator interface {
 	Next() bool
-	// todo(ctovena) we should add `Seek(t int64) bool`
-	// This way we can skip when ranging over samples.
 	Sample() logproto.Sample
 	Labels() string
 	Error() error

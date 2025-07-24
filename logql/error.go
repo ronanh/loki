@@ -75,18 +75,3 @@ func (e pipelineError) Error() string {
 func (e pipelineError) Is(target error) bool {
 	return target == ErrPipeline
 }
-
-type limitError struct {
-	error
-}
-
-func newSeriesLimitError(limit int) *limitError {
-	return &limitError{
-		error: fmt.Errorf("maximum of series (%d) reached for a single query", limit),
-	}
-}
-
-// Is allows to use errors.Is(err,ErrLimit) on this error.
-func (e limitError) Is(target error) bool {
-	return target == ErrLimit
-}
