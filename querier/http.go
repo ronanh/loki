@@ -11,7 +11,6 @@ import (
 	"github.com/ronanh/loki/logql/marshal"
 	serverutil "github.com/ronanh/loki/util/server"
 	"github.com/ronanh/loki/util/validation"
-	"github.com/weaveworks/common/httpgrpc"
 )
 
 type HttpQuerier struct {
@@ -45,7 +44,7 @@ func (q *HttpQuerier) RangeQueryHandler(w http.ResponseWriter, r *http.Request) 
 
 	request, err := loghttp.ParseRangeQuery(r)
 	if err != nil {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
+		serverutil.WriteBadRequestError(err, w)
 		return
 	}
 
@@ -80,7 +79,7 @@ func (q *HttpQuerier) InstantQueryHandler(w http.ResponseWriter, r *http.Request
 
 	request, err := loghttp.ParseInstantQuery(r)
 	if err != nil {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
+		serverutil.WriteBadRequestError(err, w)
 		return
 	}
 
@@ -111,7 +110,7 @@ func (q *HttpQuerier) InstantQueryHandler(w http.ResponseWriter, r *http.Request
 func (q *HttpQuerier) LabelHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := loghttp.ParseLabelQuery(r)
 	if err != nil {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
+		serverutil.WriteBadRequestError(err, w)
 		return
 	}
 
@@ -137,7 +136,7 @@ func (q *HttpQuerier) LabelHandler(w http.ResponseWriter, r *http.Request) {
 func (q *HttpQuerier) SeriesHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := loghttp.ParseSeriesQuery(r)
 	if err != nil {
-		serverutil.WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
+		serverutil.WriteBadRequestError(err, w)
 		return
 	}
 

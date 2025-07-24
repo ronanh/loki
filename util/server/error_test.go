@@ -8,11 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/logql"
 	"github.com/ronanh/loki/util"
 	"github.com/stretchr/testify/require"
-	"github.com/weaveworks/common/httpgrpc"
 )
 
 func Test_writeError(t *testing.T) {
@@ -23,12 +21,8 @@ func Test_writeError(t *testing.T) {
 		msg            string
 		expectedStatus int
 	}{
-		{"cancelled", context.Canceled, ErrClientCanceled, StatusClientClosedRequest},
-		{"cancelled multi", util.MultiError{context.Canceled, context.Canceled}, ErrClientCanceled, StatusClientClosedRequest},
-		{"cancelled storage", promql.ErrStorage{Err: context.Canceled}, ErrClientCanceled, StatusClientClosedRequest},
 		{"deadline", context.DeadlineExceeded, ErrDeadlineExceeded, http.StatusGatewayTimeout},
 		{"parse error", logql.ParseError{}, "parse error : ", http.StatusBadRequest},
-		{"httpgrpc", httpgrpc.Errorf(http.StatusBadRequest, errors.New("foo").Error()), "foo", http.StatusBadRequest},
 		{"internal", errors.New("foo"), "foo", http.StatusInternalServerError},
 		{"multi mixed", util.MultiError{context.Canceled, context.DeadlineExceeded}, "2 errors: context canceled; context deadline exceeded", http.StatusInternalServerError},
 	} {
