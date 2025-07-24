@@ -3,7 +3,6 @@ package iter
 import (
 	"container/heap"
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"sort"
@@ -132,7 +131,7 @@ func (h iteratorMaxHeap) Less(i, j int) bool {
 // HeapIterator iterates over a heap of iterators with ability to push new iterators and get some
 // properties like time of entry at peek and len
 //
-// Not safe for concurrent use.
+// Not safe for concurrent use
 type HeapIterator interface {
 	EntryIterator
 	Peek() time.Time
@@ -179,7 +178,7 @@ func NewHeapIteratorLoki(
 
 // prefetch iterates over all inner iterators to merge together, calls Next() on
 // each of them to prefetch the first entry and pushes of them - who are not
-// empty - to the heap.
+// empty - to the heap
 func (i *heapIterator) prefetch() {
 	if i.prefetched {
 		return
@@ -317,7 +316,7 @@ func (i *heapIterator) Peek() time.Time {
 	return i.heap.Peek().Entry().Timestamp
 }
 
-// Len returns the number of inner iterators on the heap, still having entries.
+// Len returns the number of inner iterators on the heap, still having entries
 func (i *heapIterator) Len() int {
 	i.prefetch()
 
@@ -374,7 +373,7 @@ func NewMergingIterator(
 	return mi
 }
 
-// Close closes the iterator and frees associated ressources.
+// Close closes the iterator and frees associated ressources
 func (mi *mergingIterator) Close() error {
 	for _, it := range mi.its {
 		if it != nil {
@@ -387,7 +386,7 @@ func (mi *mergingIterator) Close() error {
 	return nil
 }
 
-// Error returns errors encountered by the iterator.
+// Error returns errors encountered by the iterator
 func (mi *mergingIterator) Error() error {
 	if mi.err != nil {
 		return mi.err
@@ -512,7 +511,7 @@ func (mi *mergingIterator) dedup() bool {
 	return needSort
 }
 
-// NewStreamsIterator returns an iterator over logproto.Stream.
+// NewStreamsIterator returns an iterator over logproto.Stream
 func NewStreamsIterator(
 	ctx context.Context,
 	streams []logproto.Stream,
@@ -559,7 +558,7 @@ func NewQueryClientIterator(
 func (i *queryClientIterator) Next() bool {
 	for i.curr == nil || !i.curr.Next() {
 		batch, err := i.client.Recv()
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return false
 		} else if err != nil {
 			i.err = err
@@ -650,7 +649,6 @@ func (i *nonOverlappingIterator) Close() error {
 
 type timeRangedIterator struct {
 	EntryIterator
-
 	mint, maxt time.Time
 }
 
@@ -903,7 +901,7 @@ func NewPeekingIterator(iter EntryIterator) PeekingEntryIterator {
 	}
 }
 
-// Next implements `EntryIterator`.
+// Next implements `EntryIterator`
 func (it *peekingEntryIterator) Next() bool {
 	if it.cache != nil {
 		it.next.entry = it.cache.entry
@@ -925,7 +923,7 @@ func (it *peekingEntryIterator) cacheNext() {
 	it.cache = nil
 }
 
-// Peek implements `PeekingEntryIterator`.
+// Peek implements `PeekingEntryIterator`
 func (it *peekingEntryIterator) Peek() (string, logproto.Entry, bool) {
 	if it.cache != nil {
 		return it.cache.labels, it.cache.entry, true
@@ -933,7 +931,7 @@ func (it *peekingEntryIterator) Peek() (string, logproto.Entry, bool) {
 	return "", logproto.Entry{}, false
 }
 
-// Labels implements `EntryIterator`.
+// Labels implements `EntryIterator`
 func (it *peekingEntryIterator) Labels() string {
 	if it.next != nil {
 		return it.next.labels
@@ -941,7 +939,7 @@ func (it *peekingEntryIterator) Labels() string {
 	return ""
 }
 
-// Entry implements `EntryIterator`.
+// Entry implements `EntryIterator`
 func (it *peekingEntryIterator) Entry() logproto.Entry {
 	if it.next != nil {
 		return it.next.entry
@@ -949,12 +947,12 @@ func (it *peekingEntryIterator) Entry() logproto.Entry {
 	return logproto.Entry{}
 }
 
-// Error implements `EntryIterator`.
+// Error implements `EntryIterator`
 func (it *peekingEntryIterator) Error() error {
 	return it.iter.Error()
 }
 
-// Close implements `EntryIterator`.
+// Close implements `EntryIterator`
 func (it *peekingEntryIterator) Close() error {
 	return it.iter.Close()
 }

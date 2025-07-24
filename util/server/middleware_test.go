@@ -14,7 +14,7 @@ import (
 func TestPrepopulate(t *testing.T) {
 	success := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		_, err := w.Write([]byte("ok"))
-		require.NoError(t, err)
+		require.Nil(t, err)
 	})
 
 	for _, tc := range []struct {

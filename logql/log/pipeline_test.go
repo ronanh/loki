@@ -13,12 +13,12 @@ func TestNoopPipeline(t *testing.T) {
 	l, lbr, ok := NewNoopPipeline().ForStream(lbs).Process([]byte(""))
 	require.Equal(t, []byte(""), l)
 	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
-	require.True(t, ok)
+	require.Equal(t, true, ok)
 
 	ls, lbr, ok := NewNoopPipeline().ForStream(lbs).ProcessString("")
-	require.Empty(t, ls)
+	require.Equal(t, "", ls)
 	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
-	require.True(t, ok)
+	require.Equal(t, true, ok)
 }
 
 func TestPipeline(t *testing.T) {
@@ -30,22 +30,22 @@ func TestPipeline(t *testing.T) {
 	l, lbr, ok := p.ForStream(lbs).Process([]byte("line"))
 	require.Equal(t, []byte("lbs bar"), l)
 	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
-	require.True(t, ok)
+	require.Equal(t, true, ok)
 
 	ls, lbr, ok := p.ForStream(lbs).ProcessString("line")
 	require.Equal(t, "lbs bar", ls)
 	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
-	require.True(t, ok)
+	require.Equal(t, true, ok)
 
 	l, lbr, ok = p.ForStream(labels.Labels{}).Process([]byte("line"))
 	require.Equal(t, []byte(nil), l)
-	require.Nil(t, lbr)
-	require.False(t, ok)
+	require.Equal(t, nil, lbr)
+	require.Equal(t, false, ok)
 
 	ls, lbr, ok = p.ForStream(labels.Labels{}).ProcessString("line")
-	require.Empty(t, ls)
-	require.Nil(t, lbr)
-	require.False(t, ok)
+	require.Equal(t, "", ls)
+	require.Equal(t, nil, lbr)
+	require.Equal(t, false, ok)
 }
 
 var (
@@ -88,7 +88,7 @@ func Benchmark_Pipeline(b *testing.B) {
 	}
 	b.ResetTimer()
 	sp := p.ForStream(lbs)
-	for range b.N {
+	for n := 0; n < b.N; n++ {
 		resLine, resLbs, resOK = sp.Process(line)
 	}
 }
@@ -122,7 +122,7 @@ func jsonBenchmark(b *testing.B, parser Stage) {
 	}
 	b.ResetTimer()
 	sp := p.ForStream(lbs)
-	for range b.N {
+	for n := 0; n < b.N; n++ {
 		resLine, resLbs, resOK = sp.Process(line)
 
 		if !resOK {
@@ -145,7 +145,7 @@ func invalidJSONBenchmark(b *testing.B, parser Stage) {
 	line := []byte(`invalid json`)
 	b.ResetTimer()
 	sp := p.ForStream(labels.Labels{})
-	for range b.N {
+	for n := 0; n < b.N; n++ {
 		resLine, resLbs, resOK = sp.Process(line)
 
 		if !resOK {

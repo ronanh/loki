@@ -70,6 +70,7 @@ func readTimestamp(iter *jsoniter.Iterator) (time.Time, bool) {
 	if err != nil {
 		iter.ReportError("error reading entry timestamp", err.Error())
 		return time.Time{}, false
+
 	}
 	return time.Unix(0, t), true
 }

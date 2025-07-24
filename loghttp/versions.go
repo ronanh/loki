@@ -7,10 +7,10 @@ import (
 
 var ErrUnsupportedAPIVersion = errors.New("unsupported API call - must be /api/v1")
 
-// Version holds a loghttp version.
+// Version holds a loghttp version
 type Version int
 
-// Valid Version values.
+// Valid Version values
 const (
 	VersionLegacy = Version(iota)
 	VersionV1
