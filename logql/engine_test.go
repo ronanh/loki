@@ -37,8 +37,8 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 
 		// an array of data per params will be returned by the querier.
 		// This is to cover logql that requires multiple queries.
-		data   interface{}
-		params interface{}
+		data   any
+		params any
 
 		expected promql_parser.Value
 	}{
@@ -597,8 +597,8 @@ func TestEngine_RangeQuery(t *testing.T) {
 
 		// an array of streams per SelectParams will be returned by the querier.
 		// This is to cover logql that requires multiple queries.
-		data   interface{}
-		params interface{}
+		data   any
+		params any
 
 		expected promql_parser.Value
 	}{
@@ -1758,7 +1758,6 @@ func TestEngine_RangeQuery(t *testing.T) {
 			},
 		},
 	} {
-		test := test
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
 			t.Parallel()
 
@@ -2010,7 +2009,7 @@ type querierRecorder struct {
 	match   bool
 }
 
-func newQuerierRecorder(t *testing.T, data interface{}, params interface{}) *querierRecorder {
+func newQuerierRecorder(t *testing.T, data any, params any) *querierRecorder {
 	t.Helper()
 	streams := map[string][]logproto.Stream{}
 	if streamsIn, ok := data.([][]logproto.Stream); ok {
@@ -2081,7 +2080,7 @@ func (q *querierRecorder) SelectSamples(
 	return iter.NewHeapSampleIterator(ctx, iters), nil
 }
 
-func paramsID(p interface{}) string {
+func paramsID(p any) string {
 	b, err := json.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -2099,7 +2098,7 @@ type generator func(i int64) logData
 
 func newStream(n int64, f generator, labels string) logproto.Stream {
 	entries := []logproto.Entry{}
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		entries = append(entries, f(i).Entry)
 	}
 	return logproto.Stream{
@@ -2110,7 +2109,7 @@ func newStream(n int64, f generator, labels string) logproto.Stream {
 
 func newSeries(n int64, f generator, labels string) logproto.Series {
 	samples := []logproto.Sample{}
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		samples = append(samples, f(i).Sample)
 	}
 	return logproto.Series{

@@ -77,23 +77,6 @@ var queryTests = []struct {
 	},
 }
 
-// covers responses from /api/prom/label and /api/prom/label/{name}/values
-var labelTests = []struct {
-	actual   logproto.LabelResponse
-	expected string
-}{
-	{
-		logproto.LabelResponse{
-			Values: []string{
-				"label1",
-				"test",
-				"value",
-			},
-		},
-		`{"values": ["label1", "test", "value"]}`,
-	},
-}
-
 // covers responses from /api/prom/tail and /api/prom/tail
 var tailTests = []struct {
 	actual   loghttp.TailResponse
@@ -156,7 +139,7 @@ func Test_MarshalTailResponse(t *testing.T) {
 
 func Test_QueryResponseMarshalLoop(t *testing.T) {
 	for i, queryTest := range queryTests {
-		var r map[string]interface{}
+		var r map[string]any
 
 		err := json.Unmarshal([]byte(queryTest.expected), &r)
 		require.NoError(t, err)
@@ -193,13 +176,13 @@ func testJSONBytesEqual(
 	expected []byte,
 	actual []byte,
 	msg string,
-	args ...interface{},
+	args ...any,
 ) {
-	var expectedValue map[string]interface{}
+	var expectedValue map[string]any
 	err := json.Unmarshal(expected, &expectedValue)
 	require.NoError(t, err)
 
-	var actualValue map[string]interface{}
+	var actualValue map[string]any
 	err = json.Unmarshal(actual, &actualValue)
 	require.NoError(t, err)
 

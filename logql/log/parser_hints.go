@@ -1,6 +1,7 @@
 package log
 
 import (
+	"slices"
 	"strings"
 )
 
@@ -36,12 +37,7 @@ func (p *parserHint) ShouldExtract(key string) bool {
 	if len(p.requiredLabels) == 0 {
 		return true
 	}
-	for _, l := range p.requiredLabels {
-		if l == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.requiredLabels, key)
 }
 
 func (p *parserHint) ShouldExtractPrefix(prefix string) bool {

@@ -2,6 +2,8 @@ package log
 
 import (
 	"bytes"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"sync"
@@ -289,10 +291,8 @@ func (b *LabelsBuilder) Get(key string) (string, bool) {
 			return a.Value, true
 		}
 	}
-	for _, d := range b.del {
-		if d == key {
-			return "", false
-		}
+	if slices.Contains(b.del, key) {
+		return "", false
 	}
 
 	for _, l := range b.base {
@@ -386,7 +386,7 @@ type stringMapPool struct {
 func newStringMapPool() *stringMapPool {
 	return &stringMapPool{
 		pool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return make(map[string]string)
 			},
 		},
@@ -411,9 +411,7 @@ func (b *LabelsBuilder) IntoMap(m map[string]string) {
 	if len(b.del) == 0 && len(b.add) == 0 && !b.HasErr() {
 		if b.baseMap == nil {
 			b.baseMap = b.base.Map()
-			for k, v := range b.baseMap {
-				m[k] = v
-			}
+			maps.Copy(m, b.baseMap)
 		}
 		return
 	}
@@ -522,10 +520,7 @@ Outer:
 
 func (b *LabelsBuilder) withoutResult() LabelsResult {
 	if b.buf == nil {
-		size := len(b.base) + len(b.add) - len(b.del) - len(b.groups)
-		if size < 0 {
-			size = 0
-		}
+		size := max(len(b.base)+len(b.add)-len(b.del)-len(b.groups), 0)
 		b.buf = make(labels.Labels, 0, size)
 	} else {
 		b.buf = b.buf[:0]

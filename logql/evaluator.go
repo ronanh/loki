@@ -228,7 +228,7 @@ func (ev *DefaultEvaluator) StepEvaluator(
 }
 
 var evaluatorGroupsPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return newEvaluatorGroups()
 	},
 }
@@ -744,10 +744,7 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 	}
 
 	if cap(b.results) < len(b.pairs) {
-		capResults := 8 * len(b.pairs)
-		if capResults < 1024 {
-			capResults = 1024
-		}
+		capResults := max(8*len(b.pairs), 1024)
 		b.results = make(promql.Vector, len(b.pairs), capResults)
 	} else {
 		b.results = b.results[:len(b.pairs)]

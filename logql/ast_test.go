@@ -36,7 +36,6 @@ func Test_logSelectorExpr_String(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.selector, func(t *testing.T) {
 			t.Parallel()
 			expr, err := ParseLogSelector(tt.selector)
@@ -242,7 +241,6 @@ func Test_FilterMatcher(t *testing.T) {
 			[]linecheck{{"duration=5m total_bytes=5kB", true}, {"duration=1s total_bytes=256B", false}, {"duration=0s", false}},
 		},
 	} {
-		tt := tt
 		t.Run(tt.q, func(t *testing.T) {
 			t.Parallel()
 			expr, err := ParseLogSelector(tt.q)

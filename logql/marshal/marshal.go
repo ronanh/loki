@@ -5,11 +5,8 @@ package marshal
 import (
 	"io"
 
-	"github.com/gorilla/websocket"
 	json "github.com/json-iterator/go"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/ronanh/loki/loghttp"
-	legacy "github.com/ronanh/loki/loghttp/legacy"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
 )
@@ -48,20 +45,6 @@ func WriteLabelResponseJSON(l logproto.LabelResponse, w io.Writer) error {
 // WebsocketWriter knows how to write message to a websocket connection.
 type WebsocketWriter interface {
 	WriteMessage(int, []byte) error
-}
-
-// WriteTailResponseJSON marshals the legacy.TailResponse to v1 loghttp JSON and
-// then writes it to the provided connection.
-func WriteTailResponseJSON(r legacy.TailResponse, c WebsocketWriter) error {
-	v1Response, err := NewTailResponse(r)
-	if err != nil {
-		return err
-	}
-	data, err := jsoniter.Marshal(v1Response)
-	if err != nil {
-		return err
-	}
-	return c.WriteMessage(websocket.TextMessage, data)
 }
 
 // WriteSeriesResponseJSON marshals a logproto.SeriesResponse to v1 loghttp JSON and then

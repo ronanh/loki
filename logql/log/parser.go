@@ -300,13 +300,13 @@ func (l *LogfmtParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 func (l *LogfmtParser) RequiredLabelNames() []string { return []string{} }
 
 type JSONExpressionParser struct {
-	expressions map[string][]interface{}
+	expressions map[string][]any
 
 	keys internedStringSet
 }
 
 func NewJSONExpressionParser(expressions []JSONExpression) (*JSONExpressionParser, error) {
-	paths := make(map[string][]interface{})
+	paths := make(map[string][]any)
 
 	for _, exp := range expressions {
 		path, err := jsonexpr.Parse(exp.Expression, false)

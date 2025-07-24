@@ -76,11 +76,11 @@ type iteratorHeap []EntryIterator
 func (h iteratorHeap) Len() int            { return len(h) }
 func (h iteratorHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
 func (h iteratorHeap) Peek() EntryIterator { return h[0] }
-func (h *iteratorHeap) Push(x interface{}) {
+func (h *iteratorHeap) Push(x any) {
 	*h = append(*h, x.(EntryIterator))
 }
 
-func (h *iteratorHeap) Pop() interface{} {
+func (h *iteratorHeap) Pop() any {
 	old := *h
 	n := len(old)
 	x := old[n-1]
@@ -766,7 +766,7 @@ func (i *reverseIterator) Close() error {
 }
 
 var entryBufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &entryBuffer{
 			entries: make([]entryWithLabels, 0, 1024),
 		}

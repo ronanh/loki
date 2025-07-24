@@ -12,7 +12,7 @@ import (
 )
 
 var parserPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		p := &parser{
 			p:      &exprParserImpl{},
 			Reader: strings.NewReader(""),

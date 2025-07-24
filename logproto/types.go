@@ -341,7 +341,7 @@ func (m *Entry) Size() (n int) {
 	return n
 }
 
-func (m *Stream) Equal(that interface{}) bool {
+func (m *Stream) Equal(that any) bool {
 	if that == nil {
 		return m == nil
 	}
@@ -374,7 +374,7 @@ func (m *Stream) Equal(that interface{}) bool {
 	return true
 }
 
-func (m *Entry) Equal(that interface{}) bool {
+func (m *Entry) Equal(that any) bool {
 	if that == nil {
 		return m == nil
 	}

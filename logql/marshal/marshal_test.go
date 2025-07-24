@@ -510,13 +510,13 @@ func testJSONBytesEqual(
 	expected []byte,
 	actual []byte,
 	msg string,
-	args ...interface{},
+	args ...any,
 ) {
-	var expectedValue map[string]interface{}
+	var expectedValue map[string]any
 	err := json.Unmarshal(expected, &expectedValue)
 	require.NoError(t, err)
 
-	var actualValue map[string]interface{}
+	var actualValue map[string]any
 	err = json.Unmarshal(actual, &actualValue)
 	require.NoError(t, err)
 
@@ -536,28 +536,3 @@ func Benchmark_Encode(b *testing.B) {
 type WebsocketWriterFunc func(int, []byte) error
 
 func (w WebsocketWriterFunc) WriteMessage(t int, d []byte) error { return w(t, d) }
-
-func Test_WriteTailResponseJSON(t *testing.T) {
-	require.NoError(t,
-		WriteTailResponseJSON(legacy.TailResponse{
-			Streams: []logproto.Stream{
-				{
-					Labels:  `{app="foo"}`,
-					Entries: []logproto.Entry{{Timestamp: time.Unix(0, 1), Line: `foobar`}},
-				},
-			},
-			DroppedEntries: []legacy.DroppedEntry{
-				{Timestamp: time.Unix(0, 2), Labels: `{app="dropped"}`},
-			},
-		},
-			WebsocketWriterFunc(func(i int, b []byte) error {
-				require.Equal(
-					t,
-					`{"streams":[{"stream":{"app":"foo"},"values":[["1","foobar"]]}],"dropped_entries":[{"timestamp":"2","labels":{"app":"dropped"}}]}`,
-					string(b),
-				)
-				return nil
-			}),
-		),
-	)
-}

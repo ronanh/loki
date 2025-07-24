@@ -175,7 +175,6 @@ func TestHeapIteratorPrefetch(t *testing.T) {
 	}
 
 	for testName, testFunc := range tests {
-		testFunc := testFunc
 
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
@@ -194,7 +193,7 @@ type generator func(i int64) logproto.Entry
 
 func mkStreamIterator(f generator, labels string) EntryIterator {
 	entries := []logproto.Entry{}
-	for i := int64(0); i < testSize; i++ {
+	for i := range int64(testSize) {
 		entries = append(entries, f(i))
 	}
 	return NewStreamIterator(logproto.Stream{
@@ -250,7 +249,7 @@ func TestHeapIteratorDeduplication(t *testing.T) {
 		},
 	}
 	assertIt := func(it EntryIterator, reversed bool, length int) {
-		for i := 0; i < length; i++ {
+		for i := range length {
 			j := i
 			if reversed {
 				j = length - 1 - i

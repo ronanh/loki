@@ -23,11 +23,11 @@ func (s vectorByValueHeap) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s *vectorByValueHeap) Push(x interface{}) {
+func (s *vectorByValueHeap) Push(x any) {
 	*s = append(*s, *(x.(*promql.Sample)))
 }
 
-func (s *vectorByValueHeap) Pop() interface{} {
+func (s *vectorByValueHeap) Pop() any {
 	old := *s
 	n := len(old)
 	el := old[n-1]
@@ -52,11 +52,11 @@ func (s vectorByReverseValueHeap) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s *vectorByReverseValueHeap) Push(x interface{}) {
+func (s *vectorByReverseValueHeap) Push(x any) {
 	*s = append(*s, *(x.(*promql.Sample)))
 }
 
-func (s *vectorByReverseValueHeap) Pop() interface{} {
+func (s *vectorByReverseValueHeap) Pop() any {
 	old := *s
 	n := len(old)
 	el := old[n-1]
