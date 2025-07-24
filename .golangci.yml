@@ -2,7 +2,6 @@ version: "2"
 linters:
   enable:
     - staticcheck
-    - lll
     - revive
     - govet
     - errcheck
@@ -28,8 +27,5 @@ formatters:
       reformat-tags: true
       chain-split-dots: true
   enable:
-    - gci
-    - gofmt
-    - gofumpt
     - goimports
-    - golines    
+    - golines
