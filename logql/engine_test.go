@@ -2201,7 +2201,7 @@ func constant(t int64) generator {
 		return logData{
 			Entry: logproto.Entry{
 				Timestamp: time.Unix(t, 0),
-				Line:      fmt.Sprintf("%d", i),
+				Line:      strconv.FormatInt(i, 10),
 			},
 			Sample: logproto.Sample{
 				Timestamp: time.Unix(t, 0).UnixNano(),
@@ -2217,7 +2217,7 @@ func constantValue(t int64) generator {
 		return logData{
 			Entry: logproto.Entry{
 				Timestamp: time.Unix(i, 0),
-				Line:      fmt.Sprintf("%d", i),
+				Line:      strconv.FormatInt(i, 10),
 			},
 			Sample: logproto.Sample{
 				Timestamp: time.Unix(i, 0).UnixNano(),

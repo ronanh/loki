@@ -219,7 +219,7 @@ func constant(t int64) generator {
 	return func(i int64) logproto.Entry {
 		return logproto.Entry{
 			Timestamp: time.Unix(t, 0),
-			Line:      fmt.Sprintf("%d", i),
+			Line:      strconv.FormatInt(i, 10),
 		}
 	}
 }
