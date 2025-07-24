@@ -80,7 +80,7 @@ func WriteSeriesResponseJSON(r logproto.SeriesResponse, w io.Writer) error {
 }
 
 // This struct exists primarily because we can't specify a repeated map in proto v3.
-// Otherwise, we'd use that + gogoproto.jsontag to avoid this layer of indirection.
+// Otherwise, we'd use that + gogoproto.jsontag to avoid this layer of indirection
 type seriesResponseAdapter struct {
 	Status string              `json:"status"`
 	Data   []map[string]string `json:"data"`

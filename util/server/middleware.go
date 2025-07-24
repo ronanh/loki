@@ -17,6 +17,7 @@ func NewPrepopulateMiddleware() middleware.Interface {
 			if err != nil {
 				WriteError(httpgrpc.Errorf(http.StatusBadRequest, err.Error()), w)
 				return
+
 			}
 			next.ServeHTTP(w, req)
 		})

@@ -46,7 +46,7 @@ func TestStreamAdapter(t *testing.T) {
 
 func BenchmarkStreamAdapter(b *testing.B) {
 	b.ReportAllocs()
-	for range b.N {
+	for n := 0; n < b.N; n++ {
 		by, err := streamAdapter.Marshal()
 		if err != nil {
 			b.Fatal(err)

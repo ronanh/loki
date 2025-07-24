@@ -3,7 +3,6 @@ package iter
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -86,15 +85,15 @@ func TestIterator(t *testing.T) {
 			labels:    "{foobar: \"bazbar\"}",
 		},
 	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			for i := range int64(tc.length) {
-				assert.True(t, tc.iterator.Next())
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			for i := int64(0); i < tc.length; i++ {
+				assert.Equal(t, true, tc.iterator.Next())
 				assert.Equal(t, tc.generator(i), tc.iterator.Entry(), fmt.Sprintln("iteration", i))
 				assert.Equal(t, tc.labels, tc.iterator.Labels(), fmt.Sprintln("iteration", i))
 			}
 
-			assert.False(t, tc.iterator.Next())
-			assert.NoError(t, tc.iterator.Error())
+			assert.Equal(t, false, tc.iterator.Next())
+			assert.Equal(t, nil, tc.iterator.Error())
 			assert.NoError(t, tc.iterator.Close())
 		})
 	}
@@ -143,15 +142,15 @@ func TestIteratorMultipleLabels(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			for i := range int64(tc.length) {
-				assert.True(t, tc.iterator.Next())
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			for i := int64(0); i < tc.length; i++ {
+				assert.Equal(t, true, tc.iterator.Next())
 				assert.Equal(t, tc.generator(i), tc.iterator.Entry(), fmt.Sprintln("iteration", i))
 				assert.Equal(t, tc.labels(i), tc.iterator.Labels(), fmt.Sprintln("iteration", i))
 			}
 
-			assert.False(t, tc.iterator.Next())
-			assert.NoError(t, tc.iterator.Error())
+			assert.Equal(t, false, tc.iterator.Next())
+			assert.Equal(t, nil, tc.iterator.Error())
 			assert.NoError(t, tc.iterator.Close())
 		})
 	}
@@ -176,6 +175,8 @@ func TestHeapIteratorPrefetch(t *testing.T) {
 	}
 
 	for testName, testFunc := range tests {
+		testFunc := testFunc
+
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
 
@@ -193,7 +194,7 @@ type generator func(i int64) logproto.Entry
 
 func mkStreamIterator(f generator, labels string) EntryIterator {
 	entries := []logproto.Entry{}
-	for i := range int64(testSize) {
+	for i := int64(0); i < testSize; i++ {
 		entries = append(entries, f(i))
 	}
 	return NewStreamIterator(logproto.Stream{
@@ -205,7 +206,7 @@ func mkStreamIterator(f generator, labels string) EntryIterator {
 func identity(i int64) logproto.Entry {
 	return logproto.Entry{
 		Timestamp: time.Unix(i, 0),
-		Line:      strconv.FormatInt(i, 10),
+		Line:      fmt.Sprintf("%d", i),
 	}
 }
 
@@ -215,6 +216,7 @@ func offset(j int64, g generator) generator {
 	}
 }
 
+// nolint
 func constant(t int64) generator {
 	return func(i int64) logproto.Entry {
 		return logproto.Entry{
@@ -227,6 +229,203 @@ func constant(t int64) generator {
 func inverse(g generator) generator {
 	return func(i int64) logproto.Entry {
 		return g(-i)
+	}
+}
+
+func TestHeapIteratorDeduplication(t *testing.T) {
+	foo := logproto.Stream{
+		Labels: `{app="foo"}`,
+		Entries: []logproto.Entry{
+			{Timestamp: time.Unix(0, 1), Line: "1"},
+			{Timestamp: time.Unix(0, 2), Line: "2"},
+			{Timestamp: time.Unix(0, 3), Line: "3"},
+		},
+	}
+	bar := logproto.Stream{
+		Labels: `{app="bar"}`,
+		Entries: []logproto.Entry{
+			{Timestamp: time.Unix(0, 1), Line: "1"},
+			{Timestamp: time.Unix(0, 2), Line: "2"},
+			{Timestamp: time.Unix(0, 3), Line: "3"},
+		},
+	}
+	assertIt := func(it EntryIterator, reversed bool, length int) {
+		for i := 0; i < length; i++ {
+			j := i
+			if reversed {
+				j = length - 1 - i
+			}
+			require.True(t, it.Next())
+			require.NoError(t, it.Error())
+			require.Equal(t, bar.Labels, it.Labels())
+			require.Equal(t, bar.Entries[j], it.Entry())
+
+			require.True(t, it.Next())
+			require.NoError(t, it.Error())
+			require.Equal(t, foo.Labels, it.Labels())
+			require.Equal(t, foo.Entries[j], it.Entry())
+
+		}
+		require.False(t, it.Next())
+		require.NoError(t, it.Error())
+	}
+	// forward iteration
+	it := NewHeapIterator(context.Background(), []EntryIterator{
+		NewStreamIterator(foo),
+		NewStreamIterator(bar),
+		NewStreamIterator(foo),
+		NewStreamIterator(bar),
+		NewStreamIterator(foo),
+		NewStreamIterator(bar),
+		NewStreamIterator(foo),
+	}, logproto.FORWARD)
+	assertIt(it, false, len(foo.Entries))
+
+	// backward iteration
+	it = NewHeapIterator(context.Background(), []EntryIterator{
+		mustReverseStreamIterator(NewStreamIterator(foo)),
+		mustReverseStreamIterator(NewStreamIterator(bar)),
+		mustReverseStreamIterator(NewStreamIterator(foo)),
+		mustReverseStreamIterator(NewStreamIterator(bar)),
+		mustReverseStreamIterator(NewStreamIterator(foo)),
+		mustReverseStreamIterator(NewStreamIterator(bar)),
+		mustReverseStreamIterator(NewStreamIterator(foo)),
+	}, logproto.BACKWARD)
+	assertIt(it, true, len(foo.Entries))
+}
+
+func mustReverseStreamIterator(it EntryIterator) EntryIterator {
+	reversed, err := NewReversedIter(it, 0, true)
+	if err != nil {
+		panic(err)
+	}
+	return reversed
+}
+
+func TestReverseIterator(t *testing.T) {
+	itr1 := mkStreamIterator(inverse(offset(testSize, identity)), defaultLabels)
+	itr2 := mkStreamIterator(inverse(offset(testSize, identity)), "{foobar: \"bazbar\"}")
+
+	heapIterator := NewHeapIterator(
+		context.Background(),
+		[]EntryIterator{itr1, itr2},
+		logproto.BACKWARD,
+	)
+	reversedIter, err := NewReversedIter(heapIterator, testSize, false)
+	require.NoError(t, err)
+
+	for i := int64((testSize / 2) + 1); i <= testSize; i++ {
+		assert.Equal(t, true, reversedIter.Next())
+		assert.Equal(t, identity(i), reversedIter.Entry(), fmt.Sprintln("iteration", i))
+		assert.Equal(t, reversedIter.Labels(), itr2.Labels())
+		assert.Equal(t, true, reversedIter.Next())
+		assert.Equal(t, identity(i), reversedIter.Entry(), fmt.Sprintln("iteration", i))
+		assert.Equal(t, reversedIter.Labels(), itr1.Labels())
+	}
+
+	assert.Equal(t, false, reversedIter.Next())
+	assert.Equal(t, nil, reversedIter.Error())
+	assert.NoError(t, reversedIter.Close())
+}
+
+func TestReverseEntryIterator(t *testing.T) {
+	itr1 := mkStreamIterator(identity, defaultLabels)
+
+	reversedIter, err := NewEntryReversedIter(itr1)
+	require.NoError(t, err)
+
+	for i := int64(testSize - 1); i >= 0; i-- {
+		assert.Equal(t, true, reversedIter.Next())
+		assert.Equal(t, identity(i), reversedIter.Entry(), fmt.Sprintln("iteration", i))
+		assert.Equal(t, reversedIter.Labels(), defaultLabels)
+	}
+
+	assert.Equal(t, false, reversedIter.Next())
+	assert.Equal(t, nil, reversedIter.Error())
+	assert.NoError(t, reversedIter.Close())
+}
+
+func TestReverseEntryIteratorUnlimited(t *testing.T) {
+	itr1 := mkStreamIterator(offset(testSize, identity), defaultLabels)
+	itr2 := mkStreamIterator(offset(testSize, identity), "{foobar: \"bazbar\"}")
+
+	heapIterator := NewHeapIterator(
+		context.Background(),
+		[]EntryIterator{itr1, itr2},
+		logproto.BACKWARD,
+	)
+	reversedIter, err := NewReversedIter(heapIterator, 0, false)
+	require.NoError(t, err)
+
+	var ct int
+	expected := 2 * testSize
+
+	for reversedIter.Next() {
+		ct++
+	}
+	require.Equal(t, expected, ct)
+}
+
+func Test_PeekingIterator(t *testing.T) {
+	iter := NewPeekingIterator(NewStreamIterator(logproto.Stream{
+		Entries: []logproto.Entry{
+			{
+				Timestamp: time.Unix(0, 1),
+			},
+			{
+				Timestamp: time.Unix(0, 2),
+			},
+			{
+				Timestamp: time.Unix(0, 3),
+			},
+		},
+	}))
+	_, peek, ok := iter.Peek()
+	if peek.Timestamp.UnixNano() != 1 {
+		t.Fatal("wrong peeked time.")
+	}
+	if !ok {
+		t.Fatal("should be ok.")
+	}
+	hasNext := iter.Next()
+	if !hasNext {
+		t.Fatal("should have next.")
+	}
+	if iter.Entry().Timestamp.UnixNano() != 1 {
+		t.Fatal("wrong peeked time.")
+	}
+
+	_, peek, ok = iter.Peek()
+	if peek.Timestamp.UnixNano() != 2 {
+		t.Fatal("wrong peeked time.")
+	}
+	if !ok {
+		t.Fatal("should be ok.")
+	}
+	hasNext = iter.Next()
+	if !hasNext {
+		t.Fatal("should have next.")
+	}
+	if iter.Entry().Timestamp.UnixNano() != 2 {
+		t.Fatal("wrong peeked time.")
+	}
+	_, peek, ok = iter.Peek()
+	if peek.Timestamp.UnixNano() != 3 {
+		t.Fatal("wrong peeked time.")
+	}
+	if !ok {
+		t.Fatal("should be ok.")
+	}
+	hasNext = iter.Next()
+	if !hasNext {
+		t.Fatal("should have next.")
+	}
+	if iter.Entry().Timestamp.UnixNano() != 3 {
+		t.Fatal("wrong peeked time.")
+	}
+	_, _, ok = iter.Peek()
+	if ok {
+		t.Fatal("should not be ok.")
 	}
 }
 
@@ -360,5 +559,63 @@ func Test_DuplicateCount(t *testing.T) {
 			}
 			require.Equal(t, test.expectedDuplicates, stats.GetChunkData(ctx).TotalDuplicates)
 		})
+	}
+}
+
+func Test_timeRangedIterator_Next(t *testing.T) {
+	tests := []struct {
+		mint   time.Time
+		maxt   time.Time
+		expect []bool // array of expected values for next call in sequence
+	}{
+		{time.Unix(0, 0), time.Unix(0, 0), []bool{false}},
+		{time.Unix(0, 0), time.Unix(0, 1), []bool{false}},
+		{time.Unix(0, 1), time.Unix(0, 1), []bool{true, false}},
+		{time.Unix(0, 1), time.Unix(0, 2), []bool{true, false}},
+		{time.Unix(0, 1), time.Unix(0, 3), []bool{true, true, false}},
+		{time.Unix(0, 3), time.Unix(0, 3), []bool{true, false}},
+		{time.Unix(0, 4), time.Unix(0, 10), []bool{false}},
+		{time.Unix(0, 1), time.Unix(0, 10), []bool{true, true, true, false}},
+		{time.Unix(0, 0), time.Unix(0, 10), []bool{true, true, true, false}},
+	}
+	for _, tt := range tests {
+		t.Run(
+			fmt.Sprintf("mint:%d maxt:%d", tt.mint.UnixNano(), tt.maxt.UnixNano()),
+			func(t *testing.T) {
+				it := NewTimeRangedIterator(
+					NewStreamIterator(
+						logproto.Stream{Entries: []logproto.Entry{
+							{Timestamp: time.Unix(0, 1)},
+							{Timestamp: time.Unix(0, 2)},
+							{Timestamp: time.Unix(0, 3)},
+						}}),
+					tt.mint,
+					tt.maxt,
+				)
+				for _, b := range tt.expect {
+					require.Equal(t, b, it.Next())
+				}
+				require.NoError(t, it.Close())
+			},
+		)
+		t.Run(
+			fmt.Sprintf("mint:%d maxt:%d_sample", tt.mint.UnixNano(), tt.maxt.UnixNano()),
+			func(t *testing.T) {
+				it := NewTimeRangedSampleIterator(
+					NewSeriesIterator(
+						logproto.Series{Samples: []logproto.Sample{
+							sample(1),
+							sample(2),
+							sample(3),
+						}}),
+					tt.mint.UnixNano(),
+					tt.maxt.UnixNano(),
+				)
+				for _, b := range tt.expect {
+					require.Equal(t, b, it.Next())
+				}
+				require.NoError(t, it.Close())
+			},
+		)
 	}
 }

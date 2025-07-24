@@ -2,7 +2,6 @@ package jsonexpr
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -24,7 +23,7 @@ func NewScanner(r io.Reader, debug bool) *Scanner {
 }
 
 func (sc *Scanner) Error(s string) {
-	sc.err = errors.New(s)
+	sc.err = fmt.Errorf(s)
 	fmt.Printf("syntax error: %s\n", s)
 }
 
@@ -54,7 +53,7 @@ func (sc *Scanner) lex(lval *JSONExprSymType) int {
 			sc.unread()
 			val, err := sc.scanInt()
 			if err != nil {
-				sc.err = errors.New(err.Error())
+				sc.err = fmt.Errorf(err.Error())
 				return 0
 			}
 
@@ -133,7 +132,7 @@ func (sc *Scanner) scanInt() (int, error) {
 	for {
 		r := sc.read()
 		if r == '.' && len(number) > 0 {
-			return 0, errors.New("cannot use float as array index")
+			return 0, fmt.Errorf("cannot use float as array index")
 		}
 
 		if isWhitespace(r) || r == '.' || r == ']' {

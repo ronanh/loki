@@ -162,6 +162,25 @@ func TestNewSampleQueryClientIterator(t *testing.T) {
 	require.NoError(t, it.Close())
 }
 
+func TestNewNonOverlappingSampleIterator(t *testing.T) {
+	it := NewNonOverlappingSampleIterator([]SampleIterator{
+		NewSeriesIterator(varSeries),
+		NewSeriesIterator(logproto.Series{
+			Labels:  varSeries.Labels,
+			Samples: []logproto.Sample{sample(4), sample(5)},
+		}),
+	}, varSeries.Labels)
+
+	for i := 1; i < 6; i++ {
+		require.True(t, it.Next(), i)
+		require.Equal(t, `{foo="var"}`, it.Labels(), i)
+		require.Equal(t, sample(i), it.Sample(), i)
+	}
+	require.False(t, it.Next())
+	require.NoError(t, it.Error())
+	require.NoError(t, it.Close())
+}
+
 func TestReadSampleBatch(t *testing.T) {
 	res, size, err := ReadSampleBatch(NewSeriesIterator(carSeries), 1)
 	require.Equal(

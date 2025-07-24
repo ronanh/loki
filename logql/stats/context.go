@@ -103,7 +103,7 @@ func (s Summary) Log(ctx context.Context, lvl slog.Level, log *slog.Logger) {
 	)
 }
 
-// NewContext creates a new statistics context.
+// NewContext creates a new statistics context
 func NewContext(ctx context.Context) context.Context {
 	ctx = injectTrailerCollector(ctx)
 	ctx = context.WithValue(ctx, storeKey, &StoreData{})

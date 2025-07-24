@@ -100,14 +100,14 @@ func TestSnapshot_MergesResults(t *testing.T) {
 	}
 
 	err := JoinResults(ctx, expected)
-	require.NoError(t, err)
+	require.Nil(t, err)
 	res := Snapshot(ctx, 2*time.Second)
 	require.Equal(t, expected, res)
 }
 
 func TestGetResult_ErrsNonexistant(t *testing.T) {
 	out, err := GetResult(context.Background())
-	require.Error(t, err)
+	require.NotNil(t, err)
 	require.Nil(t, out)
 }
 

@@ -21,23 +21,23 @@ const (
 	StreamLimit         = "stream_limit"
 	StreamLimitErrorMsg = "Maximum active stream limit exceeded, reduce the number of active streams (reduce labels or reduce label values), or contact your Loki administrator to see if the limit can be increased"
 	// GreaterThanMaxSampleAge is a reason for discarding log lines which are older than the current
-	// time - `reject_old_samples_max_age`.
+	// time - `reject_old_samples_max_age`
 	GreaterThanMaxSampleAge         = "greater_than_max_sample_age"
 	GreaterThanMaxSampleAgeErrorMsg = "entry for stream '%s' has timestamp too old: %v"
 	// TooFarInFuture is a reason for discarding log lines which are newer than the current time +
-	// `creation_grace_period`.
+	// `creation_grace_period`
 	TooFarInFuture         = "too_far_in_future"
 	TooFarInFutureErrorMsg = "entry for stream '%s' has timestamp too new: %v"
-	// MaxLabelNamesPerSeries is a reason for discarding a log line which has too many label names.
+	// MaxLabelNamesPerSeries is a reason for discarding a log line which has too many label names
 	MaxLabelNamesPerSeries         = "max_label_names_per_series"
 	MaxLabelNamesPerSeriesErrorMsg = "entry for stream '%s' has %d label names; limit %d"
-	// LabelNameTooLong is a reason for discarding a log line which has a label name too long.
+	// LabelNameTooLong is a reason for discarding a log line which has a label name too long
 	LabelNameTooLong         = "label_name_too_long"
 	LabelNameTooLongErrorMsg = "stream '%s' has label name too long: '%s'"
-	// LabelValueTooLong is a reason for discarding a log line which has a lable value too long.
+	// LabelValueTooLong is a reason for discarding a log line which has a lable value too long
 	LabelValueTooLong         = "label_value_too_long"
 	LabelValueTooLongErrorMsg = "stream '%s' has label value too long: '%s'"
-	// DuplicateLabelNames is a reason for discarding a log line which has duplicate label names.
+	// DuplicateLabelNames is a reason for discarding a log line which has duplicate label names
 	DuplicateLabelNames         = "duplicate_label_names"
 	DuplicateLabelNamesErrorMsg = "stream '%s' has duplicate label name: '%s'"
 )

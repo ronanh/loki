@@ -101,7 +101,7 @@ func TestParseRangeQuery(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.r.ParseForm()
-			require.NoError(t, err)
+			require.Nil(t, err)
 
 			got, err := ParseRangeQuery(tt.r)
 			if (err != nil) != tt.wantErr {
@@ -156,7 +156,7 @@ func TestParseInstantQuery(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.r.ParseForm()
-			require.NoError(t, err)
+			require.Nil(t, err)
 			got, err := ParseInstantQuery(tt.r)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseInstantQuery() error = %v, wantErr %v", err, tt.wantErr)

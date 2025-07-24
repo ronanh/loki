@@ -69,7 +69,7 @@ func (j *JSONParser) readObject(it *jsoniter.Iterator) error {
 		return fmt.Errorf("expecting json object(%d), got %d", jsoniter.ObjectValue, nextType)
 	}
 	_ = it.ReadMapCB(j.parseMap(""))
-	if it.Error != nil && !errors.Is(it.Error, io.EOF) {
+	if it.Error != nil && it.Error != io.EOF {
 		return it.Error
 	}
 	return nil
@@ -135,6 +135,7 @@ func (j *JSONParser) parseLabelValue(iter *jsoniter.Iterator, prefix, field stri
 		}
 		j.lbs.Set(key, readValue(iter))
 		return
+
 	}
 	// otherwise we build the label key using the buffer
 	j.buf = j.buf[:0]
@@ -431,7 +432,7 @@ func (u *UnpackParser) unpack(
 		}
 		return true
 	})
-	if it.Error != nil && !errors.Is(it.Error, io.EOF) {
+	if it.Error != nil && it.Error != io.EOF {
 		return nil, it.Error
 	}
 	// flush the buffer if we found a packed entry.

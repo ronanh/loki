@@ -13,7 +13,7 @@ import (
 	"github.com/ronanh/loki/logql"
 )
 
-// NewResultValue constructs a ResultValue from a promql.Value.
+// NewResultValue constructs a ResultValue from a promql.Value
 func NewResultValue(v parser.Value) (loghttp.ResultValue, error) {
 	var err error
 	var value loghttp.ResultValue
@@ -63,7 +63,7 @@ func NewResultValue(v parser.Value) (loghttp.ResultValue, error) {
 	return value, nil
 }
 
-// NewStreams constructs a Streams from a logql.Streams.
+// NewStreams constructs a Streams from a logql.Streams
 func NewStreams(s logql.Streams) (loghttp.Streams, error) {
 	var err error
 	ret := make([]loghttp.Stream, len(s))
@@ -78,7 +78,7 @@ func NewStreams(s logql.Streams) (loghttp.Streams, error) {
 	return ret, nil
 }
 
-// NewStream constructs a Stream from a logproto.Stream.
+// NewStream constructs a Stream from a logproto.Stream
 func NewStream(s logproto.Stream) (loghttp.Stream, error) {
 	labels, err := NewLabelSet(s.Labels)
 	if err != nil {
@@ -97,7 +97,7 @@ func NewStream(s logproto.Stream) (loghttp.Stream, error) {
 	return ret, nil
 }
 
-// NewEntry constructs an Entry from a logproto.Entry.
+// NewEntry constructs an Entry from a logproto.Entry
 func NewEntry(e logproto.Entry) loghttp.Entry {
 	return loghttp.Entry{
 		Timestamp: e.Timestamp,
@@ -112,7 +112,7 @@ func NewScalar(s promql.Scalar) loghttp.Scalar {
 	}
 }
 
-// NewVector constructs a Vector from a promql.Vector.
+// NewVector constructs a Vector from a promql.Vector
 func NewVector(v promql.Vector) loghttp.Vector {
 	ret := make([]model.Sample, len(v))
 
@@ -123,7 +123,7 @@ func NewVector(v promql.Vector) loghttp.Vector {
 	return ret
 }
 
-// NewSample constructs a model.Sample from a promql.Sample.
+// NewSample constructs a model.Sample from a promql.Sample
 func NewSample(s promql.Sample) model.Sample {
 	ret := model.Sample{
 		Value:     model.SampleValue(s.V),
@@ -134,7 +134,7 @@ func NewSample(s promql.Sample) model.Sample {
 	return ret
 }
 
-// NewMatrix constructs a Matrix from a promql.Matrix.
+// NewMatrix constructs a Matrix from a promql.Matrix
 func NewMatrix(m promql.Matrix) loghttp.Matrix {
 	ret := make([]model.SampleStream, len(m))
 
@@ -145,7 +145,7 @@ func NewMatrix(m promql.Matrix) loghttp.Matrix {
 	return ret
 }
 
-// NewSampleStream constructs a model.SampleStream from a promql.Series.
+// NewSampleStream constructs a model.SampleStream from a promql.Series
 func NewSampleStream(s promql.Series) model.SampleStream {
 	ret := model.SampleStream{
 		Metric: NewMetric(s.Metric),
@@ -160,7 +160,7 @@ func NewSampleStream(s promql.Series) model.SampleStream {
 	return ret
 }
 
-// NewMetric constructs a labels.Labels from a model.Metric.
+// NewMetric constructs a labels.Labels from a model.Metric
 func NewMetric(l labels.Labels) model.Metric {
 	ret := make(map[model.LabelName]model.LabelValue)
 

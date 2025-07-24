@@ -2,7 +2,6 @@ package stats
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log"
 	"net"
@@ -73,7 +72,7 @@ func TestCollectTrailer(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = clientStream.Recv()
-	if err != nil && !errors.Is(err, io.EOF) {
+	if err != nil && err != io.EOF {
 		t.Fatal(err)
 	}
 	clientSamples, err := ingClient.QuerySample(
@@ -85,7 +84,7 @@ func TestCollectTrailer(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = clientSamples.Recv()
-	if err != nil && !errors.Is(err, io.EOF) {
+	if err != nil && err != io.EOF {
 		t.Fatal(err)
 	}
 	err = clientSamples.CloseSend()
