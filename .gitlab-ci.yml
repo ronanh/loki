@@ -12,6 +12,7 @@ stages:
   - check
   - test
   - build
+  - deploy
 
 default:
   interruptible: true
