@@ -1,7 +1,7 @@
 include:
   - project: supervision-team/continuous-delivery-automation
     file: templates/trigger-source-code-mirror.yml
-    ref: 0.1.10
+    ref: 0.1.11
   - component: $CI_SERVER_FQDN/components/go/lint@0.7.2
   - component: $CI_SERVER_FQDN/components/go/test@0.7.2
   - component: $CI_SERVER_FQDN/components/go/build@0.7.2
