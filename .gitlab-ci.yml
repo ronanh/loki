@@ -3,9 +3,15 @@ include:
     file: templates/trigger-source-code-mirror.yml
   - component: $CI_SERVER_FQDN/components/go/lint@0.7.2
   - component: $CI_SERVER_FQDN/components/go/test@0.7.2
+    inputs:
+      go_image: golang:${GO_VERSION}
   - component: $CI_SERVER_FQDN/components/go/build@0.7.2
     inputs:
+      go_image: golang:${GO_VERSION}
       binary_directory: ""
+
+variables:
+  GO_VERSION: 1.25
 
 stages:
   - check
