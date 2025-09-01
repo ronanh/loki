@@ -85,7 +85,7 @@ func Match(xs []string) ([][]*labels.Matcher, error) {
 			return nil, err
 		}
 		if len(ms) == 0 {
-			return nil, errors.Errorf("0 matchers in group: %s", x)
+			return nil, fmt.Errorf("0 matchers in group: %s", x)
 		}
 		groups = append(groups, ms)
 	}
@@ -161,7 +161,7 @@ func parseSecondsOrDuration(value string) (time.Duration, error) {
 	if d, err := strconv.ParseFloat(value, 64); err == nil {
 		ts := d * float64(time.Second)
 		if ts > float64(math.MaxInt64) || ts < float64(math.MinInt64) {
-			return 0, errors.Errorf(
+			return 0, fmt.Errorf(
 				"cannot parse %q to a valid duration. It overflows int64",
 				value,
 			)
@@ -171,5 +171,5 @@ func parseSecondsOrDuration(value string) (time.Duration, error) {
 	if d, err := model.ParseDuration(value); err == nil {
 		return time.Duration(d), nil
 	}
-	return 0, errors.Errorf("cannot parse %q to a valid duration", value)
+	return 0, fmt.Errorf("cannot parse %q to a valid duration", value)
 }
