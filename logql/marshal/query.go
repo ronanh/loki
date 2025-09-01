@@ -3,7 +3,6 @@ package marshal
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
@@ -82,7 +81,7 @@ func NewStreams(s logql.Streams) (loghttp.Streams, error) {
 func NewStream(s logproto.Stream) (loghttp.Stream, error) {
 	labels, err := NewLabelSet(s.Labels)
 	if err != nil {
-		return loghttp.Stream{}, errors.Wrapf(err, "err while creating labelset for %s", s.Labels)
+		return loghttp.Stream{}, fmt.Errorf("err while creating labelset for %s: %w", s.Labels, err)
 	}
 
 	ret := loghttp.Stream{

@@ -1,12 +1,12 @@
 package log
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 
@@ -132,7 +132,7 @@ func LabelExtractorWithStages(
 	case ConvertFloat:
 		convFn = convertFloat
 	default:
-		return nil, errors.Errorf("unsupported conversion operation %s", conversion)
+		return nil, fmt.Errorf("unsupported conversion operation %s", conversion)
 	}
 	if len(groups) == 0 || without {
 		without = true

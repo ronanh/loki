@@ -1,6 +1,7 @@
 package loghttp
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -8,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/logproto"

@@ -3,12 +3,12 @@ package logql
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/iter"
@@ -139,7 +139,7 @@ type EntryEvaluator interface {
 // EvaluatorUnsupportedType is a helper for signaling that an evaluator does not support an Expr
 // type
 func EvaluatorUnsupportedType(expr Expr, ev Evaluator) error {
-	return errors.Errorf("unexpected expr type (%T) for Evaluator type (%T) ", expr, ev)
+	return fmt.Errorf("unexpected expr type (%T) for Evaluator type (%T) ", expr, ev)
 }
 
 type DefaultEvaluator struct {
@@ -487,7 +487,7 @@ func vectorAggEvaluator(
 						result.reverseHeap = groupReverseHeap
 					}
 				default:
-					panic(errors.Errorf("expected aggregation operator but got %q", expr.operation))
+					panic(fmt.Errorf("expected aggregation operator but got %q", expr.operation))
 				}
 			}
 		}
@@ -1075,7 +1075,7 @@ func mergeBinOp(
 		}
 
 	default:
-		panic(errors.Errorf("should never happen: unexpected operation: (%s)", op))
+		panic(fmt.Errorf("should never happen: unexpected operation: (%s)", op))
 	}
 
 	res := merger(left, right, out)
