@@ -321,7 +321,7 @@ func TestParse(t *testing.T) {
 		{
 			in: `rate({ foo !~ "bar" }[5minutes])`,
 			err: ParseError{
-				msg:  `not a valid duration string: "5minutes"`,
+				msg:  `unknown unit "minutes" in duration "5minutes"`,
 				line: 0,
 				col:  22,
 			},
