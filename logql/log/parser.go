@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/prometheus/common/model"
+	"github.com/ronanh/loki/model"
 	"github.com/ronanh/loki/logql/log/jsonexpr"
 	"github.com/ronanh/loki/logql/log/logfmt"
 	"github.com/ronanh/loki/pattern"

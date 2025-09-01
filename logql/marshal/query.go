@@ -3,7 +3,8 @@ package marshal
 import (
 	"fmt"
 
-	"github.com/prometheus/common/model"
+	"github.com/ronanh/loki/model"
+	
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"

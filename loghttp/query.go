@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	json "github.com/json-iterator/go"
-	"github.com/prometheus/common/model"
+	"github.com/ronanh/loki/model"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 )

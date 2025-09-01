@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 
-	"github.com/prometheus/common/model"
+	"github.com/ronanh/loki/model"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"

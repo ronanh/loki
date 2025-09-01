@@ -7,7 +7,7 @@ import (
 	"unicode"
 
 	"github.com/dustin/go-humanize"
-	"github.com/prometheus/common/model"
+	"github.com/ronanh/loki/model"
 	"github.com/prometheus/prometheus/util/strutil"
 )
 
