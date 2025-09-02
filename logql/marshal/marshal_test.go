@@ -11,7 +11,6 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/loghttp"
-	legacy "github.com/ronanh/loki/loghttp/legacy"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
 	"github.com/stretchr/testify/require"
@@ -312,54 +311,6 @@ var labelTests = []struct {
 	},
 }
 
-// covers responses from /loki/api/v1/tail
-var tailTests = []struct {
-	actual   legacy.TailResponse
-	expected string
-}{
-	{
-		legacy.TailResponse{
-			Streams: []logproto.Stream{
-				{
-					Entries: []logproto.Entry{
-						{
-							Timestamp: time.Unix(0, 123456789012345),
-							Line:      "super line",
-						},
-					},
-					Labels: "{test=\"test\"}",
-				},
-			},
-			DroppedEntries: []legacy.DroppedEntry{
-				{
-					Timestamp: time.Unix(0, 123456789022345),
-					Labels:    "{test=\"test\"}",
-				},
-			},
-		},
-		`{
-			"streams": [
-				{
-					"stream": {
-						"test": "test"
-					},
-					"values":[
-						[ "123456789012345", "super line" ]
-					]
-				}
-			],
-			"dropped_entries": [
-				{
-					"timestamp": "123456789022345",
-					"labels": {
-						"test": "test"
-					}
-				}
-			]
-		}`,
-	},
-}
-
 func Test_WriteQueryResponseJSON(t *testing.T) {
 	for i, queryTest := range queryTests {
 		var b bytes.Buffer
@@ -377,20 +328,6 @@ func Test_WriteLabelResponseJSON(t *testing.T) {
 		require.NoError(t, err)
 
 		testJSONBytesEqual(t, []byte(labelTest.expected), b.Bytes(), "Label Test %d failed", i)
-	}
-}
-
-func Test_MarshalTailResponse(t *testing.T) {
-	for i, tailTest := range tailTests {
-		// convert logproto to model objects
-		model, err := NewTailResponse(tailTest.actual)
-		require.NoError(t, err)
-
-		// marshal model object
-		bytes, err := json.Marshal(model)
-		require.NoError(t, err)
-
-		testJSONBytesEqual(t, []byte(tailTest.expected), bytes, "Tail Test %d failed", i)
 	}
 }
 
@@ -453,20 +390,6 @@ func Test_LabelResponseMarshalLoop(t *testing.T) {
 			"Label Marshal Loop %d failed",
 			i,
 		)
-	}
-}
-
-func Test_TailResponseMarshalLoop(t *testing.T) {
-	for i, tailTest := range tailTests {
-		var r loghttp.TailResponse
-
-		err := json.Unmarshal([]byte(tailTest.expected), &r)
-		require.NoError(t, err)
-
-		jsonOut, err := json.Marshal(r)
-		require.NoError(t, err)
-
-		testJSONBytesEqual(t, []byte(tailTest.expected), jsonOut, "Tail Marshal Loop %d failed", i)
 	}
 }
 
