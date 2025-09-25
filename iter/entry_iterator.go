@@ -9,15 +9,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/model"
 	"github.com/ronanh/loki/util"
 )
 
 // EntryIterator iterates over entries in time-order.
 type EntryIterator interface {
 	Next() bool
-	Entry() logproto.Entry
+	Entry() model.Entry
 	Labels() string
 	Error() error
 	Close() error
@@ -27,22 +27,22 @@ type noOpIterator struct{}
 
 var NoopIterator = noOpIterator{}
 
-func (noOpIterator) Next() bool              { return false }
-func (noOpIterator) Error() error            { return nil }
-func (noOpIterator) Labels() string          { return "" }
-func (noOpIterator) Entry() logproto.Entry   { return logproto.Entry{} }
-func (noOpIterator) Sample() logproto.Sample { return logproto.Sample{} }
-func (noOpIterator) Close() error            { return nil }
+func (noOpIterator) Next() bool           { return false }
+func (noOpIterator) Error() error         { return nil }
+func (noOpIterator) Labels() string       { return "" }
+func (noOpIterator) Entry() model.Entry   { return model.Entry{} }
+func (noOpIterator) Sample() model.Sample { return model.Sample{} }
+func (noOpIterator) Close() error         { return nil }
 
 // streamIterator iterates over entries in a stream.
 type streamIterator struct {
 	i       int
-	entries []logproto.Entry
+	entries []model.Entry
 	labels  string
 }
 
 // NewStreamIterator iterates over entries in a stream.
-func NewStreamIterator(stream logproto.Stream) EntryIterator {
+func NewStreamIterator(stream model.Stream) EntryIterator {
 	return &streamIterator{
 		i:       -1,
 		entries: stream.Entries,
@@ -63,7 +63,7 @@ func (i *streamIterator) Labels() string {
 	return i.labels
 }
 
-func (i *streamIterator) Entry() logproto.Entry {
+func (i *streamIterator) Entry() model.Entry {
 	return i.entries[i.i]
 }
 
@@ -150,7 +150,7 @@ type heapIterator struct {
 	stats      *stats.ChunkData
 
 	tuples     []tuple
-	currEntry  logproto.Entry
+	currEntry  model.Entry
 	currLabels string
 	errs       []error
 }
@@ -160,13 +160,13 @@ type heapIterator struct {
 func NewHeapIteratorLoki(
 	ctx context.Context,
 	is []EntryIterator,
-	direction logproto.Direction,
+	direction model.Direction,
 ) HeapIterator {
 	result := &heapIterator{is: is, stats: stats.GetChunkData(ctx)}
 	switch direction {
-	case logproto.BACKWARD:
+	case model.BACKWARD:
 		result.heap = &iteratorMaxHeap{}
-	case logproto.FORWARD:
+	case model.FORWARD:
 		result.heap = &iteratorMinHeap{}
 	default:
 		panic("bad direction")
@@ -219,7 +219,7 @@ func (i *heapIterator) Push(ei EntryIterator) {
 }
 
 type tuple struct {
-	logproto.Entry
+	model.Entry
 	EntryIterator
 }
 
@@ -281,7 +281,7 @@ func (i *heapIterator) Next() bool {
 	return true
 }
 
-func (i *heapIterator) Entry() logproto.Entry {
+func (i *heapIterator) Entry() model.Entry {
 	return i.currEntry
 }
 
@@ -327,7 +327,7 @@ type mergingIterator struct {
 	stats     *stats.ChunkData
 	ctx       context.Context
 	its       []EntryIterator
-	curEntry  logproto.Entry
+	curEntry  model.Entry
 	curLabels string
 	reversed  bool
 	err       error
@@ -341,7 +341,7 @@ var (
 func NewHeapIterator(
 	ctx context.Context,
 	is []EntryIterator,
-	direction logproto.Direction,
+	direction model.Direction,
 ) HeapIterator {
 	return NewMergingIterator(ctx, is, direction)
 }
@@ -349,7 +349,7 @@ func NewHeapIterator(
 func NewMergingIterator(
 	ctx context.Context,
 	its []EntryIterator,
-	direction logproto.Direction,
+	direction model.Direction,
 ) HeapIterator {
 	startedIts := make([]EntryIterator, 0, len(its))
 	var err error
@@ -365,7 +365,7 @@ func NewMergingIterator(
 		stats:    stats.GetChunkData(ctx),
 		ctx:      ctx,
 		its:      startedIts,
-		reversed: direction == logproto.BACKWARD,
+		reversed: direction == model.BACKWARD,
 		err:      err,
 	}
 	sort.Slice(mi.its, mi.less)
@@ -413,7 +413,7 @@ func (mi *mergingIterator) Peek() time.Time {
 	return mi.its[0].Entry().Timestamp
 }
 
-func (mi *mergingIterator) Entry() logproto.Entry {
+func (mi *mergingIterator) Entry() model.Entry {
 	return mi.curEntry
 }
 
@@ -514,8 +514,8 @@ func (mi *mergingIterator) dedup() bool {
 // NewStreamsIterator returns an iterator over logproto.Stream
 func NewStreamsIterator(
 	ctx context.Context,
-	streams []logproto.Stream,
-	direction logproto.Direction,
+	streams []model.Stream,
+	direction model.Direction,
 ) EntryIterator {
 	is := make([]EntryIterator, 0, len(streams))
 	for i := range streams {
@@ -527,8 +527,8 @@ func NewStreamsIterator(
 // NewQueryResponseIterator returns an iterator over a QueryResponse.
 func NewQueryResponseIterator(
 	ctx context.Context,
-	resp *logproto.QueryResponse,
-	direction logproto.Direction,
+	resp *model.QueryResponse,
+	direction model.Direction,
 ) EntryIterator {
 	is := make([]EntryIterator, 0, len(resp.Streams))
 	for i := range resp.Streams {
@@ -538,16 +538,16 @@ func NewQueryResponseIterator(
 }
 
 type queryClientIterator struct {
-	client    logproto.Querier_QueryClient
-	direction logproto.Direction
+	client    model.Querier_QueryClient
+	direction model.Direction
 	err       error
 	curr      EntryIterator
 }
 
 // NewQueryClientIterator returns an iterator over a QueryClient.
 func NewQueryClientIterator(
-	client logproto.Querier_QueryClient,
-	direction logproto.Direction,
+	client model.Querier_QueryClient,
+	direction model.Direction,
 ) EntryIterator {
 	return &queryClientIterator{
 		client:    client,
@@ -571,7 +571,7 @@ func (i *queryClientIterator) Next() bool {
 	return true
 }
 
-func (i *queryClientIterator) Entry() logproto.Entry {
+func (i *queryClientIterator) Entry() model.Entry {
 	return i.curr.Entry()
 }
 
@@ -620,7 +620,7 @@ func (i *nonOverlappingIterator) Next() bool {
 	return true
 }
 
-func (i *nonOverlappingIterator) Entry() logproto.Entry {
+func (i *nonOverlappingIterator) Entry() model.Entry {
 	return i.curr.Entry()
 }
 
@@ -691,7 +691,7 @@ func (i *timeRangedIterator) Next() bool {
 }
 
 type entryWithLabels struct {
-	entry  logproto.Entry
+	entry  model.Entry
 	labels string
 }
 
@@ -748,7 +748,7 @@ func (i *reverseIterator) Next() bool {
 	return true
 }
 
-func (i *reverseIterator) Entry() logproto.Entry {
+func (i *reverseIterator) Entry() model.Entry {
 	return i.cur.entry
 }
 
@@ -820,7 +820,7 @@ func (i *reverseEntryIterator) Next() bool {
 	return true
 }
 
-func (i *reverseEntryIterator) Entry() logproto.Entry {
+func (i *reverseEntryIterator) Entry() model.Entry {
 	return i.cur.entry
 }
 
@@ -843,14 +843,14 @@ func (i *reverseEntryIterator) Close() error {
 }
 
 // ReadBatch reads a set of entries off an iterator.
-func ReadBatch(i EntryIterator, size uint32) (*logproto.QueryResponse, uint32, error) {
-	streams := map[string]*logproto.Stream{}
+func ReadBatch(i EntryIterator, size uint32) (*model.QueryResponse, uint32, error) {
+	streams := map[string]*model.Stream{}
 	respSize := uint32(0)
 	for ; respSize < size && i.Next(); respSize++ {
 		labels, entry := i.Labels(), i.Entry()
 		stream, ok := streams[labels]
 		if !ok {
-			stream = &logproto.Stream{
+			stream = &model.Stream{
 				Labels: labels,
 			}
 			streams[labels] = stream
@@ -858,8 +858,8 @@ func ReadBatch(i EntryIterator, size uint32) (*logproto.QueryResponse, uint32, e
 		stream.Entries = append(stream.Entries, entry)
 	}
 
-	result := logproto.QueryResponse{
-		Streams: make([]logproto.Stream, 0, len(streams)),
+	result := model.QueryResponse{
+		Streams: make([]model.Stream, 0, len(streams)),
 	}
 	for _, stream := range streams {
 		result.Streams = append(result.Streams, *stream)
@@ -878,7 +878,7 @@ type peekingEntryIterator struct {
 // using `Peek` without advancing its cursor.
 type PeekingEntryIterator interface {
 	EntryIterator
-	Peek() (string, logproto.Entry, bool)
+	Peek() (string, model.Entry, bool)
 }
 
 // NewPeekingIterator creates a new peeking iterator.
@@ -924,11 +924,11 @@ func (it *peekingEntryIterator) cacheNext() {
 }
 
 // Peek implements `PeekingEntryIterator`
-func (it *peekingEntryIterator) Peek() (string, logproto.Entry, bool) {
+func (it *peekingEntryIterator) Peek() (string, model.Entry, bool) {
 	if it.cache != nil {
 		return it.cache.labels, it.cache.entry, true
 	}
-	return "", logproto.Entry{}, false
+	return "", model.Entry{}, false
 }
 
 // Labels implements `EntryIterator`
@@ -940,11 +940,11 @@ func (it *peekingEntryIterator) Labels() string {
 }
 
 // Entry implements `EntryIterator`
-func (it *peekingEntryIterator) Entry() logproto.Entry {
+func (it *peekingEntryIterator) Entry() model.Entry {
 	if it.next != nil {
 		return it.next.entry
 	}
-	return logproto.Entry{}
+	return model.Entry{}
 }
 
 // Error implements `EntryIterator`

@@ -13,6 +13,7 @@ import (
 	"github.com/ronanh/loki/loghttp"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +24,8 @@ var queryTests = []struct {
 }{
 	{
 		logql.Streams{
-			logproto.Stream{
-				Entries: []logproto.Entry{
+			model.Stream{
+				Entries: []model.Entry{
 					{
 						Timestamp: time.Unix(0, 123456789012345),
 						Line:      "super line",
@@ -296,11 +297,11 @@ var queryTests = []struct {
 
 // covers responses from /loki/api/v1/labels and /loki/api/v1/label/{name}/values
 var labelTests = []struct {
-	actual   logproto.LabelResponse
+	actual   model.LabelResponse
 	expected string
 }{
 	{
-		logproto.LabelResponse{
+		model.LabelResponse{
 			Values: []string{
 				"label1",
 				"test",
@@ -395,12 +396,12 @@ func Test_LabelResponseMarshalLoop(t *testing.T) {
 
 func Test_WriteSeriesResponseJSON(t *testing.T) {
 	for i, tc := range []struct {
-		input    logproto.SeriesResponse
+		input    model.SeriesResponse
 		expected string
 	}{
 		{
-			logproto.SeriesResponse{
-				Series: []logproto.SeriesIdentifier{
+			model.SeriesResponse{
+				Series: []model.SeriesIdentifier{
 					{
 						Labels: map[string]string{
 							"a": "1",
@@ -449,7 +450,7 @@ func testJSONBytesEqual(
 func Benchmark_Encode(b *testing.B) {
 	buf := bytes.NewBuffer(nil)
 
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		for _, queryTest := range queryTests {
 			require.NoError(b, WriteQueryResponseJSON(logql.Result{Data: queryTest.actual}, buf))
 		}

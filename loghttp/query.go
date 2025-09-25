@@ -9,8 +9,8 @@ import (
 
 	json "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	model1 "github.com/ronanh/loki/model"
 )
 
 var (
@@ -77,14 +77,14 @@ func (Matrix) Type() ResultType { return ResultTypeMatrix }
 // Streams is a slice of Stream
 type Streams []Stream
 
-func (s Streams) ToProto() []logproto.Stream {
+func (s Streams) ToProto() []model1.Stream {
 	if len(s) == 0 {
 		return nil
 	}
-	result := make([]logproto.Stream, 0, len(s))
+	result := make([]model1.Stream, 0, len(s))
 	for _, s := range s {
-		entries := *(*[]logproto.Entry)(unsafe.Pointer(&s.Entries))
-		result = append(result, logproto.Stream{Labels: s.Labels.String(), Entries: entries})
+		entries := *(*[]model1.Entry)(unsafe.Pointer(&s.Entries))
+		result = append(result, model1.Stream{Labels: s.Labels.String(), Entries: entries})
 	}
 	return result
 }
@@ -170,7 +170,7 @@ type InstantQuery struct {
 	Query     string
 	Ts        time.Time
 	Limit     uint32
-	Direction logproto.Direction
+	Direction model1.Direction
 }
 
 // ParseInstantQuery parses an InstantQuery request from an http request.
@@ -204,7 +204,7 @@ type RangeQuery struct {
 	Step      time.Duration
 	Interval  time.Duration
 	Query     string
-	Direction logproto.Direction
+	Direction model1.Direction
 	Limit     uint32
 	Shards    []string
 }

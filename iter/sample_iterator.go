@@ -7,8 +7,8 @@ import (
 	"sort"
 
 	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/model"
 	"github.com/ronanh/loki/util"
 )
 
@@ -17,7 +17,7 @@ type SampleIterator interface {
 	Next() bool
 	// todo(ctovena) we should add `Seek(t int64) bool`
 	// This way we can skip when ranging over samples.
-	Sample() logproto.Sample
+	Sample() model.Sample
 	Labels() string
 	Error() error
 	Close() error
@@ -39,7 +39,7 @@ type PeekPromLabels interface {
 // sample.
 type PeekingSampleIterator interface {
 	SampleIterator
-	Peek() (string, logproto.Sample, bool)
+	Peek() (string, model.Sample, bool)
 }
 
 type mergingSampleIterator struct {
@@ -48,10 +48,10 @@ type mergingSampleIterator struct {
 	iActiveIts []int
 	its        []struct {
 		SampleIterator
-		*logproto.Sample
+		*model.Sample
 		labels string
 	}
-	curSample logproto.Sample
+	curSample model.Sample
 	curLabels string
 	errs      []error
 }
@@ -75,10 +75,10 @@ func NewPeekingSampleIterator(iter SampleIterator) PeekingSampleIterator {
 func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) PeekingSampleIterator {
 	startedIts := make([]struct {
 		SampleIterator
-		*logproto.Sample
+		*model.Sample
 		labels string
 	}, 0, len(its))
-	startedItsSamples := make([]logproto.Sample, 0, len(its))
+	startedItsSamples := make([]model.Sample, 0, len(its))
 	iActiveIts := make([]int, 0, len(its))
 	var errs []error
 	for _, it := range its {
@@ -90,7 +90,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 			startedItsSamples = append(startedItsSamples, it.Sample())
 			startedIts = append(startedIts, struct {
 				SampleIterator
-				*logproto.Sample
+				*model.Sample
 				labels string
 			}{it, &startedItsSamples[len(startedItsSamples)-1], it.Labels()})
 			iActiveIts = append(iActiveIts, len(startedIts)-1)
@@ -141,15 +141,15 @@ func (mi *mergingSampleIterator) Error() error {
 	}
 }
 
-func (mi *mergingSampleIterator) Peek() (string, logproto.Sample, bool) {
+func (mi *mergingSampleIterator) Peek() (string, model.Sample, bool) {
 	if len(mi.iActiveIts) == 0 {
-		return "", logproto.Sample{}, false
+		return "", model.Sample{}, false
 	}
 	mits := &mi.its[mi.iActiveIts[0]]
 	return mits.labels, *mits.Sample, true
 }
 
-func (mi *mergingSampleIterator) Sample() logproto.Sample {
+func (mi *mergingSampleIterator) Sample() model.Sample {
 	return mi.curSample
 }
 
@@ -190,7 +190,7 @@ func (mi *mergingSampleIterator) less(i, j int) bool {
 
 func (mi *mergingSampleIterator) Next() bool {
 	if len(mi.iActiveIts) == 0 {
-		mi.curSample, mi.curLabels = logproto.Sample{}, ""
+		mi.curSample, mi.curLabels = model.Sample{}, ""
 		return false
 	}
 	mi.dedup()
@@ -350,7 +350,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 	}
 	mi.iActiveIts = mi.iActiveIts[:j]
 	if len(mi.iActiveIts) == 0 {
-		mi.curSample, mi.curLabels = logproto.Sample{}, ""
+		mi.curSample, mi.curLabels = model.Sample{}, ""
 		return false
 	}
 	if needSort {
@@ -370,7 +370,7 @@ type sampleQueryClientIterator struct {
 
 // QuerySampleClient is GRPC stream client with only method used by the SampleQueryClientIterator
 type QuerySampleClient interface {
-	Recv() (*logproto.SampleQueryResponse, error)
+	Recv() (*model.SampleQueryResponse, error)
 	Context() context.Context
 	CloseSend() error
 }
@@ -398,7 +398,7 @@ func (i *sampleQueryClientIterator) Next() bool {
 	return true
 }
 
-func (i *sampleQueryClientIterator) Sample() logproto.Sample {
+func (i *sampleQueryClientIterator) Sample() model.Sample {
 	return i.curr.Sample()
 }
 
@@ -417,19 +417,19 @@ func (i *sampleQueryClientIterator) Close() error {
 // NewSampleQueryResponseIterator returns an iterator over a SampleQueryResponse.
 func NewSampleQueryResponseIterator(
 	ctx context.Context,
-	resp *logproto.SampleQueryResponse,
+	resp *model.SampleQueryResponse,
 ) SampleIterator {
 	return NewMultiSeriesIterator(ctx, resp.Series)
 }
 
 type seriesIterator struct {
 	i       int
-	samples []logproto.Sample
+	samples []model.Sample
 	labels  string
 }
 
 // NewMultiSeriesIterator returns an iterator over multiple logproto.Series
-func NewMultiSeriesIterator(ctx context.Context, series []logproto.Series) SampleIterator {
+func NewMultiSeriesIterator(ctx context.Context, series []model.Series) SampleIterator {
 	is := make([]SampleIterator, 0, len(series))
 	for i := range series {
 		is = append(is, NewSeriesIterator(series[i]))
@@ -438,7 +438,7 @@ func NewMultiSeriesIterator(ctx context.Context, series []logproto.Series) Sampl
 }
 
 // NewSeriesIterator iterates over sample in a series.
-func NewSeriesIterator(series logproto.Series) SampleIterator {
+func NewSeriesIterator(series model.Series) SampleIterator {
 	return &seriesIterator{
 		i:       -1,
 		samples: series.Samples,
@@ -459,7 +459,7 @@ func (i *seriesIterator) Labels() string {
 	return i.labels
 }
 
-func (i *seriesIterator) Sample() logproto.Sample {
+func (i *seriesIterator) Sample() model.Sample {
 	return i.samples[i.i]
 }
 
@@ -500,7 +500,7 @@ func (i *nonOverlappingSampleIterator) Next() bool {
 	return true
 }
 
-func (i *nonOverlappingSampleIterator) Sample() logproto.Sample {
+func (i *nonOverlappingSampleIterator) Sample() model.Sample {
 	return i.curr.Sample()
 }
 
@@ -570,14 +570,14 @@ func (i *timeRangedSampleIterator) Next() bool {
 }
 
 // ReadBatch reads a set of entries off an iterator.
-func ReadSampleBatch(i SampleIterator, size uint32) (*logproto.SampleQueryResponse, uint32, error) {
-	series := map[string]*logproto.Series{}
+func ReadSampleBatch(i SampleIterator, size uint32) (*model.SampleQueryResponse, uint32, error) {
+	series := map[string]*model.Series{}
 	respSize := uint32(0)
 	for ; respSize < size && i.Next(); respSize++ {
 		labels, sample := i.Labels(), i.Sample()
 		s, ok := series[labels]
 		if !ok {
-			s = &logproto.Series{
+			s = &model.Series{
 				Labels: labels,
 			}
 			series[labels] = s
@@ -585,8 +585,8 @@ func ReadSampleBatch(i SampleIterator, size uint32) (*logproto.SampleQueryRespon
 		s.Samples = append(s.Samples, sample)
 	}
 
-	result := logproto.SampleQueryResponse{
-		Series: make([]logproto.Series, 0, len(series)),
+	result := model.SampleQueryResponse{
+		Series: make([]model.Series, 0, len(series)),
 	}
 	for _, s := range series {
 		result.Series = append(result.Series, *s)

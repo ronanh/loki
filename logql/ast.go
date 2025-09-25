@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
+	model1 "github.com/ronanh/loki/model"
 )
 
 // Expr is the root expression which can be a SampleExpr or LogSelectorExpr
@@ -40,7 +40,7 @@ func (implicit) logQLExpr() {}
 
 // SelectParams specifies parameters passed to data selections.
 type SelectLogParams struct {
-	*logproto.QueryRequest
+	*model1.QueryRequest
 }
 
 // LogSelector returns the LogSelectorExpr from the SelectParams.
@@ -50,7 +50,7 @@ func (s SelectLogParams) LogSelector() (LogSelectorExpr, error) {
 }
 
 type SelectSampleParams struct {
-	*logproto.SampleQueryRequest
+	*model1.SampleQueryRequest
 }
 
 // Expr returns the SampleExpr from the SelectSampleParams.

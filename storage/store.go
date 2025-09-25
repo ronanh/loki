@@ -6,8 +6,8 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	model1 "github.com/ronanh/loki/model"
 )
 
 // Store is the Loki chunk store to retrieve and save chunks.
@@ -30,5 +30,5 @@ type Store interface {
 
 	SelectSamples(ctx context.Context, req logql.SelectSampleParams) (iter.SampleIterator, error)
 	SelectLogs(ctx context.Context, req logql.SelectLogParams) (iter.EntryIterator, error)
-	GetSeries(ctx context.Context, req logql.SelectLogParams) ([]logproto.SeriesIdentifier, error)
+	GetSeries(ctx context.Context, req logql.SelectLogParams) ([]model1.SeriesIdentifier, error)
 }

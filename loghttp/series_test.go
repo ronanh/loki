@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +14,7 @@ func TestParseSeriesQuery(t *testing.T) {
 		desc      string
 		input     *http.Request
 		shouldErr bool
-		expected  *logproto.SeriesRequest
+		expected  *model.SeriesRequest
 	}{
 		{
 			"no match",
@@ -103,7 +103,7 @@ func withForm(form url.Values) *http.Request {
 }
 
 // nolint
-func mkSeriesRequest(t *testing.T, from, to string, matches []string) *logproto.SeriesRequest {
+func mkSeriesRequest(t *testing.T, from, to string, matches []string) *model.SeriesRequest {
 	start, end, err := bounds(withForm(url.Values{
 		"start": []string{from},
 		"end":   []string{to},
@@ -111,7 +111,7 @@ func mkSeriesRequest(t *testing.T, from, to string, matches []string) *logproto.
 	require.Nil(t, err)
 
 	require.Nil(t, err)
-	return &logproto.SeriesRequest{
+	return &model.SeriesRequest{
 		Start:  start,
 		End:    end,
 		Groups: matches,

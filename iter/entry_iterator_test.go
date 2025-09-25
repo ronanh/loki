@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +46,7 @@ func TestIterator(t *testing.T) {
 				mkStreamIterator(offset(0, identity), defaultLabels),
 				mkStreamIterator(offset(testSize/2, identity), defaultLabels),
 				mkStreamIterator(offset(testSize, identity), defaultLabels),
-			}, logproto.FORWARD),
+			}, model.FORWARD),
 			generator: identity,
 			length:    2 * testSize,
 			labels:    defaultLabels,
@@ -58,7 +58,7 @@ func TestIterator(t *testing.T) {
 				mkStreamIterator(inverse(offset(0, identity)), defaultLabels),
 				mkStreamIterator(inverse(offset(-testSize/2, identity)), defaultLabels),
 				mkStreamIterator(inverse(offset(-testSize, identity)), defaultLabels),
-			}, logproto.BACKWARD),
+			}, model.BACKWARD),
 			generator: inverse(identity),
 			length:    2 * testSize,
 			labels:    defaultLabels,
@@ -111,8 +111,8 @@ func TestIteratorMultipleLabels(t *testing.T) {
 			iterator: NewHeapIterator(context.Background(), []EntryIterator{
 				mkStreamIterator(identity, "{foobar: \"baz1\"}"),
 				mkStreamIterator(identity, "{foobar: \"baz2\"}"),
-			}, logproto.FORWARD),
-			generator: func(i int64) logproto.Entry {
+			}, model.FORWARD),
+			generator: func(i int64) model.Entry {
 				return identity(i / 2)
 			},
 			length: testSize * 2,
@@ -129,8 +129,8 @@ func TestIteratorMultipleLabels(t *testing.T) {
 			iterator: NewHeapIterator(context.Background(), []EntryIterator{
 				mkStreamIterator(constant(0), "{foobar: \"baz1\"}"),
 				mkStreamIterator(constant(0), "{foobar: \"baz2\"}"),
-			}, logproto.FORWARD),
-			generator: func(i int64) logproto.Entry {
+			}, model.FORWARD),
+			generator: func(i int64) model.Entry {
 				return constant(0)(i % testSize)
 			},
 			length: testSize * 2,
@@ -170,7 +170,7 @@ func TestHeapIteratorPrefetch(t *testing.T) {
 		},
 		"prefetch on Next() when called as first method": func(t *testing.T, i HeapIterator) {
 			assert.True(t, i.Next())
-			assert.Equal(t, logproto.Entry{Timestamp: time.Unix(0, 0), Line: "0"}, i.Entry())
+			assert.Equal(t, model.Entry{Timestamp: time.Unix(0, 0), Line: "0"}, i.Entry())
 		},
 	}
 
@@ -182,43 +182,43 @@ func TestHeapIteratorPrefetch(t *testing.T) {
 			i := NewHeapIterator(context.Background(), []EntryIterator{
 				mkStreamIterator(identity, "{foobar: \"baz1\"}"),
 				mkStreamIterator(identity, "{foobar: \"baz2\"}"),
-			}, logproto.FORWARD)
+			}, model.FORWARD)
 
 			testFunc(t, i)
 		})
 	}
 }
 
-type generator func(i int64) logproto.Entry
+type generator func(i int64) model.Entry
 
 func mkStreamIterator(f generator, labels string) EntryIterator {
-	entries := []logproto.Entry{}
+	entries := []model.Entry{}
 	for i := range int64(testSize) {
 		entries = append(entries, f(i))
 	}
-	return NewStreamIterator(logproto.Stream{
+	return NewStreamIterator(model.Stream{
 		Entries: entries,
 		Labels:  labels,
 	})
 }
 
-func identity(i int64) logproto.Entry {
-	return logproto.Entry{
+func identity(i int64) model.Entry {
+	return model.Entry{
 		Timestamp: time.Unix(i, 0),
 		Line:      fmt.Sprintf("%d", i),
 	}
 }
 
 func offset(j int64, g generator) generator {
-	return func(i int64) logproto.Entry {
+	return func(i int64) model.Entry {
 		return g(i + j)
 	}
 }
 
 // nolint
 func constant(t int64) generator {
-	return func(i int64) logproto.Entry {
-		return logproto.Entry{
+	return func(i int64) model.Entry {
+		return model.Entry{
 			Timestamp: time.Unix(t, 0),
 			Line:      fmt.Sprintf("%d", i),
 		}
@@ -226,23 +226,23 @@ func constant(t int64) generator {
 }
 
 func inverse(g generator) generator {
-	return func(i int64) logproto.Entry {
+	return func(i int64) model.Entry {
 		return g(-i)
 	}
 }
 
 func TestHeapIteratorDeduplication(t *testing.T) {
-	foo := logproto.Stream{
+	foo := model.Stream{
 		Labels: `{app="foo"}`,
-		Entries: []logproto.Entry{
+		Entries: []model.Entry{
 			{Timestamp: time.Unix(0, 1), Line: "1"},
 			{Timestamp: time.Unix(0, 2), Line: "2"},
 			{Timestamp: time.Unix(0, 3), Line: "3"},
 		},
 	}
-	bar := logproto.Stream{
+	bar := model.Stream{
 		Labels: `{app="bar"}`,
-		Entries: []logproto.Entry{
+		Entries: []model.Entry{
 			{Timestamp: time.Unix(0, 1), Line: "1"},
 			{Timestamp: time.Unix(0, 2), Line: "2"},
 			{Timestamp: time.Unix(0, 3), Line: "3"},
@@ -277,7 +277,7 @@ func TestHeapIteratorDeduplication(t *testing.T) {
 		NewStreamIterator(foo),
 		NewStreamIterator(bar),
 		NewStreamIterator(foo),
-	}, logproto.FORWARD)
+	}, model.FORWARD)
 	assertIt(it, false, len(foo.Entries))
 
 	// backward iteration
@@ -289,7 +289,7 @@ func TestHeapIteratorDeduplication(t *testing.T) {
 		mustReverseStreamIterator(NewStreamIterator(foo)),
 		mustReverseStreamIterator(NewStreamIterator(bar)),
 		mustReverseStreamIterator(NewStreamIterator(foo)),
-	}, logproto.BACKWARD)
+	}, model.BACKWARD)
 	assertIt(it, true, len(foo.Entries))
 }
 
@@ -308,7 +308,7 @@ func TestReverseIterator(t *testing.T) {
 	heapIterator := NewHeapIterator(
 		context.Background(),
 		[]EntryIterator{itr1, itr2},
-		logproto.BACKWARD,
+		model.BACKWARD,
 	)
 	reversedIter, err := NewReversedIter(heapIterator, testSize, false)
 	require.NoError(t, err)
@@ -351,7 +351,7 @@ func TestReverseEntryIteratorUnlimited(t *testing.T) {
 	heapIterator := NewHeapIterator(
 		context.Background(),
 		[]EntryIterator{itr1, itr2},
-		logproto.BACKWARD,
+		model.BACKWARD,
 	)
 	reversedIter, err := NewReversedIter(heapIterator, 0, false)
 	require.NoError(t, err)
@@ -366,8 +366,8 @@ func TestReverseEntryIteratorUnlimited(t *testing.T) {
 }
 
 func Test_PeekingIterator(t *testing.T) {
-	iter := NewPeekingIterator(NewStreamIterator(logproto.Stream{
-		Entries: []logproto.Entry{
+	iter := NewPeekingIterator(NewStreamIterator(model.Stream{
+		Entries: []model.Entry{
 			{
 				Timestamp: time.Unix(0, 1),
 			},
@@ -429,8 +429,8 @@ func Test_PeekingIterator(t *testing.T) {
 }
 
 func Test_DuplicateCount(t *testing.T) {
-	stream := logproto.Stream{
-		Entries: []logproto.Entry{
+	stream := model.Stream{
+		Entries: []model.Entry{
 			{
 				Timestamp: time.Unix(0, 1),
 				Line:      "foo",
@@ -449,19 +449,19 @@ func Test_DuplicateCount(t *testing.T) {
 	for _, test := range []struct {
 		name               string
 		iters              []EntryIterator
-		direction          logproto.Direction
+		direction          model.Direction
 		expectedDuplicates int64
 	}{
 		{
 			"empty b",
 			[]EntryIterator{},
-			logproto.BACKWARD,
+			model.BACKWARD,
 			0,
 		},
 		{
 			"empty f",
 			[]EntryIterator{},
-			logproto.FORWARD,
+			model.FORWARD,
 			0,
 		},
 		{
@@ -470,7 +470,7 @@ func Test_DuplicateCount(t *testing.T) {
 				NewStreamIterator(stream),
 				NewStreamIterator(stream),
 			},
-			logproto.BACKWARD,
+			model.BACKWARD,
 			3,
 		},
 		{
@@ -479,7 +479,7 @@ func Test_DuplicateCount(t *testing.T) {
 				NewStreamIterator(stream),
 				NewStreamIterator(stream),
 			},
-			logproto.FORWARD,
+			model.FORWARD,
 			3,
 		},
 		{
@@ -488,8 +488,8 @@ func Test_DuplicateCount(t *testing.T) {
 				NewStreamIterator(stream),
 				NewStreamIterator(stream),
 				NewStreamIterator(stream),
-				NewStreamIterator(logproto.Stream{
-					Entries: []logproto.Entry{
+				NewStreamIterator(model.Stream{
+					Entries: []model.Entry{
 						{
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
@@ -497,7 +497,7 @@ func Test_DuplicateCount(t *testing.T) {
 					},
 				}),
 			},
-			logproto.FORWARD,
+			model.FORWARD,
 			6,
 		},
 		{
@@ -506,8 +506,8 @@ func Test_DuplicateCount(t *testing.T) {
 				NewStreamIterator(stream),
 				NewStreamIterator(stream),
 				NewStreamIterator(stream),
-				NewStreamIterator(logproto.Stream{
-					Entries: []logproto.Entry{
+				NewStreamIterator(model.Stream{
+					Entries: []model.Entry{
 						{
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
@@ -515,14 +515,14 @@ func Test_DuplicateCount(t *testing.T) {
 					},
 				}),
 			},
-			logproto.BACKWARD,
+			model.BACKWARD,
 			6,
 		},
 		{
 			"single f",
 			[]EntryIterator{
-				NewStreamIterator(logproto.Stream{
-					Entries: []logproto.Entry{
+				NewStreamIterator(model.Stream{
+					Entries: []model.Entry{
 						{
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
@@ -530,14 +530,14 @@ func Test_DuplicateCount(t *testing.T) {
 					},
 				}),
 			},
-			logproto.FORWARD,
+			model.FORWARD,
 			0,
 		},
 		{
 			"single b",
 			[]EntryIterator{
-				NewStreamIterator(logproto.Stream{
-					Entries: []logproto.Entry{
+				NewStreamIterator(model.Stream{
+					Entries: []model.Entry{
 						{
 							Timestamp: time.Unix(0, 4),
 							Line:      "bar",
@@ -545,7 +545,7 @@ func Test_DuplicateCount(t *testing.T) {
 					},
 				}),
 			},
-			logproto.BACKWARD,
+			model.BACKWARD,
 			0,
 		},
 	} {
@@ -583,7 +583,7 @@ func Test_timeRangedIterator_Next(t *testing.T) {
 			func(t *testing.T) {
 				it := NewTimeRangedIterator(
 					NewStreamIterator(
-						logproto.Stream{Entries: []logproto.Entry{
+						model.Stream{Entries: []model.Entry{
 							{Timestamp: time.Unix(0, 1)},
 							{Timestamp: time.Unix(0, 2)},
 							{Timestamp: time.Unix(0, 3)},
@@ -602,7 +602,7 @@ func Test_timeRangedIterator_Next(t *testing.T) {
 			func(t *testing.T) {
 				it := NewTimeRangedSampleIterator(
 					NewSeriesIterator(
-						logproto.Series{Samples: []logproto.Sample{
+						model.Series{Samples: []model.Sample{
 							sample(1),
 							sample(2),
 							sample(3),

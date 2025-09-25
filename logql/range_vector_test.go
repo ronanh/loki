@@ -9,11 +9,11 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
-var samples = []logproto.Sample{
+var samples = []model.Sample{
 	{Timestamp: time.Unix(2, 0).UnixNano(), Hash: 1, Value: 1.},
 	{Timestamp: time.Unix(5, 0).UnixNano(), Hash: 2, Value: 1.},
 	{Timestamp: time.Unix(6, 0).UnixNano(), Hash: 3, Value: 1.},
@@ -34,11 +34,11 @@ var (
 
 func newSampleIterator() iter.SampleIterator {
 	return iter.NewHeapSampleIterator(context.Background(), []iter.SampleIterator{
-		iter.NewSeriesIterator(logproto.Series{
+		iter.NewSeriesIterator(model.Series{
 			Labels:  labelFoo.String(),
 			Samples: samples,
 		}),
-		iter.NewSeriesIterator(logproto.Series{
+		iter.NewSeriesIterator(model.Series{
 			Labels:  labelBar.String(),
 			Samples: samples,
 		}),
@@ -167,7 +167,7 @@ func Test_RangeVectorIterator(t *testing.T) {
 
 func Test_RangeVectorIteratorBadLabels(t *testing.T) {
 	badIterator := iter.NewPeekingSampleIterator(
-		iter.NewSeriesIterator(logproto.Series{
+		iter.NewSeriesIterator(model.Series{
 			Labels:  "{badlabels=}",
 			Samples: samples,
 		}))

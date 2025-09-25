@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 )
 
 // LabelResponse represents the http json response to a label query
@@ -50,9 +50,9 @@ func (l LabelSet) String() string {
 }
 
 // ParseLabelQuery parses a LabelRequest request from an http request.
-func ParseLabelQuery(r *http.Request) (*logproto.LabelRequest, error) {
+func ParseLabelQuery(r *http.Request) (*model.LabelRequest, error) {
 	name, ok := mux.Vars(r)["name"]
-	req := &logproto.LabelRequest{
+	req := &model.LabelRequest{
 		Values: ok,
 		Name:   name,
 	}

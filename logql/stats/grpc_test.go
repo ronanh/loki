@@ -7,7 +7,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -55,19 +55,19 @@ func TestCollectTrailer(t *testing.T) {
 		GetChunkData(ingCtx).TotalDuplicates++
 		return nil
 	})
-	logproto.RegisterQuerierServer(server, ing)
+	model.RegisterQuerierServer(server, ing)
 	go func() {
 		if err := server.Serve(lis); err != nil {
 			log.Fatalf("Server exited with error: %v", err)
 		}
 	}()
 
-	ingClient := logproto.NewQuerierClient(conn)
+	ingClient := model.NewQuerierClient(conn)
 
 	ctx = NewContext(ctx)
 
 	// query the ingester twice once for logs , once for samples.
-	clientStream, err := ingClient.Query(ctx, &logproto.QueryRequest{}, CollectTrailer(ctx))
+	clientStream, err := ingClient.Query(ctx, &model.QueryRequest{}, CollectTrailer(ctx))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestCollectTrailer(t *testing.T) {
 	}
 	clientSamples, err := ingClient.QuerySample(
 		ctx,
-		&logproto.SampleQueryRequest{},
+		&model.SampleQueryRequest{},
 		CollectTrailer(ctx),
 	)
 	if err != nil {
@@ -106,39 +106,17 @@ func TestCollectTrailer(t *testing.T) {
 
 type ingesterFn func(grpc.ServerStream) error
 
-func (i ingesterFn) Query(_ *logproto.QueryRequest, s logproto.Querier_QueryServer) error {
+func (i ingesterFn) Query(_ *model.QueryRequest, s model.Querier_QueryServer) error {
 	return i(s)
 }
 
-func (i ingesterFn) QuerySample(
-	_ *logproto.SampleQueryRequest,
-	s logproto.Querier_QuerySampleServer,
-) error {
-	return i(s)
-}
-
-func (ingesterFn) Label(context.Context, *logproto.LabelRequest) (*logproto.LabelResponse, error) {
+func (ingesterFn) Label(context.Context, *model.LabelRequest) (*model.LabelResponse, error) {
 	return nil, nil
 }
-func (ingesterFn) Tail(*logproto.TailRequest, logproto.Querier_TailServer) error { return nil }
 
 func (ingesterFn) Series(
 	context.Context,
-	*logproto.SeriesRequest,
-) (*logproto.SeriesResponse, error) {
-	return nil, nil
-}
-
-func (ingesterFn) TailersCount(
-	context.Context,
-	*logproto.TailersCountRequest,
-) (*logproto.TailersCountResponse, error) {
-	return nil, nil
-}
-
-func (i ingesterFn) GetChunkIDs(
-	ctx context.Context,
-	request *logproto.GetChunkIDsRequest,
-) (*logproto.GetChunkIDsResponse, error) {
+	*model.SeriesRequest,
+) (*model.SeriesResponse, error) {
 	return nil, nil
 }

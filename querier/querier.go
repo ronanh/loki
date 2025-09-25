@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/model"
 )
 
 // Config for a querier.
@@ -32,6 +32,6 @@ func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 type Querier interface {
 	SelectLogs(ctx context.Context, params logql.SelectLogParams) (iter.EntryIterator, error)
 	SelectSamples(ctx context.Context, params logql.SelectSampleParams) (iter.SampleIterator, error)
-	Label(ctx context.Context, req *logproto.LabelRequest) (*logproto.LabelResponse, error)
-	Series(ctx context.Context, req *logproto.SeriesRequest) (*logproto.SeriesResponse, error)
+	Label(ctx context.Context, req *model.LabelRequest) (*model.LabelResponse, error)
+	Series(ctx context.Context, req *model.SeriesRequest) (*model.SeriesResponse, error)
 }

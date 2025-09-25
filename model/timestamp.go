@@ -1,4 +1,4 @@
-package logproto
+package model
 
 import (
 	"errors"

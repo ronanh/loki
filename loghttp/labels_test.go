@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,7 +17,7 @@ func TestParseLabelQuery(t *testing.T) {
 	tests := []struct {
 		name    string
 		r       *http.Request
-		want    *logproto.LabelRequest
+		want    *model.LabelRequest
 		wantErr bool
 	}{
 		{"bad start", &http.Request{URL: mustParseURL(`?&start=t`)}, nil, true},
@@ -33,7 +33,7 @@ func TestParseLabelQuery(t *testing.T) {
 				URL: mustParseURL(
 					`?start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z`,
 				),
-			}, "name", "test"), &logproto.LabelRequest{
+			}, "name", "test"), &model.LabelRequest{
 				Name:   "test",
 				Values: true,
 				Start:  timePtr(time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC)),
@@ -46,7 +46,7 @@ func TestParseLabelQuery(t *testing.T) {
 				URL: mustParseURL(
 					`?start=2017-06-10T21:42:24.760738998Z&end=2017-07-10T21:42:24.760738998Z`,
 				),
-			}, &logproto.LabelRequest{
+			}, &model.LabelRequest{
 				Name:   "",
 				Values: false,
 				Start:  timePtr(time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC)),

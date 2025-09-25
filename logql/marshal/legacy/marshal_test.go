@@ -8,6 +8,7 @@ import (
 	json "github.com/json-iterator/go"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,8 +19,8 @@ var queryTests = []struct {
 }{
 	{
 		logql.Streams{
-			logproto.Stream{
-				Entries: []logproto.Entry{
+			model.Stream{
+				Entries: []model.Entry{
 					{
 						Timestamp: mustParse(time.RFC3339Nano, "2019-09-13T18:32:22.380001319Z"),
 						Line:      "super line",

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,7 +91,7 @@ func TestParseRangeQuery(t *testing.T) {
 			}, &RangeQuery{
 				Step:      time.Hour,
 				Query:     `{foo="bar"}`,
-				Direction: logproto.BACKWARD,
+				Direction: model.BACKWARD,
 				Start:     time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC),
 				End:       time.Date(2017, 0o7, 10, 21, 42, 24, 760738998, time.UTC),
 				Limit:     1000,
@@ -147,7 +147,7 @@ func TestParseInstantQuery(t *testing.T) {
 				),
 			}, &InstantQuery{
 				Query:     `{foo="bar"}`,
-				Direction: logproto.BACKWARD,
+				Direction: model.BACKWARD,
 				Ts:        time.Date(2017, 0o6, 10, 21, 42, 24, 760738998, time.UTC),
 				Limit:     1000,
 			}, false,
@@ -181,7 +181,7 @@ func TestStreams_ToProto(t *testing.T) {
 	tests := []struct {
 		name string
 		s    Streams
-		want []logproto.Stream
+		want []model.Stream
 	}{
 		{"empty", nil, nil},
 		{
@@ -202,17 +202,17 @@ func TestStreams_ToProto(t *testing.T) {
 					},
 				},
 			},
-			[]logproto.Stream{
+			[]model.Stream{
 				{
 					Labels: `{foo="bar"}`,
-					Entries: []logproto.Entry{
+					Entries: []model.Entry{
 						{Timestamp: time.Unix(0, 1), Line: "1"},
 						{Timestamp: time.Unix(0, 2), Line: "2"},
 					},
 				},
 				{
 					Labels: `{foo="bar", lvl="error"}`,
-					Entries: []logproto.Entry{
+					Entries: []model.Entry{
 						{Timestamp: time.Unix(0, 3), Line: "3"},
 						{Timestamp: time.Unix(0, 4), Line: "4"},
 					},

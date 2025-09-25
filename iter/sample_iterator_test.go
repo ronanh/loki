@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewPeekingSampleIterator(t *testing.T) {
-	iter := NewPeekingSampleIterator(NewSeriesIterator(logproto.Series{
-		Samples: []logproto.Sample{
+	iter := NewPeekingSampleIterator(NewSeriesIterator(model.Series{
+		Samples: []model.Sample{
 			{
 				Timestamp: time.Unix(0, 1).UnixNano(),
 			},
@@ -75,24 +75,24 @@ func TestNewPeekingSampleIterator(t *testing.T) {
 	require.NoError(t, iter.Error())
 }
 
-func sample(i int) logproto.Sample {
-	return logproto.Sample{
+func sample(i int) model.Sample {
+	return model.Sample{
 		Timestamp: int64(i),
 		Hash:      uint64(i),
 		Value:     float64(1),
 	}
 }
 
-var varSeries = logproto.Series{
+var varSeries = model.Series{
 	Labels: `{foo="var"}`,
-	Samples: []logproto.Sample{
+	Samples: []model.Sample{
 		sample(1), sample(2), sample(3),
 	},
 }
 
-var carSeries = logproto.Series{
+var carSeries = model.Series{
 	Labels: `{foo="car"}`,
-	Samples: []logproto.Sample{
+	Samples: []model.Sample{
 		sample(1), sample(2), sample(3),
 	},
 }
@@ -123,15 +123,15 @@ func TestNewHeapSampleIterator(t *testing.T) {
 }
 
 type fakeSampleClient struct {
-	series [][]logproto.Series
+	series [][]model.Series
 	curr   int
 }
 
-func (f *fakeSampleClient) Recv() (*logproto.SampleQueryResponse, error) {
+func (f *fakeSampleClient) Recv() (*model.SampleQueryResponse, error) {
 	if f.curr >= len(f.series) {
 		return nil, io.EOF
 	}
-	res := &logproto.SampleQueryResponse{
+	res := &model.SampleQueryResponse{
 		Series: f.series[f.curr],
 	}
 	f.curr++
@@ -142,7 +142,7 @@ func (fakeSampleClient) Context() context.Context { return context.Background() 
 func (fakeSampleClient) CloseSend() error         { return nil }
 func TestNewSampleQueryClientIterator(t *testing.T) {
 	it := NewSampleQueryClientIterator(&fakeSampleClient{
-		series: [][]logproto.Series{
+		series: [][]model.Series{
 			{varSeries},
 			{carSeries},
 		},
@@ -165,9 +165,9 @@ func TestNewSampleQueryClientIterator(t *testing.T) {
 func TestNewNonOverlappingSampleIterator(t *testing.T) {
 	it := NewNonOverlappingSampleIterator([]SampleIterator{
 		NewSeriesIterator(varSeries),
-		NewSeriesIterator(logproto.Series{
+		NewSeriesIterator(model.Series{
 			Labels:  varSeries.Labels,
-			Samples: []logproto.Sample{sample(4), sample(5)},
+			Samples: []model.Sample{sample(4), sample(5)},
 		}),
 	}, varSeries.Labels)
 
@@ -185,9 +185,9 @@ func TestReadSampleBatch(t *testing.T) {
 	res, size, err := ReadSampleBatch(NewSeriesIterator(carSeries), 1)
 	require.Equal(
 		t,
-		&logproto.SampleQueryResponse{
-			Series: []logproto.Series{
-				{Labels: carSeries.Labels, Samples: []logproto.Sample{sample(1)}},
+		&model.SampleQueryResponse{
+			Series: []model.Series{
+				{Labels: carSeries.Labels, Samples: []model.Sample{sample(1)}},
 			},
 		},
 		res,
@@ -196,10 +196,10 @@ func TestReadSampleBatch(t *testing.T) {
 	require.NoError(t, err)
 
 	res, size, err = ReadSampleBatch(
-		NewMultiSeriesIterator(context.Background(), []logproto.Series{carSeries, varSeries}),
+		NewMultiSeriesIterator(context.Background(), []model.Series{carSeries, varSeries}),
 		100,
 	)
-	require.ElementsMatch(t, []logproto.Series{carSeries, varSeries}, res.Series)
+	require.ElementsMatch(t, []model.Series{carSeries, varSeries}, res.Series)
 	require.Equal(t, uint32(6), size)
 	require.NoError(t, err)
 }

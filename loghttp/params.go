@@ -11,8 +11,8 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	model1 "github.com/ronanh/loki/model"
 )
 
 const (
@@ -39,8 +39,8 @@ func ts(r *http.Request) (time.Time, error) {
 	return parseTimestamp(r.Form.Get("time"), time.Now())
 }
 
-func direction(r *http.Request) (logproto.Direction, error) {
-	return parseDirection(r.Form.Get("direction"), logproto.BACKWARD)
+func direction(r *http.Request) (model1.Direction, error) {
+	return parseDirection(r.Form.Get("direction"), model1.BACKWARD)
 }
 
 func shards(r *http.Request) []string {
@@ -99,14 +99,6 @@ func defaultQueryRangeStep(start time.Time, end time.Time) int {
 	return int(math.Max(math.Floor(end.Sub(start).Seconds()/250), 1))
 }
 
-func tailDelay(r *http.Request) (uint32, error) {
-	l, err := parseInt(r.Form.Get("delay_for"), 0)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(l), nil
-}
-
 // parseInt parses an int from a string
 // if the value is empty it returns a default value passed as second parameter
 func parseInt(value string, def int) (int, error) {
@@ -145,16 +137,16 @@ func parseTimestamp(value string, def time.Time) (time.Time, error) {
 
 // parseDirection parses a logproto.Direction from a string
 // if the value is empty it returns a default value passed as second parameter
-func parseDirection(value string, def logproto.Direction) (logproto.Direction, error) {
+func parseDirection(value string, def model1.Direction) (model1.Direction, error) {
 	if value == "" {
 		return def, nil
 	}
 
-	d, ok := logproto.Direction_value[strings.ToUpper(value)]
+	d, ok := model1.Direction_value[strings.ToUpper(value)]
 	if !ok {
-		return logproto.FORWARD, fmt.Errorf("invalid direction '%s'", value)
+		return model1.FORWARD, fmt.Errorf("invalid direction '%s'", value)
 	}
-	return logproto.Direction(d), nil
+	return model1.Direction(d), nil
 }
 
 func parseSecondsOrDuration(value string) (time.Duration, error) {

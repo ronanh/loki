@@ -8,8 +8,8 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/loghttp"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
+	model1 "github.com/ronanh/loki/model"
 )
 
 // NewResultValue constructs a ResultValue from a promql.Value
@@ -78,7 +78,7 @@ func NewStreams(s logql.Streams) (loghttp.Streams, error) {
 }
 
 // NewStream constructs a Stream from a logproto.Stream
-func NewStream(s logproto.Stream) (loghttp.Stream, error) {
+func NewStream(s model1.Stream) (loghttp.Stream, error) {
 	labels, err := NewLabelSet(s.Labels)
 	if err != nil {
 		return loghttp.Stream{}, fmt.Errorf("err while creating labelset for %s: %w", s.Labels, err)
@@ -97,7 +97,7 @@ func NewStream(s logproto.Stream) (loghttp.Stream, error) {
 }
 
 // NewEntry constructs an Entry from a logproto.Entry
-func NewEntry(e logproto.Entry) loghttp.Entry {
+func NewEntry(e model1.Entry) loghttp.Entry {
 	return loghttp.Entry{
 		Timestamp: e.Timestamp,
 		Line:      e.Line,

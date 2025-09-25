@@ -15,8 +15,8 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/model"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 const ValueTypeStreams = "streams"
 
 // Streams is promql.Value
-type Streams []logproto.Stream
+type Streams []model.Stream
 
 func (streams Streams) Len() int      { return len(streams) }
 func (streams Streams) Swap(i, j int) { streams[i], streams[j] = streams[j], streams[i] }
@@ -353,10 +353,10 @@ func PopulateMatrixFromScalar(data promql.Scalar, params Params) promql.Matrix {
 func readStreams(
 	i iter.EntryIterator,
 	size uint32,
-	dir logproto.Direction,
+	dir model.Direction,
 	interval time.Duration,
 ) (Streams, error) {
-	streams := map[string]*logproto.Stream{}
+	streams := map[string]*model.Stream{}
 	respSize := uint32(0)
 	// lastEntry should be a really old time so that the first comparison is always true, we use a
 	// negative
@@ -364,9 +364,9 @@ func readStreams(
 	lastEntry := lastEntryMinTime
 	for respSize < size && i.Next() {
 		labels, entry := i.Labels(), i.Entry()
-		forwardShouldOutput := dir == logproto.FORWARD &&
+		forwardShouldOutput := dir == model.FORWARD &&
 			(i.Entry().Timestamp.Equal(lastEntry.Add(interval)) || i.Entry().Timestamp.After(lastEntry.Add(interval)))
-		backwardShouldOutput := dir == logproto.BACKWARD &&
+		backwardShouldOutput := dir == model.BACKWARD &&
 			(i.Entry().Timestamp.Equal(lastEntry.Add(-interval)) || i.Entry().Timestamp.Before(lastEntry.Add(-interval)))
 		// If step == 0 output every line.
 		// If lastEntry.Unix < 0 this is the first pass through the loop and we should output the
@@ -375,7 +375,7 @@ func readStreams(
 		if interval == 0 || lastEntry.Unix() < 0 || forwardShouldOutput || backwardShouldOutput {
 			stream, ok := streams[labels]
 			if !ok {
-				stream = &logproto.Stream{
+				stream = &model.Stream{
 					Labels: labels,
 				}
 				streams[labels] = stream

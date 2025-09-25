@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/model"
 )
 
 type SeriesResponse struct {
@@ -13,7 +13,7 @@ type SeriesResponse struct {
 	Data   []LabelSet `json:"data"`
 }
 
-func ParseSeriesQuery(r *http.Request) (*logproto.SeriesRequest, error) {
+func ParseSeriesQuery(r *http.Request) (*model.SeriesRequest, error) {
 	start, end, err := bounds(r)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func ParseSeriesQuery(r *http.Request) (*logproto.SeriesRequest, error) {
 		return nil, err
 	}
 
-	return &logproto.SeriesRequest{
+	return &model.SeriesRequest{
 		Start:  start,
 		End:    end,
 		Groups: deduped,

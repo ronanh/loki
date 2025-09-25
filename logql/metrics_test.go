@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
+	"github.com/ronanh/loki/model"
 	"github.com/ronanh/loki/sloghandler"
 	"github.com/stretchr/testify/require"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -73,7 +73,7 @@ func TestLogSlowQuery(t *testing.T) {
 
 	RecordMetrics(ctx, LiteralParams{
 		qs:        `{foo="bar"} |= "buzz"`,
-		direction: logproto.BACKWARD,
+		direction: model.BACKWARD,
 		end:       now,
 		start:     now.Add(-1 * time.Hour),
 		limit:     1000,
@@ -84,7 +84,7 @@ func TestLogSlowQuery(t *testing.T) {
 			ExecTime:                25.25,
 			TotalBytesProcessed:     100000,
 		},
-	}, Streams{logproto.Stream{Entries: make([]logproto.Entry, 10)}})
+	}, Streams{model.Stream{Entries: make([]model.Entry, 10)}})
 	loggedLine := buf.String()
 	require.Contains(t, loggedLine, "level=INFO")
 	require.Contains(t, loggedLine, fmt.Sprint("traceID=", sp.SpanContext().TraceID()))

@@ -12,8 +12,8 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
+	"github.com/ronanh/loki/model"
 	"github.com/ronanh/loki/util"
 )
 
@@ -32,7 +32,7 @@ type Params interface {
 	Step() time.Duration
 	Interval() time.Duration
 	Limit() uint32
-	Direction() logproto.Direction
+	Direction() model.Direction
 	Shards() []string
 }
 
@@ -40,7 +40,7 @@ func NewLiteralParams(
 	qs string,
 	start, end time.Time,
 	step, interval time.Duration,
-	direction logproto.Direction,
+	direction model.Direction,
 	limit uint32,
 	shards []string,
 ) LiteralParams {
@@ -62,7 +62,7 @@ type LiteralParams struct {
 	start, end time.Time
 	step       time.Duration
 	interval   time.Duration
-	direction  logproto.Direction
+	direction  model.Direction
 	limit      uint32
 	shards     []string
 }
@@ -88,7 +88,7 @@ func (p LiteralParams) Interval() time.Duration { return p.interval }
 func (p LiteralParams) Limit() uint32 { return p.limit }
 
 // Direction impls Params
-func (p LiteralParams) Direction() logproto.Direction { return p.direction }
+func (p LiteralParams) Direction() model.Direction { return p.direction }
 
 // Shards impls Params
 func (p LiteralParams) Shards() []string { return p.shards }
@@ -161,7 +161,7 @@ func (ev *DefaultEvaluator) Iterator(
 	q Params,
 ) (iter.EntryIterator, error) {
 	params := SelectLogParams{
-		QueryRequest: &logproto.QueryRequest{
+		QueryRequest: &model.QueryRequest{
 			Start:     q.Start(),
 			End:       q.End(),
 			Limit:     q.Limit(),
@@ -191,7 +191,7 @@ func (ev *DefaultEvaluator) StepEvaluator(
 			// we should send the vector expression for allowing reducing labels at the source.
 			nextEv = SampleEvaluatorFunc(func(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error) {
 				it, err := ev.querier.SelectSamples(ctx, SelectSampleParams{
-					&logproto.SampleQueryRequest{
+					&model.SampleQueryRequest{
 						Start:    q.Start().Add(-rangExpr.left.interval),
 						End:      q.End(),
 						Selector: e.String(), // intentionally send the the vector for reducing labels.
@@ -207,7 +207,7 @@ func (ev *DefaultEvaluator) StepEvaluator(
 		return vectorAggEvaluator(ctx, nextEv, e, q)
 	case *rangeAggregationExpr:
 		it, err := ev.querier.SelectSamples(ctx, SelectSampleParams{
-			&logproto.SampleQueryRequest{
+			&model.SampleQueryRequest{
 				Start:    q.Start().Add(-e.left.interval),
 				End:      q.End(),
 				Selector: expr.String(),
