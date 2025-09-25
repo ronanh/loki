@@ -11,7 +11,6 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/loghttp"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
 	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"

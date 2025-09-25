@@ -6,7 +6,6 @@ import (
 	"time"
 
 	json "github.com/json-iterator/go"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
 	"github.com/ronanh/loki/model"
 	"github.com/stretchr/testify/require"
