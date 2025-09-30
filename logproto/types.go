@@ -1,6 +1,7 @@
 package logproto
 
 import (
+	"fmt"
 	"time"
 
 	"google.golang.org/grpc"
@@ -77,7 +78,18 @@ type QueryRequest struct {
 	Shards    []string
 }
 
-type Direction int32
+type Direction int
+
+func (direction Direction) String() string {
+	switch direction {
+	case FORWARD:
+		return "FORWARD"
+	case BACKWARD:
+		return "BACKWARD"
+	default:
+		return fmt.Sprintf("Unknown (%d)", direction)
+	}
+}
 
 const (
 	FORWARD  Direction = 0

@@ -1916,8 +1916,8 @@ func benchmarkRangeQuery(testsize int64, b *testing.B) {
 	eng := NewEngine(EngineOpts{}, getLocalQuerier(testsize))
 	start := time.Unix(0, 0)
 	end := time.Unix(testsize, 0)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for _, test := range []struct {
 			qs        string
 			direction logproto.Direction
