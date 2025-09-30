@@ -7,8 +7,8 @@ import (
 
 	json "github.com/json-iterator/go"
 	"github.com/ronanh/loki/loghttp"
+	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql"
-	"github.com/ronanh/loki/model"
 )
 
 // WriteQueryResponseJSON marshals the promql.Value to v1 loghttp JSON and then
@@ -33,7 +33,7 @@ func WriteQueryResponseJSON(v logql.Result, w io.Writer) error {
 
 // WriteLabelResponseJSON marshals a logproto.LabelResponse to v1 loghttp JSON
 // and then writes it to the provided io.Writer.
-func WriteLabelResponseJSON(l model.LabelResponse, w io.Writer) error {
+func WriteLabelResponseJSON(l logproto.LabelResponse, w io.Writer) error {
 	v1Response := loghttp.LabelResponse{
 		Status: "success",
 		Data:   l.Values,
@@ -44,7 +44,7 @@ func WriteLabelResponseJSON(l model.LabelResponse, w io.Writer) error {
 
 // WriteSeriesResponseJSON marshals a logproto.SeriesResponse to v1 loghttp JSON and then
 // writes it to the provided io.Writer.
-func WriteSeriesResponseJSON(r model.SeriesResponse, w io.Writer) error {
+func WriteSeriesResponseJSON(r logproto.SeriesResponse, w io.Writer) error {
 	adapter := &seriesResponseAdapter{
 		Status: "success",
 		Data:   make([]map[string]string, 0, len(r.Series)),
