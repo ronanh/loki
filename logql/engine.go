@@ -16,7 +16,6 @@ import (
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
-	"github.com/ronanh/loki/logql/stats"
 )
 
 var (
@@ -59,8 +58,7 @@ func (streams Streams) lines() int64 {
 
 // Result is the result of a query execution.
 type Result struct {
-	Data       promql_parser.Value
-	Statistics stats.Result
+	Data promql_parser.Value
 }
 
 // EngineOpts is the list of options to use with the LogQL query engine.
@@ -70,8 +68,6 @@ type EngineOpts struct {
 	// MaxLookBackPeriod is the maximum amount of time to look back for log lines.
 	// only used for instant log queries.
 	MaxLookBackPeriod time.Duration `yaml:"max_look_back_period"`
-	RecordMetrics     bool          `yaml:"record_metrics"`
-	LogStats          bool          `yaml:"log_stats"`
 }
 
 func (opts *EngineOpts) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -87,13 +83,6 @@ func (opts *EngineOpts) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) 
 		30*time.Second,
 		"The maximum amount of time to look back for log lines. Used only for instant log queries.",
 	)
-	f.BoolVar(
-		&opts.RecordMetrics,
-		prefix+".engine.record-metrics",
-		true,
-		"Record metrics for queries.",
-	)
-	f.BoolVar(&opts.LogStats, prefix+".engine.log-stats", true, "Log query statistics.")
 }
 
 func (opts *EngineOpts) applyDefault() {
@@ -131,8 +120,6 @@ func (ng *Engine) Query(params Params) Query {
 		parse: func(_ context.Context, query string) (Expr, error) {
 			return ParseExpr(query)
 		},
-		record:   ng.opts.RecordMetrics,
-		logStats: ng.opts.LogStats,
 	}
 }
 
@@ -147,8 +134,6 @@ type query struct {
 	params    Params
 	parse     func(context.Context, string) (Expr, error)
 	evaluator Evaluator
-	record    bool
-	logStats  bool
 	hashBuf   []byte
 }
 
@@ -158,39 +143,10 @@ func (q *query) Exec(ctx context.Context) (Result, error) {
 	timer := prometheus.NewTimer(queryTime.WithLabelValues(string(rangeType)))
 	defer timer.ObserveDuration()
 
-	// records query statistics
-	var statResult stats.Result
-	start := time.Now()
-	if q.logStats || q.record {
-		ctx = stats.NewContext(ctx)
-	}
 	data, err := q.Eval(ctx)
 
-	if q.logStats || q.record {
-		statResult = stats.Snapshot(ctx, time.Since(start))
-	}
-	if q.logStats {
-		statResult.Log(ctx, slog.LevelDebug, slog.Default())
-	}
-
-	status := "200"
-	if err != nil {
-		status = "500"
-		if errors.Is(err, ErrParse) ||
-			errors.Is(err, ErrPipeline) ||
-			errors.Is(err, ErrLimit) ||
-			errors.Is(err, context.Canceled) {
-			status = "400"
-		}
-	}
-
-	if q.record {
-		RecordMetrics(ctx, q.params, status, statResult, data)
-	}
-
 	return Result{
-		Data:       data,
-		Statistics: statResult,
+		Data: data,
 	}, err
 }
 

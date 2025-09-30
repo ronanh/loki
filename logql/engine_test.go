@@ -15,7 +15,6 @@ import (
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
-	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1779,38 +1778,6 @@ func TestEngine_RangeQuery(t *testing.T) {
 			assert.Equal(t, test.expected, res.Data)
 		})
 	}
-}
-
-type statsQuerier struct{}
-
-func (statsQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.EntryIterator, error) {
-	st := stats.GetChunkData(ctx)
-	st.DecompressedBytes++
-	return iter.NoopIterator, nil
-}
-
-func (statsQuerier) SelectSamples(
-	ctx context.Context,
-	p SelectSampleParams,
-) (iter.SampleIterator, error) {
-	st := stats.GetChunkData(ctx)
-	st.DecompressedBytes++
-	return iter.NoopIterator, nil
-}
-
-func TestEngine_Stats(t *testing.T) {
-	eng := NewEngine(EngineOpts{LogStats: true}, &statsQuerier{})
-
-	q := eng.Query(LiteralParams{
-		qs:        `{foo="bar"}`,
-		start:     time.Now(),
-		end:       time.Now(),
-		direction: logproto.BACKWARD,
-		limit:     1000,
-	})
-	r, err := q.Exec(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, int64(1), r.Statistics.Store.DecompressedBytes)
 }
 
 type errorIteratorQuerier struct {

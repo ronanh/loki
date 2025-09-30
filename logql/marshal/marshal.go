@@ -24,7 +24,6 @@ func WriteQueryResponseJSON(v logql.Result, w io.Writer) error {
 		Data: loghttp.QueryResponseData{
 			ResultType: value.Type(),
 			Result:     value,
-			Statistics: v.Statistics,
 		},
 	}
 

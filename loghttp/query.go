@@ -10,7 +10,6 @@ import (
 	json "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"
 	"github.com/ronanh/loki/logproto"
-	"github.com/ronanh/loki/logql/stats"
 )
 
 var (
@@ -57,9 +56,8 @@ type ResultValue interface {
 
 // QueryResponseData represents the http json response to a label query
 type QueryResponseData struct {
-	ResultType ResultType   `json:"resultType"`
-	Result     ResultValue  `json:"result"`
-	Statistics stats.Result `json:"stats"`
+	ResultType ResultType  `json:"resultType"`
+	Result     ResultValue `json:"result"`
 }
 
 // Type implements the promql.Value interface
@@ -98,9 +96,8 @@ type Stream struct {
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 	unmarshal := struct {
-		Type       ResultType      `json:"resultType"`
-		Result     json.RawMessage `json:"result"`
-		Statistics stats.Result    `json:"stats"`
+		Type   ResultType      `json:"resultType"`
+		Result json.RawMessage `json:"result"`
 	}{}
 
 	err := json.Unmarshal(data, &unmarshal)
@@ -138,7 +135,6 @@ func (q *QueryResponseData) UnmarshalJSON(data []byte) error {
 
 	q.ResultType = unmarshal.Type
 	q.Result = value
-	q.Statistics = unmarshal.Statistics
 
 	return nil
 }

@@ -1,16 +1,8 @@
 package logql
 
 import (
-	"context"
-	"log/slog"
-	"strings"
-	"time"
-
-	"github.com/dustin/go-humanize"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	promql_parser "github.com/prometheus/prometheus/promql/parser"
-	"github.com/ronanh/loki/logql/stats"
 )
 
 const (
@@ -85,75 +77,6 @@ var (
 		Help:      "Total count of lines sent from ingesters while executing LogQL queries.",
 	})
 )
-
-func RecordMetrics(
-	ctx context.Context,
-	p Params,
-	status string,
-	stats stats.Result,
-	result promql_parser.Value,
-) {
-	var (
-		rt            = string(GetRangeType(p))
-		latencyType   = latencyTypeFast
-		returnedLines = 0
-	)
-	queryType, err := QueryType(p.Query())
-	if err != nil {
-		slog.WarnContext(ctx, "error parsing query type", "err", err)
-	}
-
-	// Tag throughput metric by latency type based on a threshold.
-	// Latency below the threshold is fast, above is slow.
-	if stats.Summary.ExecTime > slowQueryThresholdSecond {
-		latencyType = latencyTypeSlow
-	}
-
-	if result != nil && result.Type() == ValueTypeStreams {
-		returnedLines = int(result.(Streams).lines())
-	}
-
-	// we also log queries, useful for troubleshooting slow queries.
-	slog.InfoContext(
-		ctx,
-		"record query metrics",
-		"latency",
-		latencyType, // this can be used to filter log lines.
-		"query",
-		p.Query(),
-		"query_type",
-		queryType,
-		"range_type",
-		rt,
-		"length",
-		p.End().Sub(p.Start()),
-		"step",
-		p.Step(),
-		"duration",
-		time.Duration(int64(stats.Summary.ExecTime*float64(time.Second))),
-		"status",
-		status,
-		"limit",
-		p.Limit(),
-		"returned_lines",
-		returnedLines,
-		"throughput",
-		strings.Replace(humanize.Bytes(uint64(stats.Summary.BytesProcessedPerSecond)), " ", "", 1),
-		"total_bytes",
-		strings.Replace(humanize.Bytes(uint64(stats.Summary.TotalBytesProcessed)), " ", "", 1),
-	)
-
-	bytesPerSecond.WithLabelValues(status, queryType, rt, latencyType).
-		Observe(float64(stats.Summary.BytesProcessedPerSecond))
-	execLatency.WithLabelValues(status, queryType, rt).
-		Observe(stats.Summary.ExecTime)
-	chunkDownloadLatency.WithLabelValues(status, queryType, rt).
-		Observe(stats.Store.ChunksDownloadTime)
-	duplicatesTotal.Add(float64(stats.Store.TotalDuplicates))
-	chunkDownloadedTotal.WithLabelValues(status, queryType, rt).
-		Add(float64(stats.Store.TotalChunksDownloaded))
-	ingesterLineTotal.Add(float64(stats.Ingester.TotalLinesSent))
-}
 
 func QueryType(query string) (string, error) {
 	expr, err := ParseExpr(query)

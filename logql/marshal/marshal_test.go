@@ -46,39 +46,7 @@ var queryTests = []struct {
 							[ "123456789012345", "super line" ]
 						]
 					}
-				],
-				"stats" : {
-					"ingester" : {
-						"compressedBytes": 0,
-						"decompressedBytes": 0,
-						"decompressedLines": 0,
-						"headChunkBytes": 0,
-						"headChunkLines": 0,
-						"totalBatches": 0,
-						"totalChunksMatched": 0,
-						"totalDuplicates": 0,
-						"totalLinesSent": 0,
-						"totalReached": 0
-					},
-					"store": {
-						"compressedBytes": 0,
-						"decompressedBytes": 0,
-						"decompressedLines": 0,
-						"headChunkBytes": 0,
-						"headChunkLines": 0,
-						"chunksDownloadTime": 0,
-						"totalChunksRef": 0,
-						"totalChunksDownloaded": 0,
-						"totalDuplicates": 0
-					},
-					"summary": {
-						"bytesProcessedPerSecond": 0,
-						"execTime": 0,
-						"linesProcessedPerSecond": 0,
-						"totalBytesProcessed":0,
-						"totalLinesProcessed":0
-					}
-				}
+				]
 			}
 		}`,
 	},
@@ -142,39 +110,7 @@ var queryTests = []struct {
 					"3.45"
 				  ]
 				}
-			  ],
-			  "stats" : {
-				"ingester" : {
-					"compressedBytes": 0,
-					"decompressedBytes": 0,
-					"decompressedLines": 0,
-					"headChunkBytes": 0,
-					"headChunkLines": 0,
-					"totalBatches": 0,
-					"totalChunksMatched": 0,
-					"totalDuplicates": 0,
-					"totalLinesSent": 0,
-					"totalReached": 0
-				},
-				"store": {
-					"compressedBytes": 0,
-					"decompressedBytes": 0,
-					"decompressedLines": 0,
-					"headChunkBytes": 0,
-					"headChunkLines": 0,
-					"chunksDownloadTime": 0,
-					"totalChunksRef": 0,
-					"totalChunksDownloaded": 0,
-					"totalDuplicates": 0
-				},
-				"summary": {
-					"bytesProcessedPerSecond": 0,
-					"execTime": 0,
-					"linesProcessedPerSecond": 0,
-					"totalBytesProcessed":0,
-					"totalLinesProcessed":0
-				}
-			  }
+			  ]
 			},
 			"status": "success"
 		  }`,
@@ -255,39 +191,7 @@ var queryTests = []struct {
 						]
 					]
 				}
-			  ],
-			  "stats" : {
-				"ingester" : {
-					"compressedBytes": 0,
-					"decompressedBytes": 0,
-					"decompressedLines": 0,
-					"headChunkBytes": 0,
-					"headChunkLines": 0,
-					"totalBatches": 0,
-					"totalChunksMatched": 0,
-					"totalDuplicates": 0,
-					"totalLinesSent": 0,
-					"totalReached": 0
-				},
-				"store": {
-					"compressedBytes": 0,
-					"decompressedBytes": 0,
-					"decompressedLines": 0,
-					"headChunkBytes": 0,
-					"headChunkLines": 0,
-					"chunksDownloadTime": 0,
-					"totalChunksRef": 0,
-					"totalChunksDownloaded": 0,
-					"totalDuplicates": 0
-				},
-				"summary": {
-					"bytesProcessedPerSecond": 0,
-					"execTime": 0,
-					"linesProcessedPerSecond": 0,
-					"totalBytesProcessed":0,
-					"totalLinesProcessed":0
-				}
-			  }
+			  ]
 			},
 			"status": "success"
 		  }`,
@@ -449,13 +353,9 @@ func testJSONBytesEqual(
 func Benchmark_Encode(b *testing.B) {
 	buf := bytes.NewBuffer(nil)
 
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		for _, queryTest := range queryTests {
 			require.NoError(b, WriteQueryResponseJSON(logql.Result{Data: queryTest.actual}, buf))
 		}
 	}
 }
-
-type WebsocketWriterFunc func(int, []byte) error
-
-func (w WebsocketWriterFunc) WriteMessage(t int, d []byte) error { return w(t, d) }

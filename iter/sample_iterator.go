@@ -8,7 +8,6 @@ import (
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/ronanh/loki/logproto"
-	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
 )
 
@@ -43,7 +42,6 @@ type PeekingSampleIterator interface {
 }
 
 type mergingSampleIterator struct {
-	stats      *stats.ChunkData
 	ctx        context.Context
 	iActiveIts []int
 	its        []struct {
@@ -98,7 +96,6 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 	}
 
 	mi := &mergingSampleIterator{
-		stats:      stats.GetChunkData(ctx),
 		ctx:        ctx,
 		its:        startedIts,
 		iActiveIts: iActiveIts,
@@ -259,8 +256,6 @@ func (mi *mergingSampleIterator) dedup() {
 			itsi.Hash != its0.Hash {
 			break
 		}
-		// Duplicate -> advance to discard
-		mi.stats.TotalDuplicates++
 		hasNext := itsi.Next()
 		if err := its0.Error(); err != nil {
 			mi.errs = append(mi.errs, err)

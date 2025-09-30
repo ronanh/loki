@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ronanh/loki/logproto"
-	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
 )
 
@@ -147,7 +146,6 @@ type heapIterator struct {
 	}
 	is         []EntryIterator
 	prefetched bool
-	stats      *stats.ChunkData
 
 	tuples     []tuple
 	currEntry  logproto.Entry
@@ -162,7 +160,7 @@ func NewHeapIteratorLoki(
 	is []EntryIterator,
 	direction logproto.Direction,
 ) HeapIterator {
-	result := &heapIterator{is: is, stats: stats.GetChunkData(ctx)}
+	result := &heapIterator{is: is}
 	switch direction {
 	case logproto.BACKWARD:
 		result.heap = &iteratorMaxHeap{}
@@ -270,11 +268,6 @@ func (i *heapIterator) Next() bool {
 			i.requeue(i.tuples[j].EntryIterator, true)
 			continue
 		}
-		// we count as duplicates only if the tuple is not the one (t) used to fill the current
-		// entry
-		if i.tuples[j] != t {
-			i.stats.TotalDuplicates++
-		}
 		i.requeue(i.tuples[j].EntryIterator, false)
 	}
 	i.tuples = i.tuples[:0]
@@ -324,7 +317,6 @@ func (i *heapIterator) Len() int {
 }
 
 type mergingIterator struct {
-	stats     *stats.ChunkData
 	ctx       context.Context
 	its       []EntryIterator
 	curEntry  logproto.Entry
@@ -362,7 +354,6 @@ func NewMergingIterator(
 	}
 
 	mi := &mergingIterator{
-		stats:    stats.GetChunkData(ctx),
 		ctx:      ctx,
 		its:      startedIts,
 		reversed: direction == logproto.BACKWARD,
@@ -495,8 +486,6 @@ func (mi *mergingIterator) dedup() bool {
 			mi.its[i].Labels() != mi.its[0].Labels() {
 			break
 		}
-		// Duplicate -> advance to discard
-		mi.stats.TotalDuplicates++
 		if !mi.its[i].Next() {
 			// stream finished: remove it
 			mi.its[i].Close()
