@@ -32,3 +32,15 @@ workflow:
 
 go:lint:
   allow_failure: true
+
+# this job is defined by the component we import via the include above
+# we are simply overriding the `script` property and keeping the other properties as is
+go:test:
+  needs: [] # allows this job to start fast and not wait for other checks
+  script:
+    - go run gotest.tools/gotestsum@latest --junitfile tests.xml -- -coverprofile=cover.out.tmp ./...
+    - cat cover.out.tmp | grep -v "pb.go" > cover.out
+    - >
+      go run github.com/boumenot/gocover-cobertura@latest
+      < cover.out > coverage.xml
+    - go tool cover -func cover.out
