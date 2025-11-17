@@ -9,9 +9,8 @@ require (
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // remember to update loki-build-image/Dockerfile too
 	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3 // indirect
-	github.com/gorilla/mux v1.7.3
 	github.com/json-iterator/go v1.1.12
-	github.com/modern-go/reflect2 v1.0.2
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.23.0

@@ -6,7 +6,6 @@ import (
 )
 
 const (
-	labelSep   = '\xfe'
 	sep        = '\xff'
 	MetricName = "__name__"
 )
