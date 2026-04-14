@@ -2309,6 +2309,22 @@ func TestParseMatchers(t *testing.T) {
 			nil,
 			true,
 		},
+		{
+			`{app!="v1",app!="v2"}`,
+			[]*labels.Matcher{
+				mustNewMatcher(labels.MatchNotEqual, "app", "v1"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "v2"),
+			},
+			false,
+		},
+		{
+			`{app="foo",app!="bar"}`,
+			[]*labels.Matcher{
+				mustNewMatcher(labels.MatchEqual, "app", "foo"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "bar"),
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

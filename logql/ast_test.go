@@ -167,6 +167,103 @@ func Test_NilFilterDoesntPanic(t *testing.T) {
 	}
 }
 
+// Test_DuplicateLabelKeyMatchers verifies that multiple matchers on the same
+// label key are correctly parsed, round-tripped through String(), and that they
+// all appear in Matchers().
+func Test_DuplicateLabelKeyMatchers(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name             string
+		selector         string
+		expectedMatchers []*labels.Matcher
+	}{
+		{
+			name:     "two not-equal matchers on same key",
+			selector: `{app!="v1", app!="v2"}`,
+			expectedMatchers: []*labels.Matcher{
+				mustNewMatcher(labels.MatchNotEqual, "app", "v1"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "v2"),
+			},
+		},
+		{
+			name:     "equal and not-equal on same key",
+			selector: `{app="foo", app!="bar"}`,
+			expectedMatchers: []*labels.Matcher{
+				mustNewMatcher(labels.MatchEqual, "app", "foo"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "bar"),
+			},
+		},
+		{
+			name:     "equal and regex on same key",
+			selector: `{app="foo", app=~"foo|bar"}`,
+			expectedMatchers: []*labels.Matcher{
+				mustNewMatcher(labels.MatchEqual, "app", "foo"),
+				mustNewMatcher(labels.MatchRegexp, "app", "foo|bar"),
+			},
+		},
+		{
+			name:     "not-equal and not-regex on same key",
+			selector: `{app!="v1", app!~"v2.*"}`,
+			expectedMatchers: []*labels.Matcher{
+				mustNewMatcher(labels.MatchNotEqual, "app", "v1"),
+				mustNewMatcher(labels.MatchNotRegexp, "app", "v2.*"),
+			},
+		},
+		{
+			name:     "three matchers on same key",
+			selector: `{app!="v1", app!="v2", app!="v3"}`,
+			expectedMatchers: []*labels.Matcher{
+				mustNewMatcher(labels.MatchNotEqual, "app", "v1"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "v2"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "v3"),
+			},
+		},
+		{
+			name:     "duplicate key mixed with other keys",
+			selector: `{app!="v1", cluster="us-east", app!="v2"}`,
+			expectedMatchers: []*labels.Matcher{
+				mustNewMatcher(labels.MatchNotEqual, "app", "v1"),
+				mustNewMatcher(labels.MatchEqual, "cluster", "us-east"),
+				mustNewMatcher(labels.MatchNotEqual, "app", "v2"),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Parse
+			expr, err := ParseLogSelector(tc.selector)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedMatchers, expr.Matchers())
+
+			// Round-trip: String() then re-parse must preserve all matchers
+			expr2, err := ParseLogSelector(expr.String())
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedMatchers, expr2.Matchers())
+		})
+	}
+}
+
+// Test_DuplicateLabelKeySampleExprString verifies that SampleExpr with duplicate
+// label keys round-trips correctly through String() -> Parse.
+func Test_DuplicateLabelKeySampleExprString(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []string{
+		`rate({app!="v1", app!="v2"}[5m])`,
+		`count_over_time({app="foo", app!="bar"}[5m])`,
+		`sum by (app)(rate({app!="v1", app!="v2", cluster="us-east"}[5m]))`,
+		`absent_over_time({app="foo", app!="bar"}[5m])`,
+	} {
+		t.Run(tc, func(t *testing.T) {
+			expr, err := ParseExpr(tc)
+			require.NoError(t, err)
+
+			expr2, err := ParseExpr(expr.String())
+			require.NoError(t, err)
+			require.Equal(t, expr, expr2)
+		})
+	}
+}
+
 type linecheck struct {
 	l string
 	e bool

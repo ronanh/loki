@@ -1246,20 +1246,34 @@ func absentLabels(expr SampleExpr) labels.Labels {
 		return m
 	}
 
-	empty := []string{}
+	// Collect label names that have exactly one MatchEqual matcher.
+	// Multiple MatchEqual on the same key is contradictory (e.g. app="a", app="b"),
+	// so we track those in poisoned and exclude them.
+	// Non-equal matchers (!=, =~, !~) don't affect which labels are emitted.
+	equalMatchers := map[string]string{} // name -> value (first MatchEqual wins)
+	poisoned := map[string]struct{}{}    // keys with 2+ MatchEqual
 	for _, ma := range lm {
 		if ma.Name == labels.MetricName {
 			continue
 		}
-		if ma.Type == labels.MatchEqual && !m.Has(ma.Name) {
-			m = labels.NewBuilder(m).Set(ma.Name, ma.Value).Labels()
-		} else {
-			empty = append(empty, ma.Name)
+		if ma.Type == labels.MatchEqual {
+			if _, bad := poisoned[ma.Name]; bad {
+				continue
+			}
+			if _, exists := equalMatchers[ma.Name]; !exists {
+				equalMatchers[ma.Name] = ma.Value
+			} else {
+				// A second MatchEqual on the same key is contradictory;
+				// remove it so the label is not emitted.
+				delete(equalMatchers, ma.Name)
+				poisoned[ma.Name] = struct{}{}
+			}
 		}
 	}
 
-	for _, v := range empty {
-		m = labels.NewBuilder(m).Del(v).Labels()
+	// Build the output from surviving single-MatchEqual entries.
+	for name, value := range equalMatchers {
+		m = labels.NewBuilder(m).Set(name, value).Labels()
 	}
 	return m
 }

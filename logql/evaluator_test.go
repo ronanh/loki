@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/stretchr/testify/require"
 )
@@ -260,4 +261,83 @@ func Test_MergeBinOpVectors_Filter(t *testing.T) {
 	require.Equal(t, &promql.Sample{
 		Point: promql.Point{V: 2},
 	}, &res)
+}
+
+func Test_absentLabels(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		query    string
+		expected labels.Labels
+	}{
+		{
+			name:  "single equal matcher",
+			query: `absent_over_time({app="foo"}[5m])`,
+			expected: labels.Labels{
+				{Name: "app", Value: "foo"},
+			},
+		},
+		{
+			name:  "single not-equal matcher",
+			query: `absent_over_time({app!="foo"}[5m])`,
+			expected: labels.Labels{},
+		},
+		{
+			name:  "two different keys with equal matchers",
+			query: `absent_over_time({app="foo", cluster="us-east"}[5m])`,
+			expected: labels.Labels{
+				{Name: "app", Value: "foo"},
+				{Name: "cluster", Value: "us-east"},
+			},
+		},
+		{
+			name:     "duplicate key: equal then not-equal",
+			query:    `absent_over_time({app="foo", app!="bar"}[5m])`,
+			expected: labels.Labels{{Name: "app", Value: "foo"}},
+		},
+		{
+			name:     "duplicate key: two not-equal matchers",
+			query:    `absent_over_time({app!="foo", app!="bar"}[5m])`,
+			expected: labels.Labels{},
+		},
+		{
+			name:     "duplicate key: two equal matchers (contradictory)",
+			query:    `absent_over_time({app="foo", app="bar"}[5m])`,
+			expected: labels.Labels{},
+		},
+		{
+			name:  "duplicate key: not-equal then equal",
+			query: `absent_over_time({app!="bar", app="foo"}[5m])`,
+			expected: labels.Labels{{Name: "app", Value: "foo"}},
+		},
+		{
+			name:  "mixed: one duplicate key, one unique key",
+			query: `absent_over_time({app="foo", cluster="us-east", app!="bar"}[5m])`,
+			expected: labels.Labels{
+				{Name: "app", Value: "foo"},
+				{Name: "cluster", Value: "us-east"},
+			},
+		},
+		{
+			name:     "duplicate key: three equal matchers (contradictory)",
+			query:    `absent_over_time({app="a", app="b", app="c"}[5m])`,
+			expected: labels.Labels{},
+		},
+		{
+			name:     "equal matcher with empty value",
+			query:    `absent_over_time({app=""}[5m])`,
+			expected: labels.Labels{},
+		},
+		{
+			name:     "duplicate key: equal with empty value then not-equal",
+			query:    `absent_over_time({app="", app!="bar"}[5m])`,
+			expected: labels.Labels{},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			expr, err := ParseSampleExpr(tc.query)
+			require.NoError(t, err)
+			got := absentLabels(expr)
+			require.Equal(t, tc.expected, got)
+		})
+	}
 }
