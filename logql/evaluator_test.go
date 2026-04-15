@@ -332,6 +332,13 @@ func Test_absentLabels(t *testing.T) {
 			query:    `absent_over_time({app="", app!="bar"}[5m])`,
 			expected: labels.Labels{},
 		},
+		{
+			name:  "duplicate key: identical equal matchers (redundant)",
+			query: `absent_over_time({app="a", app="a"}[5m])`,
+			expected: labels.Labels{
+				{Name: "app", Value: "a"},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			expr, err := ParseSampleExpr(tc.query)

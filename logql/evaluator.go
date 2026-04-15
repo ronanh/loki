@@ -1260,14 +1260,15 @@ func absentLabels(expr SampleExpr) labels.Labels {
 			if _, bad := poisoned[ma.Name]; bad {
 				continue
 			}
-			if _, exists := equalMatchers[ma.Name]; !exists {
+			if prev, exists := equalMatchers[ma.Name]; !exists {
 				equalMatchers[ma.Name] = ma.Value
-			} else {
-				// A second MatchEqual on the same key is contradictory;
-				// remove it so the label is not emitted.
+			} else if prev != ma.Value {
+				// Two MatchEqual on the same key with different values is
+				// contradictory; remove so the label is not emitted.
 				delete(equalMatchers, ma.Name)
 				poisoned[ma.Name] = struct{}{}
 			}
+			// Same key, same value: redundant — keep the existing entry.
 		}
 	}
 
