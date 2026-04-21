@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"math"
 	"sort"
@@ -110,15 +111,20 @@ type Engine struct {
 	timeout   time.Duration
 	evaluator Evaluator
 	opts      EngineOpts
+	limits    Limits
 }
 
 // NewEngine creates a new LogQL Engine.
-func NewEngine(opts EngineOpts, q Querier) *Engine {
+func NewEngine(opts EngineOpts, q Querier, limits Limits) *Engine {
 	opts.applyDefault()
+	if limits == nil {
+		limits = NoLimits
+	}
 	return &Engine{
 		timeout:   opts.Timeout,
 		evaluator: NewDefaultEvaluator(q, opts.MaxLookBackPeriod),
 		opts:      opts,
+		limits:    limits,
 	}
 }
 
@@ -133,6 +139,7 @@ func (ng *Engine) Query(params Params) Query {
 		},
 		record:   ng.opts.RecordMetrics,
 		logStats: ng.opts.LogStats,
+		limits:   ng.limits,
 	}
 }
 
@@ -150,6 +157,7 @@ type query struct {
 	record    bool
 	logStats  bool
 	hashBuf   []byte
+	limits    Limits
 }
 
 // Exec Implements `Query`. It handles instrumentation & defers to Eval.
@@ -165,6 +173,13 @@ func (q *query) Exec(ctx context.Context) (Result, error) {
 		ctx = stats.NewContext(ctx)
 	}
 	data, err := q.Eval(ctx)
+
+	// Enforce per-user series/stream result limit.
+	if err == nil {
+		if limitErr := q.checkSeriesLimit(data); limitErr != nil {
+			err = limitErr
+		}
+	}
 
 	if q.logStats || q.record {
 		statResult = stats.Snapshot(ctx, time.Since(start))
@@ -194,6 +209,32 @@ func (q *query) Exec(ctx context.Context) (Result, error) {
 	}, err
 }
 
+// checkSeriesLimit returns a wrapped ErrLimit error if the result contains more
+// series/streams than the per-user MaxQuerySeries limit allows.
+// A limit of 0 is treated as disabled (no check).
+func (q *query) checkSeriesLimit(data promql_parser.Value) error {
+	limit := q.limits.MaxQuerySeries("")
+	if limit <= 0 {
+		return nil
+	}
+	var n int
+	switch v := data.(type) {
+	case promql.Matrix:
+		n = len(v)
+	case promql.Vector:
+		n = len(v)
+	case Streams:
+		n = len(v)
+	default:
+		return nil // Scalar — no series limit
+	}
+	if n > limit {
+		return fmt.Errorf("%w: maximum of series (%d) reached for a single query",
+			ErrLimit, limit)
+	}
+	return nil
+}
+
 func (q *query) Eval(ctx context.Context) (promql_parser.Value, error) {
 	ctx, cancel := context.WithTimeout(ctx, q.timeout)
 	defer cancel()
@@ -219,7 +260,7 @@ func (q *query) Eval(ctx context.Context) (promql_parser.Value, error) {
 				slog.ErrorContext(ctx, "closing iterator", "err", err)
 			}
 		}()
-		streams, err := readStreams(iter, q.params.Limit(), q.params.Direction(), q.params.Interval())
+		streams, err := readStreams(iter, q.params.Limit(), q.params.Direction(), q.params.Interval(), q.limits.MaxQuerySeries(""))
 		return streams, err
 	default:
 		return nil, errors.New("unexpected type (%T): cannot evaluate")
@@ -249,12 +290,18 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 
 	seriesIndex := map[uint64]*promql.Series{}
 
+	seriesLimit := q.limits.MaxQuerySeries("")
+
 	next, ts, vec := stepEvaluator.Next()
 	if stepEvaluator.Error() != nil {
 		return nil, stepEvaluator.Error()
 	}
 
 	if GetRangeType(q.params) == InstantType {
+		if seriesLimit > 0 && len(vec) > seriesLimit {
+			return nil, fmt.Errorf("%w: maximum of series (%d) reached for a single query",
+				ErrLimit, seriesLimit)
+		}
 		sort.Slice(
 			vec,
 			func(i, j int) bool { return labels.Compare(vec[i].Metric, vec[j].Metric) < 0 },
@@ -286,6 +333,10 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 
 			series, ok = seriesIndex[hash]
 			if !ok {
+				if seriesLimit > 0 && len(seriesIndex) >= seriesLimit {
+					return nil, fmt.Errorf("%w: maximum of series (%d) reached for a single query",
+						ErrLimit, seriesLimit)
+				}
 				series = &promql.Series{
 					Metric: p.Metric,
 					Points: make([]promql.Point, 0, stepCount),
@@ -355,6 +406,7 @@ func readStreams(
 	size uint32,
 	dir logproto.Direction,
 	interval time.Duration,
+	seriesLimit int,
 ) (Streams, error) {
 	streams := map[string]*logproto.Stream{}
 	respSize := uint32(0)
@@ -375,6 +427,10 @@ func readStreams(
 		if interval == 0 || lastEntry.Unix() < 0 || forwardShouldOutput || backwardShouldOutput {
 			stream, ok := streams[labels]
 			if !ok {
+				if seriesLimit > 0 && len(streams) >= seriesLimit {
+					return nil, fmt.Errorf("%w: maximum of series (%d) reached for a single query",
+						ErrLimit, seriesLimit)
+				}
 				stream = &logproto.Stream{
 					Labels: labels,
 				}

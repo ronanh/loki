@@ -567,7 +567,7 @@ func TestEngine_LogsInstantQuery(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
-			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params))
+			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params), NoLimits)
 			q := eng.Query(LiteralParams{
 				qs:        test.qs,
 				start:     test.ts,
@@ -1761,7 +1761,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 		t.Run(fmt.Sprintf("%s %s", test.qs, test.direction), func(t *testing.T) {
 			t.Parallel()
 
-			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params))
+			eng := NewEngine(EngineOpts{}, newQuerierRecorder(t, test.data, test.params), NoLimits)
 
 			q := eng.Query(LiteralParams{
 				qs:        test.qs,
@@ -1799,7 +1799,7 @@ func (statsQuerier) SelectSamples(
 }
 
 func TestEngine_Stats(t *testing.T) {
-	eng := NewEngine(EngineOpts{LogStats: true}, &statsQuerier{})
+	eng := NewEngine(EngineOpts{LogStats: true}, &statsQuerier{}, NoLimits)
 
 	q := eng.Query(LiteralParams{
 		qs:        `{foo="bar"}`,
@@ -1878,7 +1878,7 @@ func TestStepEvaluator_Error(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tc := tc
-			eng := NewEngine(EngineOpts{}, tc.querier)
+			eng := NewEngine(EngineOpts{}, tc.querier, NoLimits)
 			q := eng.Query(LiteralParams{
 				qs:    tc.qs,
 				start: time.Unix(0, 0),
@@ -1913,7 +1913,7 @@ var result promql_parser.Value
 
 func benchmarkRangeQuery(testsize int64, b *testing.B) {
 	b.ReportAllocs()
-	eng := NewEngine(EngineOpts{}, getLocalQuerier(testsize))
+	eng := NewEngine(EngineOpts{}, getLocalQuerier(testsize), NoLimits)
 	start := time.Unix(0, 0)
 	end := time.Unix(testsize, 0)
 	b.ResetTimer()
@@ -2115,6 +2115,185 @@ func newSeries(n int64, f generator, labels string) logproto.Series {
 	return logproto.Series{
 		Samples: samples,
 		Labels:  labels,
+	}
+}
+
+func TestFakeLimitsImplementsInterface(t *testing.T) {
+	var _ Limits = &fakeLimits{} // compile-time check
+	var _ Limits = NoLimits      // NoLimits must satisfy Limits
+}
+
+func TestNewEngineNilLimits(t *testing.T) {
+	ng := NewEngine(EngineOpts{}, nil, nil)
+	require.NotNil(t, ng)
+	require.Equal(t, math.MaxInt32, ng.limits.MaxQuerySeries("any"))
+}
+
+func TestCheckSeriesLimit(t *testing.T) {
+	makeMatrix := func(n int) promql.Matrix {
+		return make(promql.Matrix, n)
+	}
+	makeVector := func(n int) promql.Vector {
+		return make(promql.Vector, n)
+	}
+	makeStreams := func(n int) Streams {
+		return make(Streams, n)
+	}
+
+	tests := []struct {
+		name      string
+		limit     int
+		data      promql_parser.Value
+		expectErr bool
+	}{
+		{"matrix under limit", 500, makeMatrix(499), false},
+		{"matrix at limit", 500, makeMatrix(500), false},
+		{"matrix over limit", 500, makeMatrix(501), true},
+		{"vector under limit", 500, makeVector(499), false},
+		{"vector at limit", 500, makeVector(500), false},
+		{"vector over limit", 500, makeVector(501), true},
+		{"streams under limit", 500, makeStreams(499), false},
+		{"streams at limit", 500, makeStreams(500), false},
+		{"streams over limit", 500, makeStreams(501), true},
+		{"scalar no limit", 500, promql.Scalar{}, false},
+		{"zero limit disabled", 0, makeMatrix(10000), false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			q := &query{limits: &fakeLimits{maxSeries: tc.limit}}
+			err := q.checkSeriesLimit(tc.data)
+			if tc.expectErr {
+				require.ErrorIs(t, err, ErrLimit)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestExecEnforcesSeriesLimit(t *testing.T) {
+	t.Parallel()
+
+	const nLabels = 3
+
+	// Three streams with distinct label sets, 5 entries each at t=0..4s.
+	rawStreams := make([]logproto.Stream, nLabels)
+	for i := range rawStreams {
+		rawStreams[i] = newStream(5, identity, fmt.Sprintf(`{app="app%d"}`, i))
+	}
+	streamsQ := &querierRecorder{streams: map[string][]logproto.Stream{"": rawStreams}}
+
+	// Three series with distinct label sets, 5 samples each at t=0..4s.
+	rawSeries := make([]logproto.Series, nLabels)
+	for i := range rawSeries {
+		rawSeries[i] = newSeries(5, identity, fmt.Sprintf(`{app="app%d"}`, i))
+	}
+	seriesQ := &querierRecorder{series: map[string][]logproto.Series{"": rawSeries}}
+
+	tests := []struct {
+		name      string
+		qs        string
+		querier   Querier
+		start     time.Time
+		end       time.Time
+		step      time.Duration
+		limit     int
+		expectErr bool
+	}{
+		// Log query — readStreams early-termination path.
+		{
+			name: "streams/over limit", qs: `{app=~".*"}`,
+			querier: streamsQ, start: time.Unix(0, 0), end: time.Unix(30, 0),
+			limit: nLabels - 1, expectErr: true,
+		},
+		{
+			name: "streams/at limit", qs: `{app=~".*"}`,
+			querier: streamsQ, start: time.Unix(0, 0), end: time.Unix(30, 0),
+			limit: nLabels, expectErr: false,
+		},
+		{
+			name: "streams/under limit", qs: `{app=~".*"}`,
+			querier: streamsQ, start: time.Unix(0, 0), end: time.Unix(30, 0),
+			limit: nLabels + 1, expectErr: false,
+		},
+		{
+			name: "streams/zero limit disabled", qs: `{app=~".*"}`,
+			querier: streamsQ, start: time.Unix(0, 0), end: time.Unix(30, 0),
+			limit: 0, expectErr: false,
+		},
+		// Instant metric query — evalSample Vector path.
+		// start == end, step == 0 → InstantType. Samples at t=0..4s fall within the 5m window.
+		{
+			name: "vector/over limit", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(60, 0),
+			limit: nLabels - 1, expectErr: true,
+		},
+		{
+			name: "vector/at limit", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(60, 0),
+			limit: nLabels, expectErr: false,
+		},
+		{
+			name: "vector/under limit", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(60, 0),
+			limit: nLabels + 1, expectErr: false,
+		},
+		{
+			name: "vector/zero limit disabled", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(60, 0),
+			limit: 0, expectErr: false,
+		},
+		// Range metric query — evalSample Matrix accumulation path.
+		// start != end → RangeType. 5m window captures all samples at t=0..4s at every step.
+		{
+			name: "matrix/over limit", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(120, 0), step: 60 * time.Second,
+			limit: nLabels - 1, expectErr: true,
+		},
+		{
+			name: "matrix/at limit", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(120, 0), step: 60 * time.Second,
+			limit: nLabels, expectErr: false,
+		},
+		{
+			name: "matrix/under limit", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(120, 0), step: 60 * time.Second,
+			limit: nLabels + 1, expectErr: false,
+		},
+		{
+			name: "matrix/zero limit disabled", qs: `count_over_time({app=~".*"}[5m])`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(120, 0), step: 60 * time.Second,
+			limit: 0, expectErr: false,
+		},
+		// with aggregation -> only one output series, so should not error even if input is over limit
+		{
+			name: "matrix/over limit with aggregation", qs: `max(count_over_time({app=~".*"}[5m]))`,
+			querier: seriesQ, start: time.Unix(60, 0), end: time.Unix(120, 0), step: 60 * time.Second,
+			limit: nLabels - 1, expectErr: false,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ng := NewEngine(EngineOpts{}, tc.querier, &fakeLimits{maxSeries: tc.limit})
+			q := ng.Query(LiteralParams{
+				qs:        tc.qs,
+				start:     tc.start,
+				end:       tc.end,
+				step:      tc.step,
+				direction: logproto.FORWARD,
+				limit:     1000,
+			})
+			_, err := q.Exec(context.Background())
+			if tc.expectErr {
+				require.ErrorIs(t, err, ErrLimit)
+			} else {
+				require.NoError(t, err)
+			}
+		})
 	}
 }
 

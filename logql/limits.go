@@ -14,3 +14,7 @@ type Limits interface {
 type fakeLimits struct {
 	maxSeries int
 }
+
+func (f *fakeLimits) MaxQuerySeries(_ string) int {
+	return f.maxSeries
+}
