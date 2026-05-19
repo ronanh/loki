@@ -117,12 +117,12 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sort.Sort(tt.in)
 
-			outval, outlbs, ok := tt.ex.ForStream(tt.in).Process([]byte(""))
+			outval, outlbs, ok := tt.ex.ForStream(tt.in).Process(0, []byte(""))
 			require.Equal(t, tt.wantOk, ok)
 			require.Equal(t, tt.want, outval)
 			require.Equal(t, tt.wantLbs, outlbs.Labels())
 
-			outval, outlbs, ok = tt.ex.ForStream(tt.in).ProcessString("")
+			outval, outlbs, ok = tt.ex.ForStream(tt.in).ProcessString(0, "")
 			require.Equal(t, tt.wantOk, ok)
 			require.Equal(t, tt.want, outval)
 			require.Equal(t, tt.wantLbs, outlbs.Labels())
@@ -144,7 +144,7 @@ func Test_Extract_ExpectedLabels(t *testing.T) {
 	)
 
 	f, lbs, ok := ex.ForStream(labels.Labels{{Name: "bar", Value: "foo"}}).
-		ProcessString(`{"duration":"20ms","foo":"json"}`)
+		ProcessString(0, `{"duration":"20ms","foo":"json"}`)
 	require.True(t, ok)
 	require.Equal(t, (20 * time.Millisecond).Seconds(), f)
 	require.Equal(t, labels.Labels{{Name: "foo", Value: "json"}}, lbs.Labels())
@@ -166,12 +166,12 @@ func TestNewLineSampleExtractor(t *testing.T) {
 	}
 	sort.Sort(lbs)
 	sse := se.ForStream(lbs)
-	f, l, ok := sse.Process([]byte(`foo`))
+	f, l, ok := sse.Process(0, []byte(`foo`))
 	require.True(t, ok)
 	require.Equal(t, 1., f)
 	assertLabelResult(t, lbs, l)
 
-	f, l, ok = sse.ProcessString(`foo`)
+	f, l, ok = sse.ProcessString(0, `foo`)
 	require.True(t, ok)
 	require.Equal(t, 1., f)
 	assertLabelResult(t, lbs, l)
@@ -188,11 +188,11 @@ func TestNewLineSampleExtractor(t *testing.T) {
 	)
 	require.NoError(t, err)
 	sse = se.ForStream(lbs)
-	f, l, ok = sse.Process([]byte(`foo`))
+	f, l, ok = sse.Process(0, []byte(`foo`))
 	require.True(t, ok)
 	require.Equal(t, 3., f)
 	assertLabelResult(t, labels.Labels{labels.Label{Name: "namespace", Value: "dev"}}, l)
 	sse = se.ForStream(lbs)
-	_, _, ok = sse.Process([]byte(`nope`))
+	_, _, ok = sse.Process(0, []byte(`nope`))
 	require.False(t, ok)
 }

@@ -24,7 +24,7 @@ func NewDropLabels(dropLabels []DropLabel) *DropLabels {
 	return &DropLabels{dropLabels: dropLabels}
 }
 
-func (dl *DropLabels) Process(line []byte, lbls *LabelsBuilder) ([]byte, bool) {
+func (dl *DropLabels) Process(_ int64, line []byte, lbls *LabelsBuilder) ([]byte, bool) {
 	for _, dropLabel := range dl.dropLabels {
 		if dropLabel.Matcher != nil {
 			switch dropLabel.Name {

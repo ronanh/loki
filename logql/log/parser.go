@@ -45,7 +45,7 @@ func NewJSONParser() *JSONParser {
 	}
 }
 
-func (j *JSONParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (j *JSONParser) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	if lbs.ParserLabelHints().NoLabels() {
 		return line, true
 	}
@@ -227,7 +227,7 @@ func mustNewRegexParser(re string) *RegexpParser {
 	return r
 }
 
-func (r *RegexpParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (r *RegexpParser) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	for i, value := range r.regex.FindSubmatch(line) {
 		if name, ok := r.nameIndex[i]; ok {
 			key, ok := r.keys.Get(unsafeGetBytes(name), func() (string, bool) {
@@ -265,7 +265,7 @@ func NewLogfmtParser() *LogfmtParser {
 	}
 }
 
-func (l *LogfmtParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (l *LogfmtParser) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	if lbs.ParserLabelHints().NoLabels() {
 		return line, true
 	}
@@ -327,7 +327,7 @@ func NewJSONExpressionParser(expressions []JSONExpression) (*JSONExpressionParse
 	}, nil
 }
 
-func (j *JSONExpressionParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (j *JSONExpressionParser) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	if lbs.ParserLabelHints().NoLabels() {
 		return line, true
 	}
@@ -373,7 +373,7 @@ func NewUnpackParser() *UnpackParser {
 
 func (UnpackParser) RequiredLabelNames() []string { return []string{} }
 
-func (u *UnpackParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (u *UnpackParser) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	if lbs.ParserLabelHints().NoLabels() {
 		return line, true
 	}
@@ -466,7 +466,7 @@ func NewPatternParser(pat string) (*PatternParser, error) {
 	}, nil
 }
 
-func (parser *PatternParser) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (parser *PatternParser) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	iter := parser.pat.Match(line)
 	for {
 		v, ok := iter.Next()

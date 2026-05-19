@@ -226,7 +226,7 @@ func Test_ParserHints(t *testing.T) {
 
 			ex, err := expr.Extractor()
 			require.NoError(t, err)
-			v, lbsRes, ok := ex.ForStream(lbs).Process(slices.Clone(tt.line))
+			v, lbsRes, ok := ex.ForStream(lbs).Process(0, slices.Clone(tt.line))
 			var lbsResString string
 			if lbsRes != nil {
 				lbsResString = lbsRes.String()

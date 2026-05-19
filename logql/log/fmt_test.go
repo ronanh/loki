@@ -10,10 +10,9 @@ import (
 
 func Test_lineFormatter_Format2(t *testing.T) {
 	tests := []struct {
-		name  string
-		fmter *LineFormatter
-		lbs   labels.Labels
-
+		name    string
+		fmter   *LineFormatter
+		lbs     labels.Labels
 		want    []byte
 		wantLbs labels.Labels
 		in      []byte
@@ -371,7 +370,7 @@ func Test_lineFormatter_Format2(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			builder.Reset()
-			outLine, _ := tt.fmter.Process(tt.in, builder)
+			outLine, _ := tt.fmter.Process(0, tt.in, builder)
 			require.Equal(t, tt.want, outLine)
 			require.Equal(t, tt.wantLbs, builder.LabelsResult().Labels())
 		})
@@ -534,7 +533,7 @@ func Test_lineFormatter_Format(t *testing.T) {
 			sort.Sort(tt.wantLbs)
 			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			builder.Reset()
-			outLine, _ := tt.fmter.Process(nil, builder)
+			outLine, _ := tt.fmter.Process(0, nil, builder)
 			require.Equal(t, tt.want, outLine)
 			require.Equal(t, tt.wantLbs, builder.LabelsResult().Labels())
 		})
@@ -587,7 +586,7 @@ func Test_labelsFormatter_Format(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewBaseLabelsBuilder().ForLabels(tt.in, tt.in.Hash())
 			builder.Reset()
-			_, _ = tt.fmter.Process(nil, builder)
+			_, _ = tt.fmter.Process(0, nil, builder)
 			sort.Sort(tt.want)
 			require.Equal(t, tt.want, builder.LabelsResult().Labels())
 		})
@@ -714,7 +713,7 @@ func Test_labelsFormatter_Format2(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewBaseLabelsBuilder().ForLabels(tt.in, tt.in.Hash())
 			builder.Reset()
-			_, _ = tt.fmter.Process([]byte("test line"), builder)
+			_, _ = tt.fmter.Process(0, []byte("test line"), builder)
 			require.Equal(t, tt.want, builder.LabelsResult().Labels())
 		})
 	}
@@ -726,6 +725,100 @@ func mustNewLabelsFormatter(fmts []LabelFmt) *LabelsFormatter {
 		panic(err)
 	}
 	return lf
+}
+
+func Test_lineFormatter_Timestamp(t *testing.T) {
+	tests := []struct {
+		name string
+		tmpl string
+		ts   int64
+		lbs  labels.Labels
+		in   []byte
+		want []byte
+	}{
+		{
+			name: "unix epoch",
+			tmpl: `{{ __timestamp__ | unixEpoch }}`,
+			ts:   1656353124120000000,
+			lbs:  labels.FromStrings("foo", "bar"),
+			want: []byte("1656353124"),
+		},
+		{
+			name: "date format UTC",
+			tmpl: `{{ __timestamp__ | date "2006-01-02" }}`,
+			ts:   1656331200000000000,
+			lbs:  labels.FromStrings("foo", "bar"),
+			want: []byte("2022-06-27"),
+		},
+		{
+			name: "combined with labels and line",
+			tmpl: `{{ __timestamp__ | unixEpoch }} {{ .foo }} {{ __line__ }}`,
+			ts:   1656353124000000000,
+			lbs:  labels.FromStrings("foo", "bar"),
+			in:   []byte("hello"),
+			want: []byte("1656353124 bar hello"),
+		},
+		{
+			name: "zero timestamp",
+			tmpl: `{{ __timestamp__ | unixEpoch }}`,
+			ts:   0,
+			lbs:  labels.FromStrings("foo", "bar"),
+			want: []byte("0"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fmter := newMustLineFormatter(tt.tmpl)
+			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
+			builder.Reset()
+			out, _ := fmter.Process(tt.ts, tt.in, builder)
+			require.Equal(t, tt.want, out)
+		})
+	}
+}
+
+func Test_labelsFormatter_Timestamp(t *testing.T) {
+	tests := []struct {
+		name    string
+		fmts    []LabelFmt
+		ts      int64
+		in      labels.Labels
+		line    []byte
+		want    labels.Labels
+	}{
+		{
+			name: "timestamp as unix epoch in label",
+			fmts: []LabelFmt{NewTemplateLabelFmt("ts", `{{ __timestamp__ | unixEpoch }}`)},
+			ts:   1656353124120000000,
+			in:   labels.FromStrings("foo", "bar"),
+			want: labels.FromStrings("foo", "bar", "ts", "1656353124"),
+		},
+		{
+			name: "timestamp date format in label",
+			fmts: []LabelFmt{NewTemplateLabelFmt("day", `{{ __timestamp__ | date "2006-01-02" }}`)},
+			ts:   1656331200000000000,
+			in:   labels.FromStrings("foo", "bar"),
+			want: labels.FromStrings("day", "2022-06-27", "foo", "bar"),
+		},
+		{
+			name: "timestamp combined with line content",
+			fmts: []LabelFmt{NewTemplateLabelFmt("info", `{{ __timestamp__ | unixEpoch }}_{{ __line__ }}`)},
+			ts:   1656353124000000000,
+			in:   labels.FromStrings("foo", "bar"),
+			line: []byte("myapp"),
+			want: labels.FromStrings("foo", "bar", "info", "1656353124_myapp"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fmter := mustNewLabelsFormatter(tt.fmts)
+			builder := NewBaseLabelsBuilder().ForLabels(tt.in, tt.in.Hash())
+			builder.Reset()
+			_, _ = fmter.Process(tt.ts, tt.line, builder)
+			sort.Sort(tt.want)
+			require.Equal(t, tt.want, builder.LabelsResult().Labels())
+		})
+	}
 }
 
 func Test_validate(t *testing.T) {

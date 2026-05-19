@@ -85,7 +85,7 @@ func Test_jsonParser_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			b.Reset()
-			_, _ = j.Process(tt.line, b)
+			_, _ = j.Process(0, tt.line, b)
 			sort.Sort(tt.want)
 			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
@@ -337,7 +337,7 @@ func TestJSONExpressionParser(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			b.Reset()
-			_, _ = j.Process(tt.line, b)
+			_, _ = j.Process(0, tt.line, b)
 			sort.Sort(tt.want)
 			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
@@ -433,7 +433,7 @@ func Benchmark_Parser(b *testing.B) {
 				builder := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
 				for n := 0; n < b.N; n++ {
 					builder.Reset()
-					_, _ = tt.s.Process(line, builder)
+					_, _ = tt.s.Process(0, line, builder)
 				}
 			})
 
@@ -448,7 +448,7 @@ func Benchmark_Parser(b *testing.B) {
 				)
 				for n := 0; n < b.N; n++ {
 					builder.Reset()
-					_, _ = tt.s.Process(line, builder)
+					_, _ = tt.s.Process(0, line, builder)
 				}
 			})
 		})
@@ -540,7 +540,7 @@ func Test_regexpParser_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			b.Reset()
-			_, _ = tt.parser.Process(tt.line, b)
+			_, _ = tt.parser.Process(0, tt.line, b)
 			sort.Sort(tt.want)
 			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
@@ -608,7 +608,7 @@ func Test_patternParser_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			b.Reset()
-			_, _ = tt.parser.Process(tt.line, b)
+			_, _ = tt.parser.Process(0, tt.line, b)
 			sort.Sort(tt.want)
 			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
@@ -720,7 +720,7 @@ func Test_logfmtParser_Parse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			b.Reset()
-			_, _ = p.Process(tt.line, b)
+			_, _ = p.Process(0, tt.line, b)
 			sort.Sort(tt.want)
 			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
@@ -822,7 +822,7 @@ func Test_unpackParser_Parse(t *testing.T) {
 			b := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
 			b.Reset()
 			copy := string(tt.line)
-			l, _ := j.Process(tt.line, b)
+			l, _ := j.Process(0, tt.line, b)
 			sort.Sort(tt.wantLbs)
 			require.Equal(t, tt.wantLbs, b.LabelsResult().Labels())
 			require.Equal(t, tt.wantLine, l)
@@ -883,7 +883,7 @@ func Test_PatternParser(t *testing.T) {
 			b.Reset()
 			pp, err := NewPatternParser(tt.pattern)
 			require.NoError(t, err)
-			_, _ = pp.Process(tt.line, b)
+			_, _ = pp.Process(0, tt.line, b)
 			require.Equal(t, tt.want, b.LabelsResult().Labels())
 		})
 	}

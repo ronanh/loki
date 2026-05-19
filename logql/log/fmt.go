@@ -8,13 +8,17 @@ import (
 	"strings"
 	"text/template"
 	"text/template/parse"
+	"time"
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/dustin/go-humanize"
 	"github.com/ronanh/loki/util"
 )
 
-const lineFuncName = "__line__"
+const (
+	lineFuncName      = "__line__"
+	timestampFuncName = "__timestamp__"
+)
 
 func init() {
 	m := sprig.GenericFuncMap()
@@ -97,6 +101,7 @@ var (
 
 type LineFormatter struct {
 	currLine []byte
+	currTs   int64
 
 	*template.Template
 	buf *bytes.Buffer
@@ -112,6 +117,9 @@ func NewFormatter(tmpl string) (*LineFormatter, error) {
 	funcMap[lineFuncName] = func() string {
 		return util.BytesToStr(lineFormatter.currLine)
 	}
+	funcMap[timestampFuncName] = func() time.Time {
+		return time.Unix(0, lineFormatter.currTs).UTC()
+	}
 	t, err := template.New("line").Option("missingkey=zero").Funcs(funcMap).Parse(tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("invalid line template: %s", err)
@@ -120,13 +128,14 @@ func NewFormatter(tmpl string) (*LineFormatter, error) {
 	return lineFormatter, nil
 }
 
-func (lf *LineFormatter) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (lf *LineFormatter) Process(ts int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	lf.buf.Reset()
 	m, tmpMap := lbs.Map()
 	if tmpMap {
 		defer smp.Put(m)
 	}
 	lf.currLine = line
+	lf.currTs = ts
 	if err := lf.Template.Execute(lf.buf, m); err != nil {
 		lbs.SetErr(errTemplateFormat)
 		return line, true
@@ -225,6 +234,7 @@ type labelFormatter struct {
 
 type LabelsFormatter struct {
 	currentLine []byte
+	currTs      int64
 
 	formats []labelFormatter
 	buf     *bytes.Buffer
@@ -243,6 +253,9 @@ func NewLabelsFormatter(fmts []LabelFmt) (*LabelsFormatter, error) {
 	funcMap := maps.Clone(functionMap)
 	funcMap[lineFuncName] = func() string {
 		return util.BytesToStr(lblsFormatter.currentLine)
+	}
+	funcMap[timestampFuncName] = func() time.Time {
+		return time.Unix(0, lblsFormatter.currTs).UTC()
 	}
 
 	formats := make([]labelFormatter, 0, len(fmts))
@@ -280,8 +293,9 @@ func validate(fmts []LabelFmt) error {
 	return nil
 }
 
-func (lf *LabelsFormatter) Process(l []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (lf *LabelsFormatter) Process(ts int64, l []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	lf.currentLine = l
+	lf.currTs = ts
 	var tmpMap bool
 	var m map[string]string
 	for _, f := range lf.formats {

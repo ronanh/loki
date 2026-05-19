@@ -16,15 +16,15 @@ type Pipeline interface {
 // StreamPipeline transform and filter log lines and labels.
 // A StreamPipeline never mutate the received line.
 type StreamPipeline interface {
-	Process(line []byte) (resultLine []byte, resultLabels LabelsResult, skip bool)
-	ProcessString(line string) (resultLine string, resultLabels LabelsResult, skip bool)
+	Process(ts int64, line []byte) (resultLine []byte, resultLabels LabelsResult, skip bool)
+	ProcessString(ts int64, line string) (resultLine string, resultLabels LabelsResult, skip bool)
 }
 
 // Stage is a single step of a Pipeline.
 // A Stage implementation should never mutate the line passed, but instead either
 // return the line unchanged or allocate a new line.
 type Stage interface {
-	Process(line []byte, lbs *LabelsBuilder) ([]byte, bool)
+	Process(ts int64, line []byte, lbs *LabelsBuilder) ([]byte, bool)
 	RequiredLabelNames() []string
 }
 
@@ -49,11 +49,11 @@ type noopStreamPipeline struct {
 	LabelsResult
 }
 
-func (n noopStreamPipeline) Process(line []byte) ([]byte, LabelsResult, bool) {
+func (n noopStreamPipeline) Process(_ int64, line []byte) ([]byte, LabelsResult, bool) {
 	return line, n.LabelsResult, true
 }
 
-func (n noopStreamPipeline) ProcessString(line string) (string, LabelsResult, bool) {
+func (n noopStreamPipeline) ProcessString(_ int64, line string) (string, LabelsResult, bool) {
 	return line, n.LabelsResult, true
 }
 
@@ -69,18 +69,18 @@ func (n *noopPipeline) ForStream(labels labels.Labels) StreamPipeline {
 
 type noopStage struct{}
 
-func (noopStage) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (noopStage) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	return line, true
 }
 func (noopStage) RequiredLabelNames() []string { return []string{} }
 
 type StageFunc struct {
-	process        func(line []byte, lbs *LabelsBuilder) ([]byte, bool)
+	process        func(ts int64, line []byte, lbs *LabelsBuilder) ([]byte, bool)
 	requiredLabels []string
 }
 
-func (fn StageFunc) Process(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
-	return fn.process(line, lbs)
+func (fn StageFunc) Process(ts int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+	return fn.process(ts, line, lbs)
 }
 
 func (fn StageFunc) RequiredLabelNames() []string {
@@ -130,11 +130,11 @@ func (p *pipeline) ForStream(labels labels.Labels) StreamPipeline {
 	return res
 }
 
-func (p *streamPipeline) Process(line []byte) ([]byte, LabelsResult, bool) {
+func (p *streamPipeline) Process(ts int64, line []byte) ([]byte, LabelsResult, bool) {
 	var ok bool
 	p.builder.Reset()
 	for _, s := range p.stages {
-		line, ok = s.Process(line, p.builder)
+		line, ok = s.Process(ts, line, p.builder)
 		if !ok {
 			return nil, nil, false
 		}
@@ -142,10 +142,10 @@ func (p *streamPipeline) Process(line []byte) ([]byte, LabelsResult, bool) {
 	return line, p.builder.LabelsResult(), true
 }
 
-func (p *streamPipeline) ProcessString(line string) (string, LabelsResult, bool) {
+func (p *streamPipeline) ProcessString(ts int64, line string) (string, LabelsResult, bool) {
 	// Stages only read from the line.
 	lb := unsafeGetBytes(line)
-	lb, lr, ok := p.Process(lb)
+	lb, lr, ok := p.Process(ts, lb)
 	// either the line is unchanged and we can just send back the same string.
 	// or we created a new buffer for it in which case it is still safe to avoid the string(byte)
 	// copy.
@@ -162,10 +162,10 @@ func ReduceStages(stages []Stage) Stage {
 		requiredLabelNames = append(requiredLabelNames, s.RequiredLabelNames()...)
 	}
 	return StageFunc{
-		process: func(line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+		process: func(ts int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 			var ok bool
 			for _, p := range stages {
-				line, ok = p.Process(line, lbs)
+				line, ok = p.Process(ts, line, lbs)
 				if !ok {
 					return nil, false
 				}

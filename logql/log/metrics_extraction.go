@@ -32,8 +32,8 @@ type SampleExtractor interface {
 // StreamSampleExtractor extracts sample for a log line.
 // A StreamSampleExtractor never mutate the received line.
 type StreamSampleExtractor interface {
-	Process(line []byte) (float64, LabelsResult, bool)
-	ProcessString(line string) (float64, LabelsResult, bool)
+	Process(ts int64, line []byte) (float64, LabelsResult, bool)
+	ProcessString(ts int64, line string) (float64, LabelsResult, bool)
 }
 
 type lineSampleExtractor struct {
@@ -83,22 +83,22 @@ type streamLineSampleExtractor struct {
 	builder *LabelsBuilder
 }
 
-func (l *streamLineSampleExtractor) Process(line []byte) (float64, LabelsResult, bool) {
+func (l *streamLineSampleExtractor) Process(ts int64, line []byte) (float64, LabelsResult, bool) {
 	// short circuit.
 	if l.Stage == NoopStage {
 		return l.LineExtractor(line), l.builder.GroupedLabels(), true
 	}
 	l.builder.Reset()
-	line, ok := l.Stage.Process(line, l.builder)
+	line, ok := l.Stage.Process(ts, line, l.builder)
 	if !ok {
 		return 0, nil, false
 	}
 	return l.LineExtractor(line), l.builder.GroupedLabels(), true
 }
 
-func (l *streamLineSampleExtractor) ProcessString(line string) (float64, LabelsResult, bool) {
+func (l *streamLineSampleExtractor) ProcessString(ts int64, line string) (float64, LabelsResult, bool) {
 	// unsafe get bytes since we have the guarantee that the line won't be mutated.
-	return l.Process(unsafeGetBytes(line))
+	return l.Process(ts, unsafeGetBytes(line))
 }
 
 type convertionFn func(value string) (float64, error)
@@ -176,10 +176,10 @@ func (l *labelSampleExtractor) ForStream(labels labels.Labels) StreamSampleExtra
 	return res
 }
 
-func (l *streamLabelSampleExtractor) Process(line []byte) (float64, LabelsResult, bool) {
+func (l *streamLabelSampleExtractor) Process(ts int64, line []byte) (float64, LabelsResult, bool) {
 	// Apply the pipeline first.
 	l.builder.Reset()
-	line, ok := l.preStage.Process(line, l.builder)
+	line, ok := l.preStage.Process(ts, line, l.builder)
 	if !ok {
 		return 0, nil, false
 	}
@@ -196,15 +196,15 @@ func (l *streamLabelSampleExtractor) Process(line []byte) (float64, LabelsResult
 		}
 	}
 	// post filters
-	if _, ok = l.postFilter.Process(line, l.builder); !ok {
+	if _, ok = l.postFilter.Process(ts, line, l.builder); !ok {
 		return 0, nil, false
 	}
 	return v, l.builder.GroupedLabels(), true
 }
 
-func (l *streamLabelSampleExtractor) ProcessString(line string) (float64, LabelsResult, bool) {
+func (l *streamLabelSampleExtractor) ProcessString(ts int64, line string) (float64, LabelsResult, bool) {
 	// unsafe get bytes since we have the guarantee that the line won't be mutated.
-	return l.Process(unsafeGetBytes(line))
+	return l.Process(ts, unsafeGetBytes(line))
 }
 
 func convertFloat(v string) (float64, error) {
