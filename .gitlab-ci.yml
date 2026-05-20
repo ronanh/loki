@@ -33,6 +33,14 @@ workflow:
 go:lint:
   allow_failure: true
 
+go:fmt:
+  stage: check
+  image: $GO_IMAGE
+  before_script:
+    - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+  script:
+    - golangci-lint fmt --diff
+
 # this job is defined by the component we import via the include above
 # we are simply overriding the `script` property and keeping the other properties as is
 go:test:
