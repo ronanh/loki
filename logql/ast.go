@@ -753,7 +753,9 @@ func newRangeAggregationExpr(
 
 	} else {
 		if operation == OpRangeTypeQuantile {
-			panic(newParseError(fmt.Sprintf("parameter required for operation %s", operation), 0, 0))
+			panic(
+				newParseError(fmt.Sprintf("parameter required for operation %s", operation), 0, 0),
+			)
 		}
 	}
 	e := &rangeAggregationExpr{

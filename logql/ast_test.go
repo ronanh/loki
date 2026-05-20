@@ -351,7 +351,15 @@ func Test_FilterMatcher(t *testing.T) {
 				sp := p.ForStream(labelBar)
 				for _, lc := range tt.lines {
 					_, _, ok := sp.Process(0, []byte(lc.l))
-					assert.Equalf(t, lc.e, ok, "query for line '%s' was %v and not %v", lc.l, ok, lc.e)
+					assert.Equalf(
+						t,
+						lc.e,
+						ok,
+						"query for line '%s' was %v and not %v",
+						lc.l,
+						ok,
+						lc.e,
+					)
 				}
 			}
 		})

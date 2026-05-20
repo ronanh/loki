@@ -9,7 +9,19 @@ import (
 
 func Test_SimplifiedRegex(t *testing.T) {
 	fixtures := []string{
-		"foo", "foobar", "bar", "foobuzz", "buzz", "f", "  ", "fba", "foofoofoo", "b", "foob", "bfoo", "FoO",
+		"foo",
+		"foobar",
+		"bar",
+		"foobuzz",
+		"buzz",
+		"f",
+		"  ",
+		"fba",
+		"foofoofoo",
+		"b",
+		"foob",
+		"bfoo",
+		"FoO",
 	}
 	for _, test := range []struct {
 		re         string

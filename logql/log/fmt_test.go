@@ -779,12 +779,12 @@ func Test_lineFormatter_Timestamp(t *testing.T) {
 
 func Test_labelsFormatter_Timestamp(t *testing.T) {
 	tests := []struct {
-		name    string
-		fmts    []LabelFmt
-		ts      int64
-		in      labels.Labels
-		line    []byte
-		want    labels.Labels
+		name string
+		fmts []LabelFmt
+		ts   int64
+		in   labels.Labels
+		line []byte
+		want labels.Labels
 	}{
 		{
 			name: "timestamp as unix epoch in label",
@@ -802,7 +802,9 @@ func Test_labelsFormatter_Timestamp(t *testing.T) {
 		},
 		{
 			name: "timestamp combined with line content",
-			fmts: []LabelFmt{NewTemplateLabelFmt("info", `{{ __timestamp__ | unixEpoch }}_{{ __line__ }}`)},
+			fmts: []LabelFmt{
+				NewTemplateLabelFmt("info", `{{ __timestamp__ | unixEpoch }}_{{ __line__ }}`),
+			},
 			ts:   1656353124000000000,
 			in:   labels.FromStrings("foo", "bar"),
 			line: []byte("myapp"),

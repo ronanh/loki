@@ -260,7 +260,13 @@ func (q *query) Eval(ctx context.Context) (promql_parser.Value, error) {
 				slog.ErrorContext(ctx, "closing iterator", "err", err)
 			}
 		}()
-		streams, err := readStreams(iter, q.params.Limit(), q.params.Direction(), q.params.Interval(), q.limits.MaxQuerySeries(""))
+		streams, err := readStreams(
+			iter,
+			q.params.Limit(),
+			q.params.Direction(),
+			q.params.Interval(),
+			q.limits.MaxQuerySeries(""),
+		)
 		return streams, err
 	default:
 		return nil, errors.New("unexpected type (%T): cannot evaluate")

@@ -115,11 +115,11 @@ func (b *BinaryLabelFilter) String() string {
 
 type noopLabelFilter struct{}
 
-func (noopLabelFilter) String() string                                         { return "" }
+func (noopLabelFilter) String() string { return "" }
 func (noopLabelFilter) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
 	return line, true
 }
-func (noopLabelFilter) RequiredLabelNames() []string                           { return []string{} }
+func (noopLabelFilter) RequiredLabelNames() []string { return []string{} }
 
 // ReduceAndLabelFilter Reduces multiple label filterer into one using binary and operation.
 func ReduceAndLabelFilter(filters []LabelFilterer) LabelFilterer {

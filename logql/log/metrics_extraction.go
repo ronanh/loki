@@ -96,7 +96,10 @@ func (l *streamLineSampleExtractor) Process(ts int64, line []byte) (float64, Lab
 	return l.LineExtractor(line), l.builder.GroupedLabels(), true
 }
 
-func (l *streamLineSampleExtractor) ProcessString(ts int64, line string) (float64, LabelsResult, bool) {
+func (l *streamLineSampleExtractor) ProcessString(
+	ts int64,
+	line string,
+) (float64, LabelsResult, bool) {
 	// unsafe get bytes since we have the guarantee that the line won't be mutated.
 	return l.Process(ts, unsafeGetBytes(line))
 }
@@ -202,7 +205,10 @@ func (l *streamLabelSampleExtractor) Process(ts int64, line []byte) (float64, La
 	return v, l.builder.GroupedLabels(), true
 }
 
-func (l *streamLabelSampleExtractor) ProcessString(ts int64, line string) (float64, LabelsResult, bool) {
+func (l *streamLabelSampleExtractor) ProcessString(
+	ts int64,
+	line string,
+) (float64, LabelsResult, bool) {
 	// unsafe get bytes since we have the guarantee that the line won't be mutated.
 	return l.Process(ts, unsafeGetBytes(line))
 }

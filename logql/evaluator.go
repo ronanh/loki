@@ -189,20 +189,22 @@ func (ev *DefaultEvaluator) StepEvaluator(
 		if rangExpr, ok := e.left.(*rangeAggregationExpr); ok && e.operation == OpTypeSum {
 			// if range expression is wrapped with a vector expression
 			// we should send the vector expression for allowing reducing labels at the source.
-			nextEv = SampleEvaluatorFunc(func(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error) {
-				it, err := ev.querier.SelectSamples(ctx, SelectSampleParams{
-					&logproto.SampleQueryRequest{
-						Start:    q.Start().Add(-rangExpr.left.interval),
-						End:      q.End(),
-						Selector: e.String(), // intentionally send the the vector for reducing labels.
-						Shards:   q.Shards(),
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-				return rangeAggEvaluator(iter.NewPeekingSampleIterator(it), rangExpr, q)
-			})
+			nextEv = SampleEvaluatorFunc(
+				func(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error) {
+					it, err := ev.querier.SelectSamples(ctx, SelectSampleParams{
+						&logproto.SampleQueryRequest{
+							Start:    q.Start().Add(-rangExpr.left.interval),
+							End:      q.End(),
+							Selector: e.String(), // intentionally send the the vector for reducing labels.
+							Shards:   q.Shards(),
+						},
+					})
+					if err != nil {
+						return nil, err
+					}
+					return rangeAggEvaluator(iter.NewPeekingSampleIterator(it), rangExpr, q)
+				},
+			)
 		}
 		return vectorAggEvaluator(ctx, nextEv, e, q)
 	case *rangeAggregationExpr:
@@ -462,7 +464,8 @@ func vectorAggEvaluator(
 					result.value += delta * (s.V - result.mean)
 
 				case OpTypeTopK:
-					if len(result.heap) < expr.params || result.heap[0].V < s.V || math.IsNaN(result.heap[0].V) {
+					if len(result.heap) < expr.params || result.heap[0].V < s.V ||
+						math.IsNaN(result.heap[0].V) {
 						groupHeap := result.heap
 						if len(groupHeap) == expr.params {
 							heap.Pop(&groupHeap)
@@ -475,7 +478,8 @@ func vectorAggEvaluator(
 					}
 
 				case OpTypeBottomK:
-					if len(result.reverseHeap) < expr.params || result.reverseHeap[0].V > s.V || math.IsNaN(result.reverseHeap[0].V) {
+					if len(result.reverseHeap) < expr.params || result.reverseHeap[0].V > s.V ||
+						math.IsNaN(result.reverseHeap[0].V) {
 						groupReverseHeap := result.reverseHeap
 						if len(groupReverseHeap) == expr.params {
 							heap.Pop(&groupReverseHeap)
@@ -753,7 +757,14 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 	var iResults int
 	for _, pair := range b.pairs {
 		// merge
-		if merged := mergeBinOp(b.expr.op, pair[0], pair[1], !b.expr.opts.ReturnBool, IsComparisonOperator(b.expr.op), &b.results[iResults]); merged {
+		if merged := mergeBinOp(
+			b.expr.op,
+			pair[0],
+			pair[1],
+			!b.expr.opts.ReturnBool,
+			IsComparisonOperator(b.expr.op),
+			&b.results[iResults],
+		); merged {
 			iResults++
 		}
 	}

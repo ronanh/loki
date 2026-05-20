@@ -277,8 +277,8 @@ func Test_absentLabels(t *testing.T) {
 			},
 		},
 		{
-			name:  "single not-equal matcher",
-			query: `absent_over_time({app!="foo"}[5m])`,
+			name:     "single not-equal matcher",
+			query:    `absent_over_time({app!="foo"}[5m])`,
 			expected: labels.Labels{},
 		},
 		{
@@ -305,8 +305,8 @@ func Test_absentLabels(t *testing.T) {
 			expected: labels.Labels{},
 		},
 		{
-			name:  "duplicate key: not-equal then equal",
-			query: `absent_over_time({app!="bar", app="foo"}[5m])`,
+			name:     "duplicate key: not-equal then equal",
+			query:    `absent_over_time({app!="bar", app="foo"}[5m])`,
 			expected: labels.Labels{{Name: "app", Value: "foo"}},
 		},
 		{
