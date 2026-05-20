@@ -11,7 +11,7 @@ include:
       binary_directory: ""
 
 variables:
-  GO_VERSION: 1.25
+  GO_VERSION: 1.26.3
 
 stages:
   - check
