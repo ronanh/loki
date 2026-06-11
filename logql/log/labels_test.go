@@ -1,7 +1,6 @@
 package log
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/prometheus/prometheus/model/labels"
@@ -9,8 +8,8 @@ import (
 )
 
 func TestLabelsBuilder_Get(t *testing.T) {
-	lbs := labels.Labels{labels.Label{Name: "already", Value: "in"}}
-	b := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
+	lbs := labels.FromStrings("already", "in")
+	b := NewBaseLabelsBuilder().ForLabels(lbs, labels.StableHash(lbs))
 	b.Reset()
 	b.Set("foo", "bar")
 	b.Set("bar", "buzz")
@@ -32,77 +31,80 @@ func TestLabelsBuilder_Get(t *testing.T) {
 }
 
 func TestLabelsBuilder_LabelsError(t *testing.T) {
-	lbs := labels.Labels{labels.Label{Name: "already", Value: "in"}}
-	b := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
+	lbs := labels.FromStrings("already", "in")
+	b := NewBaseLabelsBuilder().ForLabels(lbs, labels.StableHash(lbs))
 	b.Reset()
 	b.SetErr("err")
 	lbsWithErr := b.LabelsResult().Labels()
 	require.Equal(
 		t,
-		labels.Labels{
-			labels.Label{Name: ErrorLabel, Value: "err"},
-			labels.Label{Name: "already", Value: "in"},
-		},
+		labels.FromStrings(ErrorLabel, "err", "already", "in"),
 		lbsWithErr,
 	)
 	// make sure the original labels is unchanged.
-	require.Equal(t, labels.Labels{labels.Label{Name: "already", Value: "in"}}, lbs)
+	require.Equal(t, labels.FromStrings("already", "in"), lbs)
 }
 
 func TestLabelsBuilder_LabelsResult(t *testing.T) {
-	lbs := labels.Labels{
-		labels.Label{Name: "namespace", Value: "loki"},
-		labels.Label{Name: "job", Value: "us-central1/loki"},
-		labels.Label{Name: "cluster", Value: "us-central1"},
-	}
-	sort.Sort(lbs)
-	b := NewBaseLabelsBuilder().ForLabels(lbs, lbs.Hash())
+	lbs := labels.FromStrings(
+		"namespace",
+		"loki",
+		"job",
+		"us-central1/loki",
+		"cluster",
+		"us-central1",
+	)
+	b := NewBaseLabelsBuilder().ForLabels(lbs, labels.StableHash(lbs))
 	b.Reset()
 	assertLabelResult(t, lbs, b.LabelsResult())
 	b.SetErr("err")
-	withErr := append(lbs, labels.Label{Name: ErrorLabel, Value: "err"})
-	sort.Sort(withErr)
+	withErr := labels.NewBuilder(lbs).Set(ErrorLabel, "err").Labels()
 	assertLabelResult(t, withErr, b.LabelsResult())
 
 	b.Set("foo", "bar")
 	b.Set("namespace", "tempo")
 	b.Set("buzz", "fuzz")
 	b.Del("job")
-	expected := labels.Labels{
-		labels.Label{Name: ErrorLabel, Value: "err"},
-		labels.Label{Name: "namespace", Value: "tempo"},
-		labels.Label{Name: "cluster", Value: "us-central1"},
-		labels.Label{Name: "foo", Value: "bar"},
-		labels.Label{Name: "buzz", Value: "fuzz"},
-	}
-	sort.Sort(expected)
+	expected := labels.FromStrings(
+		ErrorLabel,
+		"err",
+		"namespace",
+		"tempo",
+		"cluster",
+		"us-central1",
+		"foo",
+		"bar",
+		"buzz",
+		"fuzz",
+	)
 	assertLabelResult(t, expected, b.LabelsResult())
 	// cached.
 	assertLabelResult(t, expected, b.LabelsResult())
 }
 
 func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
-	lbs := labels.Labels{
-		labels.Label{Name: "namespace", Value: "loki"},
-		labels.Label{Name: "job", Value: "us-central1/loki"},
-		labels.Label{Name: "cluster", Value: "us-central1"},
-	}
-	sort.Sort(lbs)
+	lbs := labels.FromStrings(
+		"namespace",
+		"loki",
+		"job",
+		"us-central1/loki",
+		"cluster",
+		"us-central1",
+	)
 	b := NewBaseLabelsBuilderWithGrouping(
 		[]string{"namespace"},
 		nil,
 		false,
 		false,
-	).ForLabels(lbs, lbs.Hash())
+	).ForLabels(lbs, labels.StableHash(lbs))
 	b.Reset()
 	assertLabelResult(
 		t,
-		labels.Labels{labels.Label{Name: "namespace", Value: "loki"}},
+		labels.FromStrings("namespace", "loki"),
 		b.GroupedLabels(),
 	)
 	b.SetErr("err")
-	withErr := append(lbs, labels.Label{Name: ErrorLabel, Value: "err"})
-	sort.Sort(withErr)
+	withErr := labels.NewBuilder(lbs).Set(ErrorLabel, "err").Labels()
 	assertLabelResult(t, withErr, b.GroupedLabels())
 
 	b.Reset()
@@ -110,10 +112,7 @@ func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
 	b.Set("namespace", "tempo")
 	b.Set("buzz", "fuzz")
 	b.Del("job")
-	expected := labels.Labels{
-		labels.Label{Name: "namespace", Value: "tempo"},
-	}
-	sort.Sort(expected)
+	expected := labels.FromStrings("namespace", "tempo")
 	assertLabelResult(t, expected, b.GroupedLabels())
 	// cached.
 	assertLabelResult(t, expected, b.GroupedLabels())
@@ -123,24 +122,24 @@ func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
 		nil,
 		false,
 		false,
-	).ForLabels(lbs, lbs.Hash())
+	).ForLabels(lbs, labels.StableHash(lbs))
 	assertLabelResult(
 		t,
-		labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}},
+		labels.FromStrings("job", "us-central1/loki"),
 		b.GroupedLabels(),
 	)
 	assertLabelResult(
 		t,
-		labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}},
+		labels.FromStrings("job", "us-central1/loki"),
 		b.GroupedLabels(),
 	)
 	b.Del("job")
-	assertLabelResult(t, labels.Labels{}, b.GroupedLabels())
+	assertLabelResult(t, labels.EmptyLabels(), b.GroupedLabels())
 	b.Reset()
 	b.Set("namespace", "tempo")
 	assertLabelResult(
 		t,
-		labels.Labels{labels.Label{Name: "job", Value: "us-central1/loki"}},
+		labels.FromStrings("job", "us-central1/loki"),
 		b.GroupedLabels(),
 	)
 
@@ -149,28 +148,31 @@ func TestLabelsBuilder_GroupedLabelsResult(t *testing.T) {
 		nil,
 		true,
 		false,
-	).ForLabels(lbs, lbs.Hash())
+	).ForLabels(lbs, labels.StableHash(lbs))
 	b.Del("job")
 	b.Set("foo", "bar")
 	b.Set("job", "something")
-	expected = labels.Labels{
-		labels.Label{Name: "namespace", Value: "loki"},
-		labels.Label{Name: "cluster", Value: "us-central1"},
-		labels.Label{Name: "foo", Value: "bar"},
-	}
-	sort.Sort(expected)
+	expected = labels.FromStrings("namespace", "loki", "cluster", "us-central1", "foo", "bar")
 	assertLabelResult(t, expected, b.GroupedLabels())
 
-	b = NewBaseLabelsBuilderWithGrouping(nil, nil, false, false).ForLabels(lbs, lbs.Hash())
+	b = NewBaseLabelsBuilderWithGrouping(
+		nil,
+		nil,
+		false,
+		false,
+	).ForLabels(lbs, labels.StableHash(lbs))
 	b.Set("foo", "bar")
 	b.Set("job", "something")
-	expected = labels.Labels{
-		labels.Label{Name: "namespace", Value: "loki"},
-		labels.Label{Name: "job", Value: "something"},
-		labels.Label{Name: "cluster", Value: "us-central1"},
-		labels.Label{Name: "foo", Value: "bar"},
-	}
-	sort.Sort(expected)
+	expected = labels.FromStrings(
+		"namespace",
+		"loki",
+		"job",
+		"something",
+		"cluster",
+		"us-central1",
+		"foo",
+		"bar",
+	)
 	assertLabelResult(t, expected, b.GroupedLabels())
 }
 
@@ -181,7 +183,7 @@ func assertLabelResult(t *testing.T, lbs labels.Labels, res LabelsResult) {
 		res.Labels(),
 	)
 	require.Equal(t,
-		lbs.Hash(),
+		labels.StableHash(lbs),
 		res.Hash(),
 	)
 	require.Equal(t,

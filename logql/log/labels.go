@@ -15,7 +15,10 @@ import (
 
 const MaxInternedStrings = 1024
 
-var emptyLabelsResult = NewLabelsResult(labels.EmptyLabels(), labels.StableHash(labels.EmptyLabels()))
+var emptyLabelsResult = NewLabelsResult(
+	labels.EmptyLabels(),
+	labels.StableHash(labels.EmptyLabels()),
+)
 
 // LabelsResult is a computed labels result that contains the labels set with associated string and
 // hash.

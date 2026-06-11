@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/require"
 )
 

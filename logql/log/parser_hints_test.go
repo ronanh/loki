@@ -47,7 +47,7 @@ var (
 )
 
 func Test_ParserHints(t *testing.T) {
-	lbs := labels.Labels{{Name: "app", Value: "nginx"}, {Name: "cluster", Value: "us-central-west"}}
+	lbs := labels.FromStrings("app", "nginx", "cluster", "us-central-west")
 
 	t.Parallel()
 	for _, tt := range []struct {

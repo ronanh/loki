@@ -140,7 +140,7 @@ func Test_SampleExpr_String(t *testing.T) {
 
 			expr2, err := ParseExpr(expr.String())
 			require.Nil(t, err)
-			require.Equal(t, expr, expr2)
+			require.Equal(t, stripRegexExpr(expr), stripRegexExpr(expr2))
 		})
 	}
 }
@@ -233,12 +233,20 @@ func Test_DuplicateLabelKeyMatchers(t *testing.T) {
 			// Parse
 			expr, err := ParseLogSelector(tc.selector)
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedMatchers, expr.Matchers())
+			require.Equal(
+				t,
+				removeFastRegexMatchers(tc.expectedMatchers),
+				removeFastRegexMatchers(expr.Matchers()),
+			)
 
 			// Round-trip: String() then re-parse must preserve all matchers
 			expr2, err := ParseLogSelector(expr.String())
 			require.NoError(t, err)
-			require.Equal(t, tc.expectedMatchers, expr2.Matchers())
+			require.Equal(
+				t,
+				removeFastRegexMatchers(tc.expectedMatchers),
+				removeFastRegexMatchers(expr2.Matchers()),
+			)
 		})
 	}
 }
@@ -259,7 +267,7 @@ func Test_DuplicateLabelKeySampleExprString(t *testing.T) {
 
 			expr2, err := ParseExpr(expr.String())
 			require.NoError(t, err)
-			require.Equal(t, expr, expr2)
+			require.Equal(t, stripRegexExpr(expr), stripRegexExpr(expr2))
 		})
 	}
 }
@@ -342,7 +350,11 @@ func Test_FilterMatcher(t *testing.T) {
 			t.Parallel()
 			expr, err := ParseLogSelector(tt.q)
 			assert.Nil(t, err)
-			assert.Equal(t, tt.expectedMatchers, expr.Matchers())
+			assert.Equal(
+				t,
+				removeFastRegexMatchers(tt.expectedMatchers),
+				removeFastRegexMatchers(expr.Matchers()),
+			)
 			p, err := expr.Pipeline()
 			assert.Nil(t, err)
 			if tt.lines == nil {

@@ -1,7 +1,6 @@
 package log
 
 import (
-	"sort"
 	"testing"
 	"time"
 
@@ -23,9 +22,9 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertFloat, nil, false, false, nil, NoopStage,
 			)),
-			labels.Labels{labels.Label{Name: "foo", Value: "15.0"}},
+			labels.FromStrings("foo", "15.0"),
 			15,
-			labels.Labels{},
+			labels.EmptyLabels(),
 			true,
 		},
 		{
@@ -33,12 +32,9 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertFloat, nil, false, true, nil, NoopStage,
 			)),
-			labels.Labels{
-				labels.Label{Name: "foo", Value: "15.0"},
-				labels.Label{Name: "bar", Value: "buzz"},
-			},
+			labels.FromStrings("foo", "15.0", "bar", "buzz"),
 			15,
-			labels.Labels{},
+			labels.EmptyLabels(),
 			true,
 		},
 		{
@@ -46,16 +42,9 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertFloat, []string{"bar", "buzz"}, true, false, nil, NoopStage,
 			)),
-			labels.Labels{
-				{Name: "foo", Value: "10"},
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-				{Name: "namespace", Value: "dev"},
-			},
+			labels.FromStrings("foo", "10", "bar", "foo", "buzz", "blip", "namespace", "dev"),
 			10,
-			labels.Labels{
-				{Name: "namespace", Value: "dev"},
-			},
+			labels.FromStrings("namespace", "dev"),
 			true,
 		},
 		{
@@ -63,17 +52,9 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertFloat, []string{"bar", "buzz"}, false, false, nil, NoopStage,
 			)),
-			labels.Labels{
-				{Name: "foo", Value: "0.6"},
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-				{Name: "namespace", Value: "dev"},
-			},
+			labels.FromStrings("foo", "0.6", "bar", "foo", "buzz", "blip", "namespace", "dev"),
 			0.6,
-			labels.Labels{
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-			},
+			labels.FromStrings("bar", "foo", "buzz", "blip"),
 			true,
 		},
 		{
@@ -81,17 +62,9 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertDuration, []string{"bar", "buzz"}, false, false, nil, NoopStage,
 			)),
-			labels.Labels{
-				{Name: "foo", Value: "500ms"},
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-				{Name: "namespace", Value: "dev"},
-			},
+			labels.FromStrings("foo", "500ms", "bar", "foo", "buzz", "blip", "namespace", "dev"),
 			0.5,
-			labels.Labels{
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-			},
+			labels.FromStrings("bar", "foo", "buzz", "blip"),
 			true,
 		},
 		{
@@ -99,23 +72,14 @@ func Test_labelSampleExtractor_Extract(t *testing.T) {
 			mustSampleExtractor(LabelExtractorWithStages(
 				"foo", ConvertBytes, []string{"bar", "buzz"}, false, false, nil, NoopStage,
 			)),
-			labels.Labels{
-				{Name: "foo", Value: "13 MiB"},
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-				{Name: "namespace", Value: "dev"},
-			},
+			labels.FromStrings("foo", "13 MiB", "bar", "foo", "buzz", "blip", "namespace", "dev"),
 			13 * 1024 * 1024,
-			labels.Labels{
-				{Name: "bar", Value: "foo"},
-				{Name: "buzz", Value: "blip"},
-			},
+			labels.FromStrings("bar", "foo", "buzz", "blip"),
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sort.Sort(tt.in)
 
 			outval, outlbs, ok := tt.ex.ForStream(tt.in).Process(0, []byte(""))
 			require.Equal(t, tt.wantOk, ok)
@@ -143,11 +107,11 @@ func Test_Extract_ExpectedLabels(t *testing.T) {
 		),
 	)
 
-	f, lbs, ok := ex.ForStream(labels.Labels{{Name: "bar", Value: "foo"}}).
+	f, lbs, ok := ex.ForStream(labels.FromStrings("bar", "foo")).
 		ProcessString(0, `{"duration":"20ms","foo":"json"}`)
 	require.True(t, ok)
 	require.Equal(t, (20 * time.Millisecond).Seconds(), f)
-	require.Equal(t, labels.Labels{{Name: "foo", Value: "json"}}, lbs.Labels())
+	require.Equal(t, labels.FromStrings("foo", "json"), lbs.Labels())
 }
 
 func mustSampleExtractor(ex SampleExtractor, err error) SampleExtractor {
@@ -160,11 +124,7 @@ func mustSampleExtractor(ex SampleExtractor, err error) SampleExtractor {
 func TestNewLineSampleExtractor(t *testing.T) {
 	se, err := NewLineSampleExtractor(CountExtractor, nil, nil, false, false)
 	require.NoError(t, err)
-	lbs := labels.Labels{
-		{Name: "namespace", Value: "dev"},
-		{Name: "cluster", Value: "us-central1"},
-	}
-	sort.Sort(lbs)
+	lbs := labels.FromStrings("namespace", "dev", "cluster", "us-central1")
 	sse := se.ForStream(lbs)
 	f, l, ok := sse.Process(0, []byte(`foo`))
 	require.True(t, ok)
@@ -191,7 +151,7 @@ func TestNewLineSampleExtractor(t *testing.T) {
 	f, l, ok = sse.Process(0, []byte(`foo`))
 	require.True(t, ok)
 	require.Equal(t, 3., f)
-	assertLabelResult(t, labels.Labels{labels.Label{Name: "namespace", Value: "dev"}}, l)
+	assertLabelResult(t, labels.FromStrings("namespace", "dev"), l)
 	sse = se.ForStream(lbs)
 	_, _, ok = sse.Process(0, []byte(`nope`))
 	require.False(t, ok)
