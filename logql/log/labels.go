@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"maps"
 	"slices"
-	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/cespare/xxhash/v2"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 const MaxInternedStrings = 1024
 
-var emptyLabelsResult = NewLabelsResult(labels.Labels{}, labels.Labels{}.Hash())
+var emptyLabelsResult = NewLabelsResult(labels.EmptyLabels(), labels.StableHash(labels.EmptyLabels()))
 
 // LabelsResult is a computed labels result that contains the labels set with associated string and
 // hash.
@@ -33,13 +34,14 @@ func NewLabelsResult(lbs labels.Labels, hash uint64) LabelsResult {
 func labelsString(ls labels.Labels) string {
 	var b bytes.Buffer
 	size := 2
-	for _, l := range ls {
+	ls.Range(func(l labels.Label) {
 		size += len(l.Name) + len(l.Value) + 5
-	}
+	})
 	b.Grow(size)
 
 	b.WriteByte('{')
-	for i, l := range ls {
+	i := 0
+	ls.Range(func(l labels.Label) {
 		if i > 0 {
 			b.WriteByte(',')
 			b.WriteByte(' ')
@@ -47,8 +49,8 @@ func labelsString(ls labels.Labels) string {
 		b.WriteString(l.Name)
 		b.WriteByte('=')
 		bytesBufferQuoteTo(&b, l.Value)
-		// b.WriteString(strconv.Quote(l.Value))
-	}
+		i++
+	})
 	b.WriteByte('}')
 	return b.String()
 }
@@ -150,6 +152,8 @@ func (l labelsResult) Hash() uint64 {
 	return l.h
 }
 
+var seps = []byte{'\xff'}
+
 type hasher struct {
 	buf []byte // buffer for computing hash without bytes slice allocation.
 }
@@ -166,6 +170,24 @@ func (h *hasher) Hash(lbs labels.Labels) uint64 {
 	var hash uint64
 	hash, h.buf = lbs.HashWithoutLabels(h.buf, []string(nil)...)
 	return hash
+}
+
+// hash hashes a scratch labels slice with the same algorithm as
+// labels.Labels.HashWithoutLabels (name \xff value \xff, skipping __name__) so
+// that cache keys are consistent with Hash whenever the slice is sorted.
+func (h *hasher) hash(lbs []labels.Label) uint64 {
+	b := h.buf[:0]
+	for _, l := range lbs {
+		if l.Name == labels.MetricName {
+			continue
+		}
+		b = append(b, l.Name...)
+		b = append(b, seps[0])
+		b = append(b, l.Value...)
+		b = append(b, seps[0])
+	}
+	h.buf = b
+	return xxhash.Sum64(b)
 }
 
 // BaseLabelsBuilder is a label builder used by pipeline and stages.
@@ -188,7 +210,7 @@ type BaseLabelsBuilder struct {
 type LabelsBuilder struct {
 	base          labels.Labels
 	baseMap       map[string]string
-	buf           labels.Labels
+	buf           []labels.Label
 	currentResult LabelsResult
 	groupedResult LabelsResult
 
@@ -257,6 +279,14 @@ func (b *BaseLabelsBuilder) Hash(lbs labels.Labels) uint64 {
 	return b.hasher.Hash(lbs)
 }
 
+// hashScratch hashes a scratch labels slice, sharing the hasher buffer.
+func (b *BaseLabelsBuilder) hashScratch(lbs []labels.Label) uint64 {
+	if b.hasher == nil {
+		b.hasher = newHasher()
+	}
+	return b.hasher.hash(lbs)
+}
+
 // ParserLabelHints returns a limited list of expected labels to extract for metric queries.
 // Returns nil when it's impossible to hint labels extractions.
 func (b *BaseLabelsBuilder) ParserLabelHints() ParserHint {
@@ -295,10 +325,8 @@ func (b *LabelsBuilder) Get(key string) (string, bool) {
 		return "", false
 	}
 
-	for _, l := range b.base {
-		if l.Name == key {
-			return l.Value, true
-		}
+	if v := b.base.Get(key); v != "" {
+		return v, true
 	}
 	return "", false
 }
@@ -316,8 +344,12 @@ func (b *LabelsBuilder) Del(ns ...string) *LabelsBuilder {
 	return b
 }
 
-// Set the name/value pair as a label.
+// Set the name/value pair as a label. A value of "" means delete that label,
+// mirroring labels.Builder semantics: empty-valued labels do not exist.
 func (b *LabelsBuilder) Set(n, v string) *LabelsBuilder {
+	if v == "" {
+		return b.Del(n)
+	}
 	for i, a := range b.add {
 		if a.Name == n {
 			b.add[i].Value = v
@@ -329,22 +361,24 @@ func (b *LabelsBuilder) Set(n, v string) *LabelsBuilder {
 	return b
 }
 
-// Labels returns the labels from the builder. If no modifications
-// were made, the original labels are returned.
-func (b *LabelsBuilder) labels() labels.Labels {
+// labels returns the labels from the builder, sorted, as a reusable scratch
+// slice. If no modifications were made, the base labels are returned.
+func (b *LabelsBuilder) labels() []labels.Label {
 	b.buf = b.unsortedLabels(b.buf)
-	sort.Sort(b.buf)
+	slices.SortFunc(b.buf, func(a, b labels.Label) int { return strings.Compare(a.Name, b.Name) })
 	return b.buf
 }
 
-func (b *LabelsBuilder) unsortedLabels(buf labels.Labels) labels.Labels {
+func (b *LabelsBuilder) unsortedLabels(buf []labels.Label) []labels.Label {
 	if len(b.del) == 0 && len(b.add) == 0 {
 		if buf == nil {
-			buf = make(labels.Labels, 0, len(b.base)+1)
+			buf = make([]labels.Label, 0, b.base.Len()+1)
 		} else {
 			buf = buf[:0]
 		}
-		buf = append(buf, b.base...)
+		b.base.Range(func(l labels.Label) {
+			buf = append(buf, l)
+		})
 		if b.err != "" {
 			buf = append(buf, labels.Label{Name: ErrorLabel, Value: b.err})
 		}
@@ -354,24 +388,23 @@ func (b *LabelsBuilder) unsortedLabels(buf labels.Labels) labels.Labels {
 	// In the general case, labels are removed, modified or moved
 	// rather than added.
 	if buf == nil {
-		buf = make(labels.Labels, 0, len(b.base)+len(b.add)+1)
+		buf = make([]labels.Label, 0, b.base.Len()+len(b.add)+1)
 	} else {
 		buf = buf[:0]
 	}
-Outer:
-	for _, l := range b.base {
+	b.base.Range(func(l labels.Label) {
 		for _, n := range b.del {
 			if l.Name == n {
-				continue Outer
+				return
 			}
 		}
 		for _, la := range b.add {
 			if l.Name == la.Name {
-				continue Outer
+				return
 			}
 		}
 		buf = append(buf, l)
-	}
+	})
 	buf = append(buf, b.add...)
 	if b.err != "" {
 		buf = append(buf, labels.Label{Name: ErrorLabel, Value: b.err})
@@ -448,12 +481,12 @@ func (b *LabelsBuilder) LabelsResult() LabelsResult {
 	return b.toResult(b.labels())
 }
 
-func (b *BaseLabelsBuilder) toResult(buf labels.Labels) LabelsResult {
-	hash := b.Hash(buf)
+func (b *BaseLabelsBuilder) toResult(buf []labels.Label) LabelsResult {
+	hash := b.hashScratch(buf)
 	if cached, ok := b.resultCache[hash]; ok {
 		return cached
 	}
-	res := NewLabelsResult(buf.Copy(), hash)
+	res := NewLabelsResult(labels.New(buf...), hash)
 	if b.resultCache == nil {
 		b.resultCache = make(map[uint64]LabelsResult, 1)
 	}
@@ -491,7 +524,7 @@ func (b *LabelsBuilder) GroupedLabels() LabelsResult {
 
 func (b *LabelsBuilder) withResult() LabelsResult {
 	if b.buf == nil {
-		b.buf = make(labels.Labels, 0, len(b.groups))
+		b.buf = make([]labels.Label, 0, len(b.groups))
 	} else {
 		b.buf = b.buf[:0]
 	}
@@ -508,11 +541,8 @@ Outer:
 				continue Outer
 			}
 		}
-		for _, l := range b.base {
-			if g == l.Name {
-				b.buf = append(b.buf, l)
-				continue Outer
-			}
+		if v := b.base.Get(g); v != "" {
+			b.buf = append(b.buf, labels.Label{Name: g, Value: v})
 		}
 	}
 	return b.toResult(b.buf)
@@ -520,30 +550,29 @@ Outer:
 
 func (b *LabelsBuilder) withoutResult() LabelsResult {
 	if b.buf == nil {
-		size := max(len(b.base)+len(b.add)-len(b.del)-len(b.groups), 0)
-		b.buf = make(labels.Labels, 0, size)
+		size := max(b.base.Len()+len(b.add)-len(b.del)-len(b.groups), 0)
+		b.buf = make([]labels.Label, 0, size)
 	} else {
 		b.buf = b.buf[:0]
 	}
-Outer:
-	for _, l := range b.base {
+	b.base.Range(func(l labels.Label) {
 		for _, n := range b.del {
 			if l.Name == n {
-				continue Outer
+				return
 			}
 		}
 		for _, la := range b.add {
 			if l.Name == la.Name {
-				continue Outer
+				return
 			}
 		}
 		for _, lg := range b.groups {
 			if l.Name == lg {
-				continue Outer
+				return
 			}
 		}
 		b.buf = append(b.buf, l)
-	}
+	})
 OuterAdd:
 	for _, la := range b.add {
 		for _, lg := range b.groups {
@@ -553,7 +582,7 @@ OuterAdd:
 		}
 		b.buf = append(b.buf, la)
 	}
-	sort.Sort(b.buf)
+	slices.SortFunc(b.buf, func(a, b labels.Label) int { return strings.Compare(a.Name, b.Name) })
 	return b.toResult(b.buf)
 }
 
@@ -563,11 +592,13 @@ func (b *LabelsBuilder) toBaseGroup() LabelsResult {
 	}
 	var lbs labels.Labels
 	if b.without {
-		lbs = b.base.WithoutLabels(b.groups...)
+		// Del(MetricName) preserves the historic WithoutLabels behavior which
+		// always dropped __name__.
+		lbs = labels.NewBuilder(b.base).Del(b.groups...).Del(labels.MetricName).Labels()
 	} else {
-		lbs = b.base.WithLabels(b.groups...)
+		lbs = labels.NewBuilder(b.base).Keep(b.groups...).Labels()
 	}
-	res := NewLabelsResult(lbs, lbs.Hash())
+	res := NewLabelsResult(lbs, labels.StableHash(lbs))
 	b.groupedResult = res
 	return res
 }

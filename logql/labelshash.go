@@ -2,7 +2,7 @@ package logql
 
 import (
 	"github.com/cespare/xxhash/v2"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 const (
@@ -12,49 +12,47 @@ const (
 
 func HashLabels(b []byte, ls labels.Labels) (uint64, []byte) {
 	b = b[:0]
-	for _, v := range ls {
-		b = append(b, v.Name...)
+	ls.Range(func(l labels.Label) {
+		b = append(b, l.Name...)
 		b = append(b, sep)
-		b = append(b, v.Value...)
+		b = append(b, l.Value...)
 		b = append(b, sep)
-	}
+	})
 	return xxhash.Sum64(b), b
 }
 
 func HashWithoutLabels(b []byte, ls labels.Labels, names ...string) (uint64, []byte) {
 	b = b[:0]
 	j := 0
-	for i := range ls {
-		for j < len(names) && names[j] < ls[i].Name {
+	ls.Range(func(l labels.Label) {
+		for j < len(names) && names[j] < l.Name {
 			j++
 		}
-		if j < len(names) && ls[i].Name == names[j] {
-			continue
+		if j < len(names) && l.Name == names[j] {
+			return
 		}
-		b = append(b, ls[i].Name...)
+		b = append(b, l.Name...)
 		b = append(b, sep)
-		b = append(b, ls[i].Value...)
+		b = append(b, l.Value...)
 		b = append(b, sep)
-	}
+	})
 	return xxhash.Sum64(b), b
 }
 
 func HashForLabels(b []byte, ls labels.Labels, names ...string) (uint64, []byte) {
 	b = b[:0]
-	i, j := 0, 0
-	for i < len(ls) && j < len(names) {
-		if names[j] == ls[i].Name {
-			b = append(b, ls[i].Name...)
-			b = append(b, sep)
-			b = append(b, ls[i].Value...)
-			b = append(b, sep)
-			i++
-			j++
-		} else if ls[i].Name < names[j] {
-			i++
-		} else {
+	j := 0
+	ls.Range(func(l labels.Label) {
+		for j < len(names) && names[j] < l.Name {
 			j++
 		}
-	}
+		if j < len(names) && l.Name == names[j] {
+			b = append(b, l.Name...)
+			b = append(b, sep)
+			b = append(b, l.Value...)
+			b = append(b, sep)
+			j++
+		}
+	})
 	return xxhash.Sum64(b), b
 }

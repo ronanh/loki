@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
@@ -1104,13 +1104,13 @@ func reduceBinOp(op string, left, right *literalExpr) *literalExpr {
 	var res promql.Sample
 	mergeBinOp(
 		op,
-		&promql.Sample{Point: promql.Point{V: left.value}},
-		&promql.Sample{Point: promql.Point{V: right.value}},
+		&promql.Sample{F: left.value},
+		&promql.Sample{F: right.value},
 		false,
 		false,
 		&res,
 	)
-	return &literalExpr{value: res.V}
+	return &literalExpr{value: res.F}
 }
 
 type literalExpr struct {

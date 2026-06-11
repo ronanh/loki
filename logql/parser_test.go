@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/ronanh/loki/logql/log"
 	"github.com/stretchr/testify/require"
 )

@@ -41,24 +41,23 @@ func (m *MatrixStepper) Next() (bool, int64, promql.Vector) {
 	vec := make(promql.Vector, 0, len(m.m))
 
 	for i, series := range m.m {
-		ln := len(series.Points)
+		ln := len(series.Floats)
 
-		if ln == 0 || series.Points[0].T != ts {
+		if ln == 0 || series.Floats[0].T != ts {
 			vec = append(vec, promql.Sample{
-				Point: promql.Point{
-					T: ts,
-					V: 0,
-				},
+				T:      ts,
+				F:      0,
 				Metric: series.Metric,
 			})
 			continue
 		}
 
 		vec = append(vec, promql.Sample{
-			Point:  series.Points[0],
+			T:      series.Floats[0].T,
+			F:      series.Floats[0].F,
 			Metric: series.Metric,
 		})
-		m.m[i].Points = m.m[i].Points[1:]
+		m.m[i].Floats = m.m[i].Floats[1:]
 	}
 
 	return true, ts, vec

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"regexp/syntax"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 // Filterer is a interface to filter log lines.
