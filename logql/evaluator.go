@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
@@ -244,7 +244,7 @@ type evaluatorGroups struct {
 	sorted bool
 	// temporary variables
 	stepResults []stepResult
-	labelsAlloc labels.Labels
+	labelsAlloc []labels.Label
 	hashBuf     []byte
 }
 
@@ -324,48 +324,43 @@ func (eg *evaluatorGroups) getLabelsGroup(
 
 	// group not found, create a new group
 
-	// build the group labels
-	if len(lbls) > cap(eg.labelsAlloc) || cap(eg.labelsAlloc) == 0 {
-		eg.labelsAlloc = make(labels.Labels, 0, 1024)
-	}
+	// build the group labels in a reusable scratch slice; the final
+	// labels.New copies the data so the scratch can be reused.
+	eg.labelsAlloc = eg.labelsAlloc[:0]
 	if without {
 		var iStartGroup int
-		for _, lbl := range lbls {
-			var found bool
+		lbls.Range(func(lbl labels.Label) {
 			for i := iStartGroup; i < len(groups); i++ {
 				if lbl.Name == groups[i] {
-					found = true
 					iStartGroup = i + 1
-					break
+					return
 				}
 			}
-			if !found {
-				eg.labelsAlloc = append(eg.labelsAlloc, lbl)
-			}
-		}
+			eg.labelsAlloc = append(eg.labelsAlloc, lbl)
+		})
 	} else {
-		var iStartLabels int
-		for _, g := range groups {
-			for i := iStartLabels; i < len(lbls); i++ {
-				if lbls[i].Name == g {
-					eg.labelsAlloc = append(eg.labelsAlloc, lbls[i])
-					iStartLabels = i + 1
-					break
-				}
+		// both lbls and groups are sorted: merge-join
+		var iStartGroup int
+		lbls.Range(func(lbl labels.Label) {
+			for iStartGroup < len(groups) && groups[iStartGroup] < lbl.Name {
+				iStartGroup++
 			}
-		}
+			if iStartGroup < len(groups) && lbl.Name == groups[iStartGroup] {
+				eg.labelsAlloc = append(eg.labelsAlloc, lbl)
+				iStartGroup++
+			}
+		})
 	}
-	lbls = eg.labelsAlloc[:len(eg.labelsAlloc):len(eg.labelsAlloc)]
-	eg.labelsAlloc = eg.labelsAlloc[len(lbls):]
+	groupLbls := labels.New(eg.labelsAlloc...)
 
 	// add the new group
 	if eg.sorted {
 		eg.groups = append(eg.groups, metricGroup{})
 		copy(eg.groups[i+1:], eg.groups[i:])
-		eg.groups[i] = metricGroup{hash: hash, labels: lbls, stepResult: -1}
+		eg.groups[i] = metricGroup{hash: hash, labels: groupLbls, stepResult: -1}
 	} else {
 		i = len(eg.groups)
-		eg.groups = append(eg.groups, metricGroup{hash: hash, labels: lbls, stepResult: -1})
+		eg.groups = append(eg.groups, metricGroup{hash: hash, labels: groupLbls, stepResult: -1})
 	}
 	return &eg.groups[i]
 }
@@ -408,8 +403,8 @@ func vectorAggEvaluator(
 				group.stepResult = len(eg.stepResults)
 				eg.stepResults = append(eg.stepResults, stepResult{
 					labels:     group.labels,
-					value:      s.V,
-					mean:       s.V,
+					value:      s.F,
+					mean:       s.F,
 					groupCount: 1,
 				})
 				result := &eg.stepResults[group.stepResult]
@@ -421,14 +416,14 @@ func vectorAggEvaluator(
 				case OpTypeTopK:
 					groupHeap := make(vectorByValueHeap, 0, resultSize)
 					heap.Push(&groupHeap, &promql.Sample{
-						Point:  promql.Point{V: s.V},
+						F:      s.F,
 						Metric: s.Metric,
 					})
 					result.heap = groupHeap
 				case OpTypeBottomK:
 					groupReverseHeap := make(vectorByReverseValueHeap, 0, resultSize)
 					heap.Push(&groupReverseHeap, &promql.Sample{
-						Point:  promql.Point{V: s.V},
+						F:      s.F,
 						Metric: s.Metric,
 					})
 					result.reverseHeap = groupReverseHeap
@@ -438,20 +433,20 @@ func vectorAggEvaluator(
 				// aggregate step result
 				switch expr.operation {
 				case OpTypeSum:
-					result.value += s.V
+					result.value += s.F
 
 				case OpTypeAvg:
 					result.groupCount++
-					result.mean += (s.V - result.mean) / float64(result.groupCount)
+					result.mean += (s.F - result.mean) / float64(result.groupCount)
 
 				case OpTypeMax:
-					if result.value < s.V || math.IsNaN(result.value) {
-						result.value = s.V
+					if result.value < s.F || math.IsNaN(result.value) {
+						result.value = s.F
 					}
 
 				case OpTypeMin:
-					if result.value > s.V || math.IsNaN(result.value) {
-						result.value = s.V
+					if result.value > s.F || math.IsNaN(result.value) {
+						result.value = s.F
 					}
 
 				case OpTypeCount:
@@ -459,33 +454,33 @@ func vectorAggEvaluator(
 
 				case OpTypeStddev, OpTypeStdvar:
 					result.groupCount++
-					delta := s.V - result.mean
+					delta := s.F - result.mean
 					result.mean += delta / float64(result.groupCount)
-					result.value += delta * (s.V - result.mean)
+					result.value += delta * (s.F - result.mean)
 
 				case OpTypeTopK:
-					if len(result.heap) < expr.params || result.heap[0].V < s.V ||
-						math.IsNaN(result.heap[0].V) {
+					if len(result.heap) < expr.params || result.heap[0].F < s.F ||
+						math.IsNaN(result.heap[0].F) {
 						groupHeap := result.heap
 						if len(groupHeap) == expr.params {
 							heap.Pop(&groupHeap)
 						}
 						heap.Push(&groupHeap, &promql.Sample{
-							Point:  promql.Point{V: s.V},
+							F:      s.F,
 							Metric: s.Metric,
 						})
 						result.heap = groupHeap
 					}
 
 				case OpTypeBottomK:
-					if len(result.reverseHeap) < expr.params || result.reverseHeap[0].V > s.V ||
-						math.IsNaN(result.reverseHeap[0].V) {
+					if len(result.reverseHeap) < expr.params || result.reverseHeap[0].F > s.F ||
+						math.IsNaN(result.reverseHeap[0].F) {
 						groupReverseHeap := result.reverseHeap
 						if len(groupReverseHeap) == expr.params {
 							heap.Pop(&groupReverseHeap)
 						}
 						heap.Push(&groupReverseHeap, &promql.Sample{
-							Point:  promql.Point{V: s.V},
+							F:      s.F,
 							Metric: s.Metric,
 						})
 						result.reverseHeap = groupReverseHeap
@@ -515,10 +510,8 @@ func vectorAggEvaluator(
 				for _, v := range aggrHeap {
 					vec = append(vec, promql.Sample{
 						Metric: v.Metric,
-						Point: promql.Point{
-							T: ts,
-							V: v.V,
-						},
+						T:      ts,
+						F:      v.F,
 					})
 				}
 				continue // Bypass default append.
@@ -530,20 +523,16 @@ func vectorAggEvaluator(
 				for _, v := range aggrReverseHeap {
 					vec = append(vec, promql.Sample{
 						Metric: v.Metric,
-						Point: promql.Point{
-							T: ts,
-							V: v.V,
-						},
+						T:      ts,
+						F:      v.F,
 					})
 				}
 				continue // Bypass default append.
 			}
 			vec = append(vec, promql.Sample{
 				Metric: result.labels,
-				Point: promql.Point{
-					T: ts,
-					V: result.value,
-				},
+				T:      ts,
+				F:      result.value,
 			})
 		}
 		return next, ts, vec
@@ -654,10 +643,8 @@ func (r *absentRangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	// values are missing.
 	return next, ts, promql.Vector{
 		promql.Sample{
-			Point: promql.Point{
-				T: ts,
-				V: 1.,
-			},
+			T:      ts,
+			F:      1.,
 			Metric: r.lbs,
 		},
 	}
@@ -715,7 +702,8 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 			pair := b.pairs[hash]
 			pair[0] = &promql.Sample{
 				Metric: sample.Metric,
-				Point:  sample.Point,
+				T:      sample.T,
+				F:      sample.F,
 			}
 			b.pairs[hash] = pair
 		}
@@ -741,7 +729,8 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 			pair := b.pairs[hash]
 			pair[1] = &promql.Sample{
 				Metric: sample.Metric,
-				Point:  sample.Point,
+				T:      sample.T,
+				F:      sample.F,
 			}
 			b.pairs[hash] = pair
 		}
@@ -910,8 +899,9 @@ func mergeBinOp(
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V += right.Point.V
+			out.T = left.T
+			out.F = left.F
+			out.F += right.F
 			return true
 		}
 
@@ -921,8 +911,9 @@ func mergeBinOp(
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V -= right.Point.V
+			out.T = left.T
+			out.F = left.F
+			out.F -= right.F
 			return true
 		}
 
@@ -932,8 +923,9 @@ func mergeBinOp(
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V *= right.Point.V
+			out.T = left.T
+			out.F = left.F
+			out.F *= right.F
 			return true
 		}
 
@@ -943,12 +935,13 @@ func mergeBinOp(
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
+			out.T = left.T
+			out.F = left.F
 			// guard against divide by zero
-			if right.Point.V == 0 {
-				out.Point.V = math.NaN()
+			if right.F == 0 {
+				out.F = math.NaN()
 			} else {
-				out.Point.V /= right.Point.V
+				out.F /= right.F
 			}
 			return true
 		}
@@ -959,12 +952,13 @@ func mergeBinOp(
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
+			out.T = left.T
+			out.F = left.F
 			// guard against divide by zero
-			if right.Point.V == 0 {
-				out.Point.V = math.NaN()
+			if right.F == 0 {
+				out.F = math.NaN()
 			} else {
-				out.Point.V = math.Mod(out.Point.V, right.Point.V)
+				out.F = math.Mod(out.F, right.F)
 			}
 			return true
 		}
@@ -975,8 +969,9 @@ func mergeBinOp(
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = math.Pow(left.Point.V, right.Point.V)
+			out.T = left.T
+			out.F = left.F
+			out.F = math.Pow(left.F, right.F)
 			return true
 		}
 
@@ -986,15 +981,16 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V == right.Point.V {
+			if left.F == right.F {
 				val = 1.
 			} else if filter {
 				return false
 			}
 
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = val
+			out.T = left.T
+			out.F = left.F
+			out.F = val
 			return true
 		}
 
@@ -1005,15 +1001,16 @@ func mergeBinOp(
 			}
 
 			val := 0.
-			if left.Point.V != right.Point.V {
+			if left.F != right.F {
 				val = 1.
 			} else if filter {
 				return false
 			}
 
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = val
+			out.T = left.T
+			out.F = left.F
+			out.F = val
 			return true
 		}
 
@@ -1023,14 +1020,15 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V > right.Point.V {
+			if left.F > right.F {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = val
+			out.T = left.T
+			out.F = left.F
+			out.F = val
 			return true
 		}
 
@@ -1040,14 +1038,15 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V >= right.Point.V {
+			if left.F >= right.F {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = val
+			out.T = left.T
+			out.F = left.F
+			out.F = val
 			return true
 		}
 
@@ -1057,14 +1056,15 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V < right.Point.V {
+			if left.F < right.F {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = val
+			out.T = left.T
+			out.F = left.F
+			out.F = val
 			return true
 		}
 
@@ -1074,14 +1074,15 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V <= right.Point.V {
+			if left.F <= right.F {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
-			out.Point = left.Point
-			out.Point.V = val
+			out.T = left.T
+			out.F = left.F
+			out.F = val
 			return true
 		}
 
@@ -1113,7 +1114,7 @@ func mergeBinOp(
 	// This can occur when we don't find a matching label set in the vectors.
 	if !res && left != nil && right == nil {
 		*out = *left
-		out.Point.V = 0
+		out.F = 0
 		res = true
 	}
 	return res
@@ -1165,7 +1166,7 @@ func (e *literalStepEvaluator) Next() (bool, int64, promql.Vector) {
 	var iResults int
 	for i := range vec {
 		e.literalPoint.Metric = vec[i].Metric
-		e.literalPoint.Point = promql.Point{T: ts, V: e.lit.value}
+		e.literalPoint.T, e.literalPoint.F = ts, e.lit.value
 
 		left, right := &e.literalPoint, &vec[i]
 		if e.inverted {

@@ -2,14 +2,17 @@ package logql
 
 import (
 	"errors"
-	"sort"
 	"strings"
 	"sync"
 	"text/scanner"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 )
+
+// promqlParser is a shared promql parser instance: the modern promql/parser
+// API replaced package-level Parse* functions with a Parser interface.
+var promqlParser = promql_parser.NewParser(promql_parser.Options{})
 
 var parserPool = sync.Pool{
 	New: func() any {
@@ -114,10 +117,9 @@ func ParseLogSelector(input string) (LogSelectorExpr, error) {
 
 // ParseLabels parses labels from a string using logql parser.
 func ParseLabels(lbs string) (labels.Labels, error) {
-	ls, err := promql_parser.ParseMetric(lbs)
+	ls, err := promqlParser.ParseMetric(lbs)
 	if err != nil {
-		return nil, err
+		return labels.EmptyLabels(), err
 	}
-	sort.Sort(ls)
 	return ls, nil
 }

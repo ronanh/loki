@@ -12,7 +12,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
@@ -345,13 +345,13 @@ func (q *query) evalSample(ctx context.Context, expr SampleExpr) (promql_parser.
 				}
 				series = &promql.Series{
 					Metric: p.Metric,
-					Points: make([]promql.Point, 0, stepCount),
+					Floats: make([]promql.FPoint, 0, stepCount),
 				}
 				seriesIndex[hash] = series
 			}
-			series.Points = append(series.Points, promql.Point{
+			series.Floats = append(series.Floats, promql.FPoint{
 				T: ts,
-				V: p.V,
+				F: p.F,
 			})
 		}
 		next, ts, vec = stepEvaluator.Next()
@@ -389,8 +389,8 @@ func PopulateMatrixFromScalar(data promql.Scalar, params Params) promql.Matrix {
 		end    = params.End()
 		step   = params.Step()
 		series = promql.Series{
-			Points: make(
-				[]promql.Point,
+			Floats: make(
+				[]promql.FPoint,
 				0,
 				// allocate enough space for all needed entries
 				int(end.Sub(start)/step)+1,
@@ -399,9 +399,9 @@ func PopulateMatrixFromScalar(data promql.Scalar, params Params) promql.Matrix {
 	)
 
 	for ts := start; !ts.After(end); ts = ts.Add(step) {
-		series.Points = append(series.Points, promql.Point{
+		series.Floats = append(series.Floats, promql.FPoint{
 			T: ts.UnixNano() / int64(time.Millisecond),
-			V: data.V,
+			F: data.V,
 		})
 	}
 	return promql.Matrix{series}

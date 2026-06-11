@@ -122,81 +122,81 @@ func (r rangeAggregationExpr) aggregator() (RangeVectorAggregator, error) {
 }
 
 // rateLogs calculates the per-second rate of log lines.
-func rateLogs(selRange time.Duration, computeValues bool) func(samples []promql.Point) float64 {
-	return func(samples []promql.Point) float64 {
+func rateLogs(selRange time.Duration, computeValues bool) func(samples []promql.FPoint) float64 {
+	return func(samples []promql.FPoint) float64 {
 		if !computeValues {
 			return float64(len(samples)) / selRange.Seconds()
 		}
 		var total float64
 		for i := range samples {
-			total += samples[i].V
+			total += samples[i].F
 		}
 		return total / selRange.Seconds()
 	}
 }
 
 // rateLogBytes calculates the per-second rate of log bytes.
-func rateLogBytes(selRange time.Duration) func(samples []promql.Point) float64 {
-	return func(samples []promql.Point) float64 {
+func rateLogBytes(selRange time.Duration) func(samples []promql.FPoint) float64 {
+	return func(samples []promql.FPoint) float64 {
 		return sumOverTime(samples) / selRange.Seconds()
 	}
 }
 
 // countOverTime counts the amount of log lines.
-func countOverTime(samples []promql.Point) float64 {
+func countOverTime(samples []promql.FPoint) float64 {
 	return float64(len(samples))
 }
 
-func sumOverTime(samples []promql.Point) float64 {
+func sumOverTime(samples []promql.FPoint) float64 {
 	var sum float64
 	for i := range samples {
-		sum += samples[i].V
+		sum += samples[i].F
 	}
 	return sum
 }
 
-func avgOverTime(samples []promql.Point) float64 {
+func avgOverTime(samples []promql.FPoint) float64 {
 	return sumOverTime(samples) / float64(len(samples))
 }
 
-func firstOverTime(samples []promql.Point) float64 {
+func firstOverTime(samples []promql.FPoint) float64 {
 	if len(samples) == 0 {
 		return 0
 	}
-	return samples[0].V
+	return samples[0].F
 }
 
-func lastOverTime(samples []promql.Point) float64 {
+func lastOverTime(samples []promql.FPoint) float64 {
 	if len(samples) == 0 {
 		return 0
 	}
-	return samples[len(samples)-1].V
+	return samples[len(samples)-1].F
 }
 
-func maxOverTime(samples []promql.Point) float64 {
-	max := samples[0].V
+func maxOverTime(samples []promql.FPoint) float64 {
+	max := samples[0].F
 	for i := range samples {
-		if v := samples[i].V; v > max || math.IsNaN(max) {
+		if v := samples[i].F; v > max || math.IsNaN(max) {
 			max = v
 		}
 	}
 	return max
 }
 
-func minOverTime(samples []promql.Point) float64 {
-	min := samples[0].V
+func minOverTime(samples []promql.FPoint) float64 {
+	min := samples[0].F
 	for i := range samples {
-		if v := samples[i].V; v < min || math.IsNaN(min) {
+		if v := samples[i].F; v < min || math.IsNaN(min) {
 			min = v
 		}
 	}
 	return min
 }
 
-func stdvarOverTime(samples []promql.Point) float64 {
+func stdvarOverTime(samples []promql.FPoint) float64 {
 	var aux, mean float64
 	for i := range samples {
-		v := samples[i].V
+		v := samples[i].F
 		delta := v - mean
 		mean += delta / float64(i+1)
 		aux += delta * (v - mean)
@@ -204,10 +204,10 @@ func stdvarOverTime(samples []promql.Point) float64 {
 	return aux / float64(len(samples))
 }
 
-func stddevOverTime(samples []promql.Point) float64 {
+func stddevOverTime(samples []promql.FPoint) float64 {
 	var aux, mean float64
 	for i := range samples {
-		v := samples[i].V
+		v := samples[i].F
 		delta := v - mean
 		mean += delta / float64(i+1)
 		aux += delta * (v - mean)
@@ -215,11 +215,11 @@ func stddevOverTime(samples []promql.Point) float64 {
 	return math.Sqrt(aux / float64(len(samples)))
 }
 
-func quantileOverTime(q float64) func(samples []promql.Point) float64 {
-	return func(samples []promql.Point) float64 {
+func quantileOverTime(q float64) func(samples []promql.FPoint) float64 {
+	return func(samples []promql.FPoint) float64 {
 		values := make(vectorByValueHeap, 0, len(samples))
 		for i := range samples {
-			values = append(values, promql.Sample{Point: promql.Point{V: samples[i].V}})
+			values = append(values, promql.Sample{F: samples[i].F})
 		}
 		return quantile(q, values)
 	}
@@ -252,9 +252,9 @@ func quantile(q float64, values vectorByValueHeap) float64 {
 	upperIndex := math.Min(n-1, lowerIndex+1)
 
 	weight := rank - math.Floor(rank)
-	return values[int(lowerIndex)].V*(1-weight) + values[int(upperIndex)].V*weight
+	return values[int(lowerIndex)].F*(1-weight) + values[int(upperIndex)].F*weight
 }
 
-func one(samples []promql.Point) float64 {
+func one(samples []promql.FPoint) float64 {
 	return 1.0
 }

@@ -3,9 +3,8 @@ package logql
 import (
 	"sync"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
-	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logql/log"
 )
@@ -13,7 +12,7 @@ import (
 // RangeVectorAggregator aggregates samples for a given range of samples.
 // It receives the current milliseconds timestamp and the list of point within
 // the range.
-type RangeVectorAggregator func([]promql.Point) float64
+type RangeVectorAggregator func([]promql.FPoint) float64
 
 // RangeVectorIterator iterates through a range of samples.
 // To fetch the current vector use `At` with a `RangeVectorAggregator`.
@@ -47,8 +46,8 @@ type wrappedLabels struct {
 const maxAllocPointsCacheSize = 32 << 10
 
 type wrappedSeries struct {
-	Points      []promql.Point
-	allocPoints []promql.Point
+	Points      []promql.FPoint
+	allocPoints []promql.FPoint
 	nbGet       int
 	wrappedLabels
 }
@@ -154,11 +153,11 @@ func (r *rangeVectorIterator) popBack(newStart int64) {
 }
 
 // sortSearch returns the index of the first point that is greater than the given ts.
-func sortSearch(points []promql.Point, ts int64) int {
+func sortSearch(points []promql.FPoint, ts int64) int {
 	return sortSearchRec(points, ts, 0, len(points))
 }
 
-func sortSearchRec(points []promql.Point, ts int64, start, end int) int {
+func sortSearchRec(points []promql.FPoint, ts int64, start, end int) int {
 	if start == end {
 		return start
 	}
@@ -232,9 +231,9 @@ func (r *rangeVectorIterator) load(start, end int64) {
 				if ppl, ok := r.iter.(iter.PeekPromLabels); ok {
 					metric.Labels = ppl.PeekPromLabels()
 				}
-				if len(metric.Labels) == 0 {
+				if metric.Labels.IsEmpty() {
 					var err error
-					metric.Labels, err = promql_parser.ParseMetric(lbs)
+					metric.Labels, err = promqlParser.ParseMetric(lbs)
 					if err != nil {
 						_ = r.iter.Next()
 						continue
@@ -255,13 +254,13 @@ func (r *rangeVectorIterator) load(start, end int64) {
 			} else {
 				// double the capacity.
 				newCap := max(cap(series.allocPoints)*2, 1024)
-				series.allocPoints = make([]promql.Point, 0, newCap)
+				series.allocPoints = make([]promql.FPoint, 0, newCap)
 				series.Points = append(series.allocPoints, series.Points...)
 			}
 		}
-		series.Points = append(series.Points, promql.Point{
+		series.Points = append(series.Points, promql.FPoint{
 			T: sample.Timestamp,
-			V: sample.Value,
+			F: sample.Value,
 		})
 		_ = r.iter.Next()
 	}
@@ -281,10 +280,8 @@ func (r *rangeVectorIterator) At(aggregator RangeVectorAggregator) (int64, promq
 			continue
 		}
 		r.at = append(r.at, promql.Sample{
-			Point: promql.Point{
-				V: aggregator(series.Points),
-				T: ts,
-			},
+			T:      ts,
+			F:      aggregator(series.Points),
 			Metric: series.Labels,
 		})
 		hasErrorLabel = hasErrorLabel || series.hasErrorLabel

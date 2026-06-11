@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/stats"
 	"github.com/ronanh/loki/util"
@@ -159,12 +159,12 @@ func (mi *mergingSampleIterator) Labels() string {
 
 func (mi *mergingSampleIterator) PeekPromLabels() labels.Labels {
 	if len(mi.iActiveIts) == 0 {
-		return nil
+		return labels.EmptyLabels()
 	}
 	if pl, ok := mi.its[mi.iActiveIts[0]].SampleIterator.(PromLabels); ok {
 		return pl.PromLabels()
 	}
-	return nil
+	return labels.EmptyLabels()
 }
 
 func (mi *mergingSampleIterator) less(i, j int) bool {
