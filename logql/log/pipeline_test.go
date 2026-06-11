@@ -9,40 +9,40 @@ import (
 )
 
 func TestNoopPipeline(t *testing.T) {
-	lbs := labels.Labels{{Name: "foo", Value: "bar"}}
+	lbs := labels.FromStrings("foo", "bar")
 	l, lbr, ok := NewNoopPipeline().ForStream(lbs).Process(0, []byte(""))
 	require.Equal(t, []byte(""), l)
-	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
+	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 
 	ls, lbr, ok := NewNoopPipeline().ForStream(lbs).ProcessString(0, "")
 	require.Equal(t, "", ls)
-	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
+	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 }
 
 func TestPipeline(t *testing.T) {
-	lbs := labels.Labels{{Name: "foo", Value: "bar"}}
+	lbs := labels.FromStrings("foo", "bar")
 	p := NewPipeline([]Stage{
 		NewStringLabelFilter(labels.MustNewMatcher(labels.MatchEqual, "foo", "bar")),
 		newMustLineFormatter("lbs {{.foo}}"),
 	})
 	l, lbr, ok := p.ForStream(lbs).Process(0, []byte("line"))
 	require.Equal(t, []byte("lbs bar"), l)
-	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
+	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 
 	ls, lbr, ok := p.ForStream(lbs).ProcessString(0, "line")
 	require.Equal(t, "lbs bar", ls)
-	require.Equal(t, NewLabelsResult(lbs, lbs.Hash()), lbr)
+	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 
-	l, lbr, ok = p.ForStream(labels.Labels{}).Process(0, []byte("line"))
+	l, lbr, ok = p.ForStream(labels.EmptyLabels()).Process(0, []byte("line"))
 	require.Equal(t, []byte(nil), l)
 	require.Equal(t, nil, lbr)
 	require.Equal(t, false, ok)
 
-	ls, lbr, ok = p.ForStream(labels.Labels{}).ProcessString(0, "line")
+	ls, lbr, ok = p.ForStream(labels.EmptyLabels()).ProcessString(0, "line")
 	require.Equal(t, "", ls)
 	require.Equal(t, nil, lbr)
 	require.Equal(t, false, ok)
@@ -76,16 +76,24 @@ func Benchmark_Pipeline(b *testing.B) {
 	line := []byte(
 		`level=info ts=2020-10-18T18:04:22.147378997Z caller=metrics.go:81 org_id=29 traceID=29a0f088b047eb8c latency=fast query="{stream=\"stdout\",pod=\"loki-canary-xmjzp\"}" query_type=limited range_type=range length=20s step=1s duration=58.126671ms status=200 throughput_mb=2.496547 total_bytes_mb=0.145116`,
 	)
-	lbs := labels.Labels{
-		{Name: "cluster", Value: "ops-tool1"},
-		{Name: "name", Value: "querier"},
-		{Name: "pod", Value: "querier-5896759c79-q7q9h"},
-		{Name: "stream", Value: "stderr"},
-		{Name: "container", Value: "querier"},
-		{Name: "namespace", Value: "loki-dev"},
-		{Name: "job", Value: "loki-dev/querier"},
-		{Name: "pod_template_hash", Value: "5896759c79"},
-	}
+	lbs := labels.FromStrings(
+		"cluster",
+		"ops-tool1",
+		"name",
+		"querier",
+		"pod",
+		"querier-5896759c79-q7q9h",
+		"stream",
+		"stderr",
+		"container",
+		"querier",
+		"namespace",
+		"loki-dev",
+		"job",
+		"loki-dev/querier",
+		"pod_template_hash",
+		"5896759c79",
+	)
 	b.ResetTimer()
 	sp := p.ForStream(lbs)
 	for n := 0; n < b.N; n++ {
@@ -110,16 +118,24 @@ func jsonBenchmark(b *testing.B, parser Stage) {
 	line := []byte(
 		`{"ts":"2020-12-27T09:15:54.333026285Z","error":"action could not be completed", "context":{"file": "metrics.go"}}`,
 	)
-	lbs := labels.Labels{
-		{Name: "cluster", Value: "ops-tool1"},
-		{Name: "name", Value: "querier"},
-		{Name: "pod", Value: "querier-5896759c79-q7q9h"},
-		{Name: "stream", Value: "stderr"},
-		{Name: "container", Value: "querier"},
-		{Name: "namespace", Value: "loki-dev"},
-		{Name: "job", Value: "loki-dev/querier"},
-		{Name: "pod_template_hash", Value: "5896759c79"},
-	}
+	lbs := labels.FromStrings(
+		"cluster",
+		"ops-tool1",
+		"name",
+		"querier",
+		"pod",
+		"querier-5896759c79-q7q9h",
+		"stream",
+		"stderr",
+		"container",
+		"querier",
+		"namespace",
+		"loki-dev",
+		"job",
+		"loki-dev/querier",
+		"pod_template_hash",
+		"5896759c79",
+	)
 	b.ResetTimer()
 	sp := p.ForStream(lbs)
 	for n := 0; n < b.N; n++ {
@@ -144,7 +160,7 @@ func invalidJSONBenchmark(b *testing.B, parser Stage) {
 	})
 	line := []byte(`invalid json`)
 	b.ResetTimer()
-	sp := p.ForStream(labels.Labels{})
+	sp := p.ForStream(labels.EmptyLabels())
 	for n := 0; n < b.N; n++ {
 		resLine, resLbs, resOK = sp.Process(0, line)
 

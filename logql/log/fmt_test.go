@@ -1,7 +1,6 @@
 package log
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/prometheus/prometheus/model/labels"
@@ -368,7 +367,7 @@ func Test_lineFormatter_Format2(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
+			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, labels.StableHash(tt.lbs))
 			builder.Reset()
 			outLine, _ := tt.fmter.Process(0, tt.in, builder)
 			require.Equal(t, tt.want, outLine)
@@ -389,149 +388,143 @@ func Test_lineFormatter_Format(t *testing.T) {
 		{
 			"combining",
 			newMustLineFormatter("foo{{.foo}}buzz{{  .bar  }}"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			[]byte("fooblipbuzzblop"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 		},
 		{
 			"Replace",
 			newMustLineFormatter(`foo{{.foo}}buzz{{ Replace .bar "blop" "bar" -1 }}`),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			[]byte("fooblipbuzzbar"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 		},
 		{
 			"replace",
 			newMustLineFormatter(`foo{{.foo}}buzz{{ .bar | replace "blop" "bar" }}`),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			[]byte("fooblipbuzzbar"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 		},
 		{
 			"title",
 			newMustLineFormatter(`{{.foo | title }}`),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			[]byte("Blip"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 		},
 		{
 			"substr and trunc",
 			newMustLineFormatter(
 				`{{.foo | substr 1 3 }} {{ .bar  | trunc 1 }} {{ .bar  | trunc 3 }}`,
 			),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			[]byte("li b blo"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 		},
 		{
 			"trim",
 			newMustLineFormatter(
 				`{{.foo | trim }} {{ .bar  | trimAll "op" }} {{ .bar  | trimPrefix "b" }} {{ .bar  | trimSuffix "p" }}`,
 			),
-			labels.Labels{{Name: "foo", Value: "  blip "}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "  blip ", "bar", "blop"),
 			[]byte("blip bl lop blo"),
-			labels.Labels{{Name: "foo", Value: "  blip "}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "  blip ", "bar", "blop"),
 		},
 		{
 			"lower and upper",
 			newMustLineFormatter(`{{.foo | lower }} {{ .bar  | upper }}`),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("blip BLOP"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"repeat",
 			newMustLineFormatter(`{{ "foo" | repeat 3 }}`),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("foofoofoo"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"indent",
 			newMustLineFormatter(`{{ "foo\n bar" | indent 4 }}`),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("    foo\n     bar"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"nindent",
 			newMustLineFormatter(`{{ "foo" | nindent 2 }}`),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("\n  foo"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"contains",
 			newMustLineFormatter(
 				`{{ if  .foo | contains "p"}}yes{{end}}-{{ if  .foo | contains "z"}}no{{end}}`,
 			),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("yes-"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"hasPrefix",
 			newMustLineFormatter(
 				`{{ if  .foo | hasPrefix "BL" }}yes{{end}}-{{ if  .foo | hasPrefix "p"}}no{{end}}`,
 			),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("yes-"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"hasSuffix",
 			newMustLineFormatter(
 				`{{ if  .foo | hasSuffix "Ip" }}yes{{end}}-{{ if  .foo | hasSuffix "pw"}}no{{end}}`,
 			),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("yes-"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"regexReplaceAll",
 			newMustLineFormatter(`{{ regexReplaceAll "(p)" .foo "t" }}`),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("BLIt"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"regexReplaceAllLiteral",
 			newMustLineFormatter(`{{ regexReplaceAllLiteral "(p)" .foo "${1}" }}`),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 			[]byte("BLI${1}"),
-			labels.Labels{{Name: "foo", Value: "BLIp"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "BLIp", "bar", "blop"),
 		},
 		{
 			"err",
 			newMustLineFormatter(`{{.foo Replace "foo"}}`),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			nil,
-			labels.Labels{
-				{Name: ErrorLabel, Value: errTemplateFormat},
-				{Name: "foo", Value: "blip"},
-				{Name: "bar", Value: "blop"},
-			},
+			labels.FromStrings(ErrorLabel, errTemplateFormat, "foo", "blip", "bar", "blop"),
 		},
 		{
 			"missing",
 			newMustLineFormatter("foo {{.foo}}buzz{{  .bar  }}"),
-			labels.Labels{{Name: "bar", Value: "blop"}},
+			labels.FromStrings("bar", "blop"),
 			[]byte("foo buzzblop"),
-			labels.Labels{{Name: "bar", Value: "blop"}},
+			labels.FromStrings("bar", "blop"),
 		},
 		{
 			"function",
 			newMustLineFormatter("foo {{.foo | ToUpper }} buzz{{  .bar  }}"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 			[]byte("foo BLIP buzzblop"),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sort.Sort(tt.lbs)
-			sort.Sort(tt.wantLbs)
-			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
+			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, labels.StableHash(tt.lbs))
 			builder.Reset()
 			outLine, _ := tt.fmter.Process(0, nil, builder)
 			require.Equal(t, tt.want, outLine)
@@ -559,8 +552,8 @@ func Test_labelsFormatter_Format(t *testing.T) {
 		{
 			"combined with template",
 			mustNewLabelsFormatter([]LabelFmt{NewTemplateLabelFmt("foo", "{{.foo}} and {{.bar}}")}),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
-			labels.Labels{{Name: "foo", Value: "blip and blop"}, {Name: "bar", Value: "blop"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
+			labels.FromStrings("foo", "blip and blop", "bar", "blop"),
 		},
 		{
 			"combined with template and rename",
@@ -568,8 +561,8 @@ func Test_labelsFormatter_Format(t *testing.T) {
 				NewTemplateLabelFmt("blip", "{{.foo}} and {{.bar}}"),
 				NewRenameLabelFmt("bar", "foo"),
 			}),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
-			labels.Labels{{Name: "blip", Value: "blip and blop"}, {Name: "bar", Value: "blip"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
+			labels.FromStrings("blip", "blip and blop", "bar", "blip"),
 		},
 		{
 			"fn",
@@ -577,17 +570,16 @@ func Test_labelsFormatter_Format(t *testing.T) {
 				NewTemplateLabelFmt("blip", "{{.foo | ToUpper }} and {{.bar}}"),
 				NewRenameLabelFmt("bar", "foo"),
 			}),
-			labels.Labels{{Name: "foo", Value: "blip"}, {Name: "bar", Value: "blop"}},
-			labels.Labels{{Name: "blip", Value: "BLIP and blop"}, {Name: "bar", Value: "blip"}},
+			labels.FromStrings("foo", "blip", "bar", "blop"),
+			labels.FromStrings("blip", "BLIP and blop", "bar", "blip"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewBaseLabelsBuilder().ForLabels(tt.in, tt.in.Hash())
+			builder := NewBaseLabelsBuilder().ForLabels(tt.in, labels.StableHash(tt.in))
 			builder.Reset()
 			_, _ = tt.fmter.Process(0, nil, builder)
-			sort.Sort(tt.want)
 			require.Equal(t, tt.want, builder.LabelsResult().Labels())
 		})
 	}
@@ -711,7 +703,7 @@ func Test_labelsFormatter_Format2(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewBaseLabelsBuilder().ForLabels(tt.in, tt.in.Hash())
+			builder := NewBaseLabelsBuilder().ForLabels(tt.in, labels.StableHash(tt.in))
 			builder.Reset()
 			_, _ = tt.fmter.Process(0, []byte("test line"), builder)
 			require.Equal(t, tt.want, builder.LabelsResult().Labels())
@@ -769,7 +761,7 @@ func Test_lineFormatter_Timestamp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fmter := newMustLineFormatter(tt.tmpl)
-			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, tt.lbs.Hash())
+			builder := NewBaseLabelsBuilder().ForLabels(tt.lbs, labels.StableHash(tt.lbs))
 			builder.Reset()
 			out, _ := fmter.Process(tt.ts, tt.in, builder)
 			require.Equal(t, tt.want, out)
@@ -814,10 +806,9 @@ func Test_labelsFormatter_Timestamp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fmter := mustNewLabelsFormatter(tt.fmts)
-			builder := NewBaseLabelsBuilder().ForLabels(tt.in, tt.in.Hash())
+			builder := NewBaseLabelsBuilder().ForLabels(tt.in, labels.StableHash(tt.in))
 			builder.Reset()
 			_, _ = fmter.Process(tt.ts, tt.line, builder)
-			sort.Sort(tt.want)
 			require.Equal(t, tt.want, builder.LabelsResult().Labels())
 		})
 	}

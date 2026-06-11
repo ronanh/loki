@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
-	promql_parser "github.com/prometheus/prometheus/promql/parser"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/stretchr/testify/require"
@@ -28,8 +28,8 @@ var samples = []logproto.Sample{
 }
 
 var (
-	labelFoo, _ = promql_parser.ParseMetric("{app=\"foo\"}")
-	labelBar, _ = promql_parser.ParseMetric("{app=\"bar\"}")
+	labelFoo, _ = promqlParser.ParseMetric("{app=\"foo\"}")
+	labelBar, _ = promqlParser.ParseMetric("{app=\"bar\"}")
 )
 
 func newSampleIterator() iter.SampleIterator {
@@ -49,8 +49,8 @@ func newfakePeekingSampleIterator() iter.PeekingSampleIterator {
 	return iter.NewPeekingSampleIterator(newSampleIterator())
 }
 
-func newPoint(t time.Time, v float64) promql.Point {
-	return promql.Point{T: t.UnixNano() / 1e+6, V: v}
+func newSample(t time.Time, v float64, metric labels.Labels) promql.Sample {
+	return promql.Sample{T: t.UnixNano() / 1e+6, F: v, Metric: metric}
 }
 
 func Test_RangeVectorIterator(t *testing.T) {
@@ -66,17 +66,17 @@ func Test_RangeVectorIterator(t *testing.T) {
 			(30 * time.Second).Nanoseconds(),
 			[]promql.Vector{
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(10, 0), 2), Metric: labelBar},
-					{Point: newPoint(time.Unix(10, 0), 2), Metric: labelFoo},
+					newSample(time.Unix(10, 0), 2, labelBar),
+					newSample(time.Unix(10, 0), 2, labelFoo),
 				},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(40, 0), 2), Metric: labelBar},
-					{Point: newPoint(time.Unix(40, 0), 2), Metric: labelFoo},
+					newSample(time.Unix(40, 0), 2, labelBar),
+					newSample(time.Unix(40, 0), 2, labelFoo),
 				},
 				{},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(100, 0), 1), Metric: labelBar},
-					{Point: newPoint(time.Unix(100, 0), 1), Metric: labelFoo},
+					newSample(time.Unix(100, 0), 1, labelBar),
+					newSample(time.Unix(100, 0), 1, labelFoo),
 				},
 			},
 			[]time.Time{time.Unix(10, 0), time.Unix(40, 0), time.Unix(70, 0), time.Unix(100, 0)},
@@ -87,20 +87,20 @@ func Test_RangeVectorIterator(t *testing.T) {
 			(30 * time.Second).Nanoseconds(),
 			[]promql.Vector{
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(10, 0), 4), Metric: labelBar},
-					{Point: newPoint(time.Unix(10, 0), 4), Metric: labelFoo},
+					newSample(time.Unix(10, 0), 4, labelBar),
+					newSample(time.Unix(10, 0), 4, labelFoo),
 				},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(40, 0), 7), Metric: labelBar},
-					{Point: newPoint(time.Unix(40, 0), 7), Metric: labelFoo},
+					newSample(time.Unix(40, 0), 7, labelBar),
+					newSample(time.Unix(40, 0), 7, labelFoo),
 				},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(70, 0), 2), Metric: labelBar},
-					{Point: newPoint(time.Unix(70, 0), 2), Metric: labelFoo},
+					newSample(time.Unix(70, 0), 2, labelBar),
+					newSample(time.Unix(70, 0), 2, labelFoo),
 				},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(100, 0), 1), Metric: labelBar},
-					{Point: newPoint(time.Unix(100, 0), 1), Metric: labelFoo},
+					newSample(time.Unix(100, 0), 1, labelBar),
+					newSample(time.Unix(100, 0), 1, labelFoo),
 				},
 			},
 			[]time.Time{time.Unix(10, 0), time.Unix(40, 0), time.Unix(70, 0), time.Unix(100, 0)},
@@ -111,17 +111,17 @@ func Test_RangeVectorIterator(t *testing.T) {
 			(30 * time.Second).Nanoseconds(),
 			[]promql.Vector{
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(10, 0), 4), Metric: labelBar},
-					{Point: newPoint(time.Unix(10, 0), 4), Metric: labelFoo},
+					newSample(time.Unix(10, 0), 4, labelBar),
+					newSample(time.Unix(10, 0), 4, labelFoo),
 				},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(40, 0), 5), Metric: labelBar},
-					{Point: newPoint(time.Unix(40, 0), 5), Metric: labelFoo},
+					newSample(time.Unix(40, 0), 5, labelBar),
+					newSample(time.Unix(40, 0), 5, labelFoo),
 				},
 				[]promql.Sample{},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(100, 0), 1), Metric: labelBar},
-					{Point: newPoint(time.Unix(100, 0), 1), Metric: labelFoo},
+					newSample(time.Unix(100, 0), 1, labelBar),
+					newSample(time.Unix(100, 0), 1, labelFoo),
 				},
 			},
 			[]time.Time{time.Unix(10, 0), time.Unix(40, 0), time.Unix(70, 0), time.Unix(100, 0)},
@@ -132,12 +132,12 @@ func Test_RangeVectorIterator(t *testing.T) {
 			(10 * time.Second).Nanoseconds(),
 			[]promql.Vector{
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(110, 0), 2), Metric: labelBar},
-					{Point: newPoint(time.Unix(110, 0), 2), Metric: labelFoo},
+					newSample(time.Unix(110, 0), 2, labelBar),
+					newSample(time.Unix(110, 0), 2, labelFoo),
 				},
 				[]promql.Sample{
-					{Point: newPoint(time.Unix(120, 0), 2), Metric: labelBar},
-					{Point: newPoint(time.Unix(120, 0), 2), Metric: labelFoo},
+					newSample(time.Unix(120, 0), 2, labelBar),
+					newSample(time.Unix(120, 0), 2, labelFoo),
 				},
 			},
 			[]time.Time{time.Unix(110, 0), time.Unix(120, 0)},

@@ -2271,7 +2271,7 @@ func TestParse(t *testing.T) {
 		t.Run(tc.in, func(t *testing.T) {
 			ast, err := ParseExpr(tc.in)
 			require.Equal(t, tc.err, err)
-			require.Equal(t, tc.exp, ast)
+			require.Equal(t, stripRegexExpr(tc.exp), stripRegexExpr(ast))
 		})
 	}
 }
@@ -2333,7 +2333,10 @@ func TestParseMatchers(t *testing.T) {
 				t.Errorf("ParseMatchers() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(
+				removeFastRegexMatchers(got),
+				removeFastRegexMatchers(tt.want),
+			) {
 				t.Errorf("ParseMatchers() = %v, want %v", got, tt.want)
 			}
 		})
@@ -2379,7 +2382,7 @@ func Test_PipelineCombined(t *testing.T) {
 
 	p, err := expr.Pipeline()
 	require.Nil(t, err)
-	sp := p.ForStream(labels.Labels{})
+	sp := p.ForStream(labels.EmptyLabels())
 	line, lbs, ok := sp.Process(
 		0,
 		[]byte(
@@ -2389,17 +2392,26 @@ func Test_PipelineCombined(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(
 		t,
-		labels.Labels{
-			labels.Label{Name: "caller", Value: "logging.go:66"},
-			labels.Label{Name: "duration", Value: "1.5s"},
-			labels.Label{Name: "level", Value: "debug"},
-			labels.Label{Name: "method", Value: "POST"},
-			labels.Label{Name: "msg", Value: "POST /api/prom/api/v1/query_range (200) 1.5s"},
-			labels.Label{Name: "path", Value: "/api/prom/api/v1/query_range"},
-			labels.Label{Name: "status", Value: "200"},
-			labels.Label{Name: "traceID", Value: "a9d4d8a928d8db1"},
-			labels.Label{Name: "ts", Value: "2020-10-02T10:10:42.092268913Z"},
-		},
+		labels.FromStrings(
+			"caller",
+			"logging.go:66",
+			"duration",
+			"1.5s",
+			"level",
+			"debug",
+			"method",
+			"POST",
+			"msg",
+			"POST /api/prom/api/v1/query_range (200) 1.5s",
+			"path",
+			"/api/prom/api/v1/query_range",
+			"status",
+			"200",
+			"traceID",
+			"a9d4d8a928d8db1",
+			"ts",
+			"2020-10-02T10:10:42.092268913Z",
+		),
 		lbs.Labels(),
 	)
 	require.Equal(t, string([]byte(`1.5s|POST|200`)), string(line))
@@ -2413,7 +2425,7 @@ func Test_PipelineCombinedPattern(t *testing.T) {
 
 	p, err := expr.Pipeline()
 	require.Nil(t, err)
-	sp := p.ForStream(labels.Labels{})
+	sp := p.ForStream(labels.EmptyLabels())
 	line, lbs, ok := sp.Process(
 		0,
 		[]byte(
@@ -2423,13 +2435,18 @@ func Test_PipelineCombinedPattern(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(
 		t,
-		labels.Labels{
-			labels.Label{Name: "caller", Value: "logging.go:66"},
-			labels.Label{Name: "level", Value: "debug"},
-			labels.Label{Name: "msg", Value: "POST /api/prom/api/v1/query_range (200) 1.5s"},
-			labels.Label{Name: "traceID", Value: "a9d4d8a928d8db1"},
-			labels.Label{Name: "ts", Value: "2020-10-02T10:10:42.092268913Z"},
-		},
+		labels.FromStrings(
+			"caller",
+			"logging.go:66",
+			"level",
+			"debug",
+			"msg",
+			"POST /api/prom/api/v1/query_range (200) 1.5s",
+			"traceID",
+			"a9d4d8a928d8db1",
+			"ts",
+			"2020-10-02T10:10:42.092268913Z",
+		),
 		lbs.Labels(),
 	)
 	require.Equal(t, string([]byte("debug - logging.go:66")), string(line))

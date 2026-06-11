@@ -57,12 +57,14 @@ func (n noopStreamPipeline) ProcessString(_ int64, line string) (string, LabelsR
 	return line, n.LabelsResult, true
 }
 
-func (n *noopPipeline) ForStream(labels labels.Labels) StreamPipeline {
-	h := labels.Hash()
+func (n *noopPipeline) ForStream(lbs labels.Labels) StreamPipeline {
+	// StableHash keeps the same hash values as the historic labels.Hash() and
+	// stays consistent with the HashWithoutLabels-based pipeline hashes.
+	h := labels.StableHash(lbs)
 	if cached, ok := n.cache[h]; ok {
 		return cached
 	}
-	sp := &noopStreamPipeline{LabelsResult: NewLabelsResult(labels, h)}
+	sp := &noopStreamPipeline{LabelsResult: NewLabelsResult(lbs, h)}
 	n.cache[h] = sp
 	return sp
 }

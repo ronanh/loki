@@ -13,29 +13,29 @@ func TestDefaultEvaluator_DivideByZero(t *testing.T) {
 	var res promql.Sample
 	mergeBinOp(OpTypeDiv,
 		&promql.Sample{
-			Point: promql.Point{T: 1, V: 1},
+			T: 1, F: 1,
 		},
 		&promql.Sample{
-			Point: promql.Point{T: 1, V: 0},
+			T: 1, F: 0,
 		},
 		false,
 		false,
 		&res,
 	)
-	require.Equal(t, true, math.IsNaN(res.Point.V))
+	require.Equal(t, true, math.IsNaN(res.F))
 
 	mergeBinOp(OpTypeMod,
 		&promql.Sample{
-			Point: promql.Point{T: 1, V: 1},
+			T: 1, F: 1,
 		},
 		&promql.Sample{
-			Point: promql.Point{T: 1, V: 0},
+			T: 1, F: 0,
 		},
 		false,
 		false,
 		&res,
 	)
-	require.Equal(t, true, math.IsNaN(res.Point.V))
+	require.Equal(t, true, math.IsNaN(res.F))
 }
 
 func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
@@ -49,156 +49,156 @@ func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
 			`eq_0`,
 			OpTypeCmpEQ,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 		},
 		{
 			`eq_1`,
 			OpTypeCmpEQ,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 		},
 		{
 			`neq_0`,
 			OpTypeNEQ,
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 		},
 		{
 			`neq_1`,
 			OpTypeNEQ,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 		},
 		{
 			`gt_0`,
 			OpTypeGT,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 		},
 		{
 			`gt_1`,
 			OpTypeGT,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 		},
 		{
 			`lt_0`,
 			OpTypeLT,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 		},
 		{
 			`lt_1`,
 			OpTypeLT,
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 		},
 		{
 			`gte_0`,
 			OpTypeGTE,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 		},
 		{
 			`gt_1`,
 			OpTypeGTE,
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 		},
 		{
 			`lte_0`,
 			OpTypeLTE,
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 		},
 		{
 			`lte_1`,
 			OpTypeLTE,
 			&promql.Sample{
-				Point: promql.Point{V: 1},
+				F: 1,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 			&promql.Sample{
-				Point: promql.Point{V: 0},
+				F: 0,
 			},
 		},
 	} {
@@ -218,13 +218,13 @@ func TestEvaluator_mergeBinOpComparisons(t *testing.T) {
 			require.Equal(
 				t,
 				&promql.Sample{
-					Point: promql.Point{V: 0},
+					F: 0,
 				},
 				&res,
 			)
 
 			//  test filtered variants
-			if tc.expected.V == 0 {
+			if tc.expected.F == 0 {
 				//  ensure zeroed predicates are filtered out
 				merged := mergeBinOp(tc.op, tc.lhs, tc.rhs, true, false, &res)
 				require.False(t, merged)
@@ -246,10 +246,10 @@ func Test_MergeBinOpVectors_Filter(t *testing.T) {
 	mergeBinOp(
 		OpTypeGT,
 		&promql.Sample{
-			Point: promql.Point{V: 2},
+			F: 2,
 		},
 		&promql.Sample{
-			Point: promql.Point{V: 0},
+			F: 0,
 		},
 		true,
 		true,
@@ -259,7 +259,7 @@ func Test_MergeBinOpVectors_Filter(t *testing.T) {
 	// ensure we return the left hand side's value (2) instead of the
 	// comparison operator's result (1: the truthy answer)
 	require.Equal(t, &promql.Sample{
-		Point: promql.Point{V: 2},
+		F: 2,
 	}, &res)
 }
 
@@ -270,74 +270,64 @@ func Test_absentLabels(t *testing.T) {
 		expected labels.Labels
 	}{
 		{
-			name:  "single equal matcher",
-			query: `absent_over_time({app="foo"}[5m])`,
-			expected: labels.Labels{
-				{Name: "app", Value: "foo"},
-			},
+			name:     "single equal matcher",
+			query:    `absent_over_time({app="foo"}[5m])`,
+			expected: labels.FromStrings("app", "foo"),
 		},
 		{
 			name:     "single not-equal matcher",
 			query:    `absent_over_time({app!="foo"}[5m])`,
-			expected: labels.Labels{},
+			expected: labels.EmptyLabels(),
 		},
 		{
-			name:  "two different keys with equal matchers",
-			query: `absent_over_time({app="foo", cluster="us-east"}[5m])`,
-			expected: labels.Labels{
-				{Name: "app", Value: "foo"},
-				{Name: "cluster", Value: "us-east"},
-			},
+			name:     "two different keys with equal matchers",
+			query:    `absent_over_time({app="foo", cluster="us-east"}[5m])`,
+			expected: labels.FromStrings("app", "foo", "cluster", "us-east"),
 		},
 		{
 			name:     "duplicate key: equal then not-equal",
 			query:    `absent_over_time({app="foo", app!="bar"}[5m])`,
-			expected: labels.Labels{{Name: "app", Value: "foo"}},
+			expected: labels.FromStrings("app", "foo"),
 		},
 		{
 			name:     "duplicate key: two not-equal matchers",
 			query:    `absent_over_time({app!="foo", app!="bar"}[5m])`,
-			expected: labels.Labels{},
+			expected: labels.EmptyLabels(),
 		},
 		{
 			name:     "duplicate key: two equal matchers (contradictory)",
 			query:    `absent_over_time({app="foo", app="bar"}[5m])`,
-			expected: labels.Labels{},
+			expected: labels.EmptyLabels(),
 		},
 		{
 			name:     "duplicate key: not-equal then equal",
 			query:    `absent_over_time({app!="bar", app="foo"}[5m])`,
-			expected: labels.Labels{{Name: "app", Value: "foo"}},
+			expected: labels.FromStrings("app", "foo"),
 		},
 		{
-			name:  "mixed: one duplicate key, one unique key",
-			query: `absent_over_time({app="foo", cluster="us-east", app!="bar"}[5m])`,
-			expected: labels.Labels{
-				{Name: "app", Value: "foo"},
-				{Name: "cluster", Value: "us-east"},
-			},
+			name:     "mixed: one duplicate key, one unique key",
+			query:    `absent_over_time({app="foo", cluster="us-east", app!="bar"}[5m])`,
+			expected: labels.FromStrings("app", "foo", "cluster", "us-east"),
 		},
 		{
 			name:     "duplicate key: three equal matchers (contradictory)",
 			query:    `absent_over_time({app="a", app="b", app="c"}[5m])`,
-			expected: labels.Labels{},
+			expected: labels.EmptyLabels(),
 		},
 		{
 			name:     "equal matcher with empty value",
 			query:    `absent_over_time({app=""}[5m])`,
-			expected: labels.Labels{},
+			expected: labels.EmptyLabels(),
 		},
 		{
 			name:     "duplicate key: equal with empty value then not-equal",
 			query:    `absent_over_time({app="", app!="bar"}[5m])`,
-			expected: labels.Labels{},
+			expected: labels.EmptyLabels(),
 		},
 		{
-			name:  "duplicate key: identical equal matchers (redundant)",
-			query: `absent_over_time({app="a", app="a"}[5m])`,
-			expected: labels.Labels{
-				{Name: "app", Value: "a"},
-			},
+			name:     "duplicate key: identical equal matchers (redundant)",
+			query:    `absent_over_time({app="a", app="a"}[5m])`,
+			expected: labels.FromStrings("app", "a"),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
