@@ -632,7 +632,7 @@ var smp = newStringMapPool()
 // puts labels entries into an existing map, it is up to the caller to
 // properly clear the map if it is going to be reused
 func (b *LabelsBuilder) IntoMap(m map[string]string) {
-	if len(b.del) == 0 && len(b.add) == 0 && !b.HasErr() {
+	if len(b.del) == 0 && len(b.add) == 0 && len(b.deltas) == 0 && !b.HasErr() {
 		if b.baseMap == nil {
 			b.baseMap = b.base.Map()
 			maps.Copy(m, b.baseMap)
@@ -648,7 +648,7 @@ func (b *LabelsBuilder) IntoMap(m map[string]string) {
 }
 
 func (b *LabelsBuilder) Map() (map[string]string, bool) {
-	if len(b.del) == 0 && len(b.add) == 0 && b.err == "" {
+	if len(b.del) == 0 && len(b.add) == 0 && len(b.deltas) == 0 && b.err == "" {
 		if b.baseMap == nil {
 			b.baseMap = b.base.Map()
 		}

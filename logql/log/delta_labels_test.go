@@ -272,6 +272,22 @@ func TestReferencedDeltaLabels(t *testing.T) {
 	require.False(t, exNoLabels.ForStream(dlBase).ReferencedDeltaLabels())
 }
 
+func TestDeltaLabelsLineFormatTemplate(t *testing.T) {
+	// line_format templates must see delta labels ({{.severity_text}})
+	lf, err := NewFormatter("{{.severity_text}}:{{.app}}")
+	require.NoError(t, err)
+	p := NewPipeline([]Stage{lf})
+	sp := p.ForStream(dlBase)
+	out, _, ok := sp.Process(0, []byte("original"), dlDelta, 0)
+	require.True(t, ok)
+	require.Equal(t, "ERROR:nginx", string(out))
+
+	// and a delta-less line right after on the same builder sees no leak
+	out, _, ok = sp.Process(0, []byte("original"), labels.EmptyLabels(), 0)
+	require.True(t, ok)
+	require.Equal(t, ":nginx", string(out))
+}
+
 func TestDeltaLabelsLabelFormatRename(t *testing.T) {
 	// label_format renaming a delta label: rename reads the delta value and
 	// deletes the source name
