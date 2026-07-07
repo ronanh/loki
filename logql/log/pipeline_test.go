@@ -10,12 +10,12 @@ import (
 
 func TestNoopPipeline(t *testing.T) {
 	lbs := labels.FromStrings("foo", "bar")
-	l, lbr, ok := NewNoopPipeline().ForStream(lbs).Process(0, []byte(""))
+	l, lbr, ok := NewNoopPipeline().ForStream(lbs).Process(0, []byte(""), labels.EmptyLabels(), 0)
 	require.Equal(t, []byte(""), l)
 	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 
-	ls, lbr, ok := NewNoopPipeline().ForStream(lbs).ProcessString(0, "")
+	ls, lbr, ok := NewNoopPipeline().ForStream(lbs).ProcessString(0, "", labels.EmptyLabels(), 0)
 	require.Equal(t, "", ls)
 	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
@@ -27,22 +27,24 @@ func TestPipeline(t *testing.T) {
 		NewStringLabelFilter(labels.MustNewMatcher(labels.MatchEqual, "foo", "bar")),
 		newMustLineFormatter("lbs {{.foo}}"),
 	})
-	l, lbr, ok := p.ForStream(lbs).Process(0, []byte("line"))
+	l, lbr, ok := p.ForStream(lbs).Process(0, []byte("line"), labels.EmptyLabels(), 0)
 	require.Equal(t, []byte("lbs bar"), l)
 	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 
-	ls, lbr, ok := p.ForStream(lbs).ProcessString(0, "line")
+	ls, lbr, ok := p.ForStream(lbs).ProcessString(0, "line", labels.EmptyLabels(), 0)
 	require.Equal(t, "lbs bar", ls)
 	require.Equal(t, NewLabelsResult(lbs, labels.StableHash(lbs)), lbr)
 	require.Equal(t, true, ok)
 
-	l, lbr, ok = p.ForStream(labels.EmptyLabels()).Process(0, []byte("line"))
+	l, lbr, ok = p.ForStream(labels.EmptyLabels()).
+		Process(0, []byte("line"), labels.EmptyLabels(), 0)
 	require.Equal(t, []byte(nil), l)
 	require.Equal(t, nil, lbr)
 	require.Equal(t, false, ok)
 
-	ls, lbr, ok = p.ForStream(labels.EmptyLabels()).ProcessString(0, "line")
+	ls, lbr, ok = p.ForStream(labels.EmptyLabels()).
+		ProcessString(0, "line", labels.EmptyLabels(), 0)
 	require.Equal(t, "", ls)
 	require.Equal(t, nil, lbr)
 	require.Equal(t, false, ok)
@@ -97,7 +99,7 @@ func Benchmark_Pipeline(b *testing.B) {
 	b.ResetTimer()
 	sp := p.ForStream(lbs)
 	for n := 0; n < b.N; n++ {
-		resLine, resLbs, resOK = sp.Process(0, line)
+		resLine, resLbs, resOK = sp.Process(0, line, labels.EmptyLabels(), 0)
 	}
 }
 
@@ -139,7 +141,7 @@ func jsonBenchmark(b *testing.B, parser Stage) {
 	b.ResetTimer()
 	sp := p.ForStream(lbs)
 	for n := 0; n < b.N; n++ {
-		resLine, resLbs, resOK = sp.Process(0, line)
+		resLine, resLbs, resOK = sp.Process(0, line, labels.EmptyLabels(), 0)
 
 		if !resOK {
 			b.Fatalf("resulting line not ok: %s\n", line)
@@ -162,7 +164,7 @@ func invalidJSONBenchmark(b *testing.B, parser Stage) {
 	b.ResetTimer()
 	sp := p.ForStream(labels.EmptyLabels())
 	for n := 0; n < b.N; n++ {
-		resLine, resLbs, resOK = sp.Process(0, line)
+		resLine, resLbs, resOK = sp.Process(0, line, labels.EmptyLabels(), 0)
 
 		if !resOK {
 			b.Fatalf("resulting line not ok: %s\n", line)

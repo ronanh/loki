@@ -31,9 +31,26 @@ type SampleExtractor interface {
 
 // StreamSampleExtractor extracts sample for a log line.
 // A StreamSampleExtractor never mutate the received line.
+// See StreamPipeline for the deltaLabels/deltaHash conventions.
 type StreamSampleExtractor interface {
-	Process(ts int64, line []byte) (float64, LabelsResult, bool)
-	ProcessString(ts int64, line string) (float64, LabelsResult, bool)
+	// BaseLabels returns the stream's labels result, unaffected by any line.
+	BaseLabels() LabelsResult
+	Process(
+		ts int64,
+		line []byte,
+		deltaLabels labels.Labels,
+		deltaHash uint64,
+	) (float64, LabelsResult, bool)
+	ProcessString(
+		ts int64,
+		line string,
+		deltaLabels labels.Labels,
+		deltaHash uint64,
+	) (float64, LabelsResult, bool)
+	// ReferencedDeltaLabels reports whether the extracted values or result
+	// labels can depend on the deltaLabels contents. When false, callers may
+	// skip decoding the per-line delta column entirely.
+	ReferencedDeltaLabels() bool
 }
 
 type lineSampleExtractor struct {
@@ -42,6 +59,7 @@ type lineSampleExtractor struct {
 
 	baseBuilder      *BaseLabelsBuilder
 	streamExtractors map[uint64]StreamSampleExtractor
+	referencedDeltas bool
 }
 
 // NewLineSampleExtractor creates a SampleExtractor from a LineExtractor.
@@ -59,6 +77,9 @@ func NewLineSampleExtractor(
 		LineExtractor:    ex,
 		baseBuilder:      NewBaseLabelsBuilderWithGrouping(groups, hints, without, noLabels),
 		streamExtractors: make(map[uint64]StreamSampleExtractor),
+		// values never depend on labels here; the result labels ignore the
+		// deltas only when the whole label output is dropped (noLabels)
+		referencedDeltas: !(stagesAreLineOnly([]Stage{s}) && noLabels),
 	}, nil
 }
 
@@ -69,9 +90,10 @@ func (l *lineSampleExtractor) ForStream(labels labels.Labels) StreamSampleExtrac
 	}
 
 	res := &streamLineSampleExtractor{
-		Stage:         l.Stage,
-		LineExtractor: l.LineExtractor,
-		builder:       l.baseBuilder.ForLabels(labels, hash),
+		Stage:            l.Stage,
+		LineExtractor:    l.LineExtractor,
+		builder:          l.baseBuilder.ForLabels(labels, hash),
+		referencedDeltas: l.referencedDeltas,
 	}
 	l.streamExtractors[hash] = res
 	return res
@@ -80,18 +102,33 @@ func (l *lineSampleExtractor) ForStream(labels labels.Labels) StreamSampleExtrac
 type streamLineSampleExtractor struct {
 	Stage
 	LineExtractor
-	builder *LabelsBuilder
+	builder          *LabelsBuilder
+	referencedDeltas bool
 }
 
-func (l *streamLineSampleExtractor) Process(ts int64, line []byte) (float64, LabelsResult, bool) {
-	// short circuit.
-	if l.Stage == NoopStage {
+func (l *streamLineSampleExtractor) BaseLabels() LabelsResult { return l.builder.BaseLabels() }
+
+func (l *streamLineSampleExtractor) ReferencedDeltaLabels() bool { return l.referencedDeltas }
+
+func (l *streamLineSampleExtractor) Process(
+	ts int64,
+	line []byte,
+	deltaLabels labels.Labels,
+	deltaHash uint64,
+) (float64, LabelsResult, bool) {
+	// short circuit: no stage AND no per-line label state (current or stale
+	// from the previous line — the base builder is shared).
+	if l.Stage == NoopStage && deltaLabels.IsEmpty() && !l.builder.hasDeltas() {
 		return l.LineExtractor(line), l.builder.GroupedLabels(), true
 	}
 	l.builder.Reset()
-	line, ok := l.Stage.Process(ts, line, l.builder)
-	if !ok {
-		return 0, nil, false
+	l.builder.SetDeltaLabels(deltaLabels, deltaHash)
+	if l.Stage != NoopStage {
+		var ok bool
+		line, ok = l.Stage.Process(ts, line, l.builder)
+		if !ok {
+			return 0, nil, false
+		}
 	}
 	return l.LineExtractor(line), l.builder.GroupedLabels(), true
 }
@@ -99,9 +136,11 @@ func (l *streamLineSampleExtractor) Process(ts int64, line []byte) (float64, Lab
 func (l *streamLineSampleExtractor) ProcessString(
 	ts int64,
 	line string,
+	deltaLabels labels.Labels,
+	deltaHash uint64,
 ) (float64, LabelsResult, bool) {
 	// unsafe get bytes since we have the guarantee that the line won't be mutated.
-	return l.Process(ts, unsafeGetBytes(line))
+	return l.Process(ts, unsafeGetBytes(line), deltaLabels, deltaHash)
 }
 
 type convertionFn func(value string) (float64, error)
@@ -179,9 +218,21 @@ func (l *labelSampleExtractor) ForStream(labels labels.Labels) StreamSampleExtra
 	return res
 }
 
-func (l *streamLabelSampleExtractor) Process(ts int64, line []byte) (float64, LabelsResult, bool) {
+func (l *streamLabelSampleExtractor) BaseLabels() LabelsResult { return l.builder.BaseLabels() }
+
+// ReferencedDeltaLabels is always true for unwrap extractors: the unwrapped
+// label itself may be a delta label.
+func (l *streamLabelSampleExtractor) ReferencedDeltaLabels() bool { return true }
+
+func (l *streamLabelSampleExtractor) Process(
+	ts int64,
+	line []byte,
+	deltaLabels labels.Labels,
+	deltaHash uint64,
+) (float64, LabelsResult, bool) {
 	// Apply the pipeline first.
 	l.builder.Reset()
+	l.builder.SetDeltaLabels(deltaLabels, deltaHash)
 	line, ok := l.preStage.Process(ts, line, l.builder)
 	if !ok {
 		return 0, nil, false
@@ -208,9 +259,11 @@ func (l *streamLabelSampleExtractor) Process(ts int64, line []byte) (float64, La
 func (l *streamLabelSampleExtractor) ProcessString(
 	ts int64,
 	line string,
+	deltaLabels labels.Labels,
+	deltaHash uint64,
 ) (float64, LabelsResult, bool) {
 	// unsafe get bytes since we have the guarantee that the line won't be mutated.
-	return l.Process(ts, unsafeGetBytes(line))
+	return l.Process(ts, unsafeGetBytes(line), deltaLabels, deltaHash)
 }
 
 func convertFloat(v string) (float64, error) {

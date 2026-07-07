@@ -2388,6 +2388,8 @@ func Test_PipelineCombined(t *testing.T) {
 		[]byte(
 			`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`,
 		),
+		labels.EmptyLabels(),
+		0,
 	)
 	require.True(t, ok)
 	require.Equal(
@@ -2431,6 +2433,8 @@ func Test_PipelineCombinedPattern(t *testing.T) {
 		[]byte(
 			`level=debug ts=2020-10-02T10:10:42.092268913Z caller=logging.go:66 traceID=a9d4d8a928d8db1 msg="POST /api/prom/api/v1/query_range (200) 1.5s"`,
 		),
+		labels.EmptyLabels(),
+		0,
 	)
 	require.True(t, ok)
 	require.Equal(

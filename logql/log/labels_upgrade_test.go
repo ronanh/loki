@@ -206,7 +206,8 @@ func TestPipeline_LabelsResultStringFormat(t *testing.T) {
 	base := labels.FromStrings("job", "loki", "cluster", "us-east")
 
 	// unchanged path (noop pipeline).
-	_, res, ok := NewNoopPipeline().ForStream(base).Process(0, []byte("line"))
+	_, res, ok := NewNoopPipeline().ForStream(base).
+		Process(0, []byte("line"), labels.EmptyLabels(), 0)
 	require.True(t, ok)
 	require.Equal(t, `{cluster="us-east", job="loki"}`, res.String())
 
@@ -214,13 +215,14 @@ func TestPipeline_LabelsResultStringFormat(t *testing.T) {
 	f, err := NewLabelsFormatter([]LabelFmt{NewTemplateLabelFmt("foo", "bar")})
 	require.NoError(t, err)
 	sp := NewPipeline([]Stage{f}).ForStream(base)
-	_, res, ok = sp.Process(0, []byte("line"))
+	_, res, ok = sp.Process(0, []byte("line"), labels.EmptyLabels(), 0)
 	require.True(t, ok)
 	require.Equal(t, `{cluster="us-east", foo="bar", job="loki"}`, res.String())
 
 	// quoting of special characters matches strconv.Quote.
 	special := labels.FromStrings("msg", "he said \"hi\"\n", "job", "loki")
-	_, res, ok = NewNoopPipeline().ForStream(special).Process(0, []byte("line"))
+	_, res, ok = NewNoopPipeline().ForStream(special).
+		Process(0, []byte("line"), labels.EmptyLabels(), 0)
 	require.True(t, ok)
 	require.Equal(t, `{job="loki", msg="he said \"hi\"\n"}`, res.String())
 }
