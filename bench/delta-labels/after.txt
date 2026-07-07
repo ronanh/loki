@@ -1,0 +1,94 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/ronanh/loki/logql
+cpu: Apple M1 Max
+BenchmarkContainsFilter-10         	67913474	        16.77 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRangeQuery100000-10       	       1	1231574666 ns/op	 6582720 B/op	  104106 allocs/op
+BenchmarkRangeQuery200000-10       	       1	2465743042 ns/op	12763112 B/op	  202449 allocs/op
+BenchmarkRangeQuery500000-10       	       1	6175303375 ns/op	30718088 B/op	  497450 allocs/op
+BenchmarkRangeQuery1000000-10      	       1	12335626291 ns/op	60221136 B/op	  989097 allocs/op
+Benchmark_ParseMatchers-10         	  272514	      4392 ns/op	     720 B/op	      30 allocs/op
+Benchmark_CompareParseLabels/logql-10         	  276493	      4374 ns/op	     720 B/op	      30 allocs/op
+Benchmark_CompareParseLabels/promql-10        	  556950	      2025 ns/op	     656 B/op	       6 allocs/op
+PASS
+ok  	github.com/ronanh/loki/logql	30.110s
+goos: darwin
+goarch: arm64
+pkg: github.com/ronanh/loki/logql/log
+cpu: Apple M1 Max
+Benchmark_DeltaLabels_Noop_NoDelta-10              	554877692	         2.148 ns/op	       0 B/op	       0 allocs/op
+Benchmark_DeltaLabels_Noop_StoredHash-10           	34840591	        34.45 ns/op	       0 B/op	       0 allocs/op
+Benchmark_DeltaLabels_Noop_Recompute-10            	22718290	        53.16 ns/op	       0 B/op	       0 allocs/op
+Benchmark_DeltaLabels_LineFilter_WithDelta-10      	20113993	        58.78 ns/op	       0 B/op	       0 allocs/op
+Benchmark_DeltaLabels_Parser_NoDelta-10            	 4291954	       279.9 ns/op	      64 B/op	       6 allocs/op
+Benchmark_DeltaLabels_Parser_WithDelta-10          	 3762564	       318.8 ns/op	      64 B/op	       6 allocs/op
+Benchmark_DeltaLabels_Noop_HighCardinality-10      	15313699	        77.44 ns/op	       0 B/op	       0 allocs/op
+Benchmark_DeltaLabels_Extractor_GroupByDelta-10    	24700696	        47.38 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_foo.*-10         	43998349	        27.40 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_foo.*-10      	153401542	         7.848 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_foo.*-10        	42759532	        28.03 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_foo.*-10     	137017831	         8.759 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_(?i)foo-10       	  764286	      1556 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_(?i)foo-10    	 6652141	       179.8 ns/op	     128 B/op	       1 allocs/op
+Benchmark_LineFilter/default_false_(?i)foo-10      	  774930	      1555 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_(?i)foo-10   	 6629606	       180.1 ns/op	     128 B/op	       1 allocs/op
+Benchmark_LineFilter/default_true_.*foo.*-10       	  546565	      2211 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_.*foo.*-10    	152213790	         7.862 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_.*foo.*-10      	  544388	      2208 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_.*foo.*-10   	137069191	         8.767 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_.*foo-10         	  546835	      2203 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_.*foo-10      	153651265	         7.820 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_.*foo-10        	  544179	      2204 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_.*foo-10     	136948878	         8.753 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_foo|bar-10       	 7487137	       161.2 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_foo|bar-10    	62926335	        19.21 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_foo|bar-10      	 7390107	       161.7 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_foo|bar-10   	55401129	        21.61 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_foo|bar|buzz-10  	 7210353	       166.8 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_foo|bar|buzz-10         	54652687	        21.86 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_foo|bar|buzz-10           	 7004079	       168.9 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_foo|bar|buzz-10        	49310594	        24.47 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_foo|(bar|buzz)-10          	 6260148	       191.0 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_foo|(bar|buzz)-10       	54983132	        21.91 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_foo|(bar|buzz)-10         	 6250839	       191.7 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_foo|(bar|buzz)-10      	49016019	        24.38 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_foo|bar.*|buzz-10          	 1000000	      1088 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_foo|bar.*|buzz-10       	55038506	        21.88 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_foo|bar.*|buzz-10         	 1000000	      1076 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_foo|bar.*|buzz-10      	49445454	        24.40 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_.*foo.*|bar|uzz-10         	  665595	      1802 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_.*foo.*|bar|uzz-10      	52724752	        22.85 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_.*foo.*|bar|uzz-10        	  663188	      1808 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_.*foo.*|bar|uzz-10     	47483614	        25.32 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_((f.*)|foobar.*)|.*buzz-10 	 1000000	      1168 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_((f.*)|foobar.*)|.*buzz-10         	25484064	        47.31 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_((f.*)|foobar.*)|.*buzz-10           	 1000000	      1172 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_((f.*)|foobar.*)|.*buzz-10        	24293444	        49.33 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_true_(?P<foo>.*foo.*|bar)-10               	  680282	      1764 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_true_(?P<foo>.*foo.*|bar)-10            	62995710	        19.06 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/default_false_(?P<foo>.*foo.*|bar)-10              	  680682	      1776 ns/op	       0 B/op	       0 allocs/op
+Benchmark_LineFilter/simplified_false_(?P<foo>.*foo.*|bar)-10           	55441227	        21.55 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Parser/json/no_labels_hints-10                                	  605157	      1959 ns/op	     592 B/op	      42 allocs/op
+Benchmark_Parser/json/labels_hints-10                                   	  780715	      1530 ns/op	     448 B/op	      35 allocs/op
+Benchmark_Parser/unpack/no_labels_hints-10                              	 2170548	       551.5 ns/op	     536 B/op	      17 allocs/op
+Benchmark_Parser/unpack/labels_hints-10                                 	 2179680	       551.1 ns/op	     536 B/op	      17 allocs/op
+Benchmark_Parser/logfmt/no_labels_hints-10                              	 1363132	       856.2 ns/op	     336 B/op	      16 allocs/op
+Benchmark_Parser/logfmt/labels_hints-10                                 	 1404438	       924.9 ns/op	     336 B/op	      16 allocs/op
+Benchmark_Parser/regex_greedy/no_labels_hints-10                        	  325430	      3120 ns/op	     192 B/op	       2 allocs/op
+Benchmark_Parser/regex_greedy/labels_hints-10                           	  406221	      3119 ns/op	     192 B/op	       2 allocs/op
+Benchmark_Parser/regex_status_digits/no_labels_hints-10                 	 6793918	       183.4 ns/op	      51 B/op	       2 allocs/op
+Benchmark_Parser/regex_status_digits/labels_hints-10                    	 6669114	       185.6 ns/op	      51 B/op	       2 allocs/op
+Benchmark_Parser/pattern_simple/no_labels_hints-10                      	 8124273	       168.2 ns/op	     320 B/op	       1 allocs/op
+Benchmark_Parser/pattern_simple/labels_hints-10                         	 7466824	       163.0 ns/op	     320 B/op	       1 allocs/op
+Benchmark_Pipeline-10                                                   	  403292	      3091 ns/op	     753 B/op	      32 allocs/op
+BenchmarkJSONParser-10                                                  	 2809434	       425.8 ns/op	     128 B/op	       8 allocs/op
+BenchmarkJSONParserInvalidLine-10                                       	 6951631	       174.0 ns/op	      48 B/op	       2 allocs/op
+BenchmarkJSONExpressionParser-10                                        	 1801705	       659.9 ns/op	     136 B/op	      13 allocs/op
+BenchmarkJSONExpressionParserInvalidLine-10                             	 3213381	       368.0 ns/op	     272 B/op	       9 allocs/op
+PASS
+ok  	github.com/ronanh/loki/logql/log	97.387s
+PASS
+ok  	github.com/ronanh/loki/logql/log/jsonexpr	0.039s
+?   	github.com/ronanh/loki/logql/log/logfmt	[no test files]
+PASS
+ok  	github.com/ronanh/loki/logql/stats	0.056s
