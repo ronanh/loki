@@ -15,6 +15,12 @@ import (
 
 const MaxInternedStrings = 1024
 
+// maxResultCacheSize caps the per-query LabelsResult cache. Per-line delta
+// labels can be high-cardinality (e.g. trace_id): beyond the cap results are
+// built without being retained, keeping a full-scan query at bounded memory
+// (the historic noop path retained O(streams) only).
+const maxResultCacheSize = 4096
+
 var emptyLabelsResult = NewLabelsResult(
 	labels.EmptyLabels(),
 	labels.StableHash(labels.EmptyLabels()),
@@ -368,6 +374,15 @@ func (b *LabelsBuilder) SetDeltaLabels(deltaLabels labels.Labels, deltaHash uint
 			name += duplicateSuffix
 			forceRecompute = true
 		}
+		// a rename may land on a name another delta entry already uses
+		// (foreign data carrying both x and x_extracted): later entries
+		// overwrite so the set never holds duplicate names
+		for i := range b.deltas {
+			if b.deltas[i].Name == name {
+				b.deltas[i].Value = l.Value
+				return
+			}
+		}
 		b.deltas = append(b.deltas, labels.Label{Name: name, Value: l.Value})
 	})
 	if forceRecompute {
@@ -690,11 +705,22 @@ func (b *LabelsBuilder) deltaResult() LabelsResult {
 		return cached
 	}
 	res := b.newCategorizedResult(b.deltaHash)
+	b.cacheResult(key, res)
+	return res
+}
+
+// cacheResult retains a result in the per-query cache, bounded by
+// maxResultCacheSize (past the cap, results are still returned but not
+// retained — high-cardinality delta/parsed label sets must not grow query
+// memory without bound).
+func (b *BaseLabelsBuilder) cacheResult(key uint64, res LabelsResult) {
 	if b.resultCache == nil {
 		b.resultCache = make(map[uint64]LabelsResult, 1)
 	}
+	if len(b.resultCache) >= maxResultCacheSize {
+		return
+	}
 	b.resultCache[key] = res
-	return res
 }
 
 // toCategorizedResult builds (or fetches from cache) the categorized result
@@ -708,10 +734,7 @@ func (b *LabelsBuilder) toCategorizedResult() LabelsResult {
 		return cached
 	}
 	res := b.newCategorizedResult(0)
-	if b.resultCache == nil {
-		b.resultCache = make(map[uint64]LabelsResult, 1)
-	}
-	b.resultCache[key] = res
+	b.cacheResult(key, res)
 	return res
 }
 
@@ -781,10 +804,7 @@ func (b *BaseLabelsBuilder) toResult(buf []labels.Label) LabelsResult {
 		return cached
 	}
 	res := NewLabelsResult(labels.New(buf...), hash)
-	if b.resultCache == nil {
-		b.resultCache = make(map[uint64]LabelsResult, 1)
-	}
-	b.resultCache[hash] = res
+	b.cacheResult(hash, res)
 	return res
 }
 

@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/prometheus/prometheus/model/labels"
@@ -270,6 +271,77 @@ func TestReferencedDeltaLabels(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.False(t, exNoLabels.ForStream(dlBase).ReferencedDeltaLabels())
+}
+
+func TestDeltaLabelsRenameFamily(t *testing.T) {
+	// the rename edge cases around name_extracted (foreign/reprocessed data;
+	// ingest prevents all of them for data we wrote)
+	base := labels.FromStrings("x", "s", "x_extracted", "s2")
+	p := NewNoopPipeline()
+	sp := p.ForStream(base)
+
+	t.Run("rename shadows existing base name_extracted", func(t *testing.T) {
+		// delta x → renamed x_extracted, shadowing base's x_extracted
+		delta := labels.FromStrings("x", "d1")
+		_, res, ok := sp.Process(0, []byte("l"), delta, 999)
+		require.True(t, ok)
+		want := labels.FromStrings("x", "s", "x_extracted", "d1")
+		require.Equal(t, want, res.Labels())
+		require.Equal(t, labels.StableHash(want), res.Hash()) // bogus hash distrusted
+	})
+
+	t.Run("delta name_extracted colliding with base renames once more", func(t *testing.T) {
+		// delta x_extracted collides with base x_extracted → x_extracted_extracted
+		delta := labels.FromStrings("x_extracted", "d2")
+		_, res, ok := sp.Process(0, []byte("l"), delta, 0)
+		require.True(t, ok)
+		want := labels.FromStrings("x", "s", "x_extracted", "s2", "x_extracted_extracted", "d2")
+		require.Equal(t, want, res.Labels())
+	})
+
+	t.Run("rename landing on another delta name keeps one entry", func(t *testing.T) {
+		// base {x}; delta carries BOTH x and x_extracted: x renames to
+		// x_extracted, colliding with the literal delta entry — the set must
+		// never hold duplicate names (later entry wins)
+		base2 := labels.FromStrings("x", "s")
+		sp2 := p.ForStream(base2)
+		delta := labels.FromStrings("x", "d1", "x_extracted", "d2")
+		_, res, ok := sp2.Process(0, []byte("l"), delta, 0)
+		require.True(t, ok)
+		want := labels.FromStrings("x", "s", "x_extracted", "d2")
+		require.Equal(t, want, res.Labels())
+		require.Equal(t, labels.StableHash(want), res.Hash())
+		require.Equal(t, labels.FromStrings("x_extracted", "d2"), res.Delta())
+	})
+
+	t.Run("parsed wins over renamed delta", func(t *testing.T) {
+		// json emits x_extracted... via parser collision: parser key x
+		// collides with base x → renamed x_extracted; delta x also renamed
+		// x_extracted; parsed must win
+		base2 := labels.FromStrings("x", "s")
+		pj := NewPipeline([]Stage{NewJSONParser()})
+		spj := pj.ForStream(base2)
+		delta := labels.FromStrings("x", "from_delta")
+		_, res, ok := spj.Process(0, []byte(`{"x":"from_parser"}`), delta, 0)
+		require.True(t, ok)
+		require.Equal(t, "from_parser", res.Labels().Get("x_extracted"))
+		require.Equal(t, "from_parser", res.Parsed().Get("x_extracted"))
+		require.True(t, res.Delta().IsEmpty())
+	})
+}
+
+func TestDeltaLabelsResultCacheBounded(t *testing.T) {
+	// high-cardinality deltas (one trace id per line) must not grow the
+	// per-query result cache without bound
+	p := NewPipeline([]Stage{NoopStage})
+	sp := p.ForStream(dlBase).(*streamPipeline)
+	for i := 0; i < maxResultCacheSize+500; i++ {
+		delta := labels.FromStrings("trace_id", fmt.Sprintf("trace-%08d", i))
+		_, res, ok := sp.Process(0, []byte("l"), delta, uint64(i)+1)
+		require.True(t, ok)
+		require.Equal(t, fmt.Sprintf("trace-%08d", i), res.Labels().Get("trace_id"))
+	}
+	require.LessOrEqual(t, len(sp.builder.resultCache), maxResultCacheSize)
 }
 
 func TestDeltaLabelsLineFormatTemplate(t *testing.T) {
