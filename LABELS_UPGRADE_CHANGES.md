@@ -51,9 +51,15 @@ their category system):
   stays reusable; the old code did `buf.Copy()`);
 - `labels()`/`withoutResult()` sort the scratch with `slices.SortFunc` (was
   `sort.Sort(labels.Labels)`);
-- `toBaseGroup()` uses `labels.NewBuilder(base).Keep(groups...)` /
-  `.Del(groups...).Del(labels.MetricName)` (was `WithLabels`/`WithoutLabels`, see
-  behavior deltas);
+- `toBaseGroup()` filters `base` into the shared `buf` scratch and returns
+  `toResult(buf)`, exactly like its `withResult`/`withoutResult` siblings (was
+  `WithLabels`/`WithoutLabels`, see behavior deltas). `base` is sorted and filtering
+  preserves order, so no sort is needed. Going through `toResult` means the grouped
+  result is deduplicated across streams by `resultCache`: a query grouping N streams
+  retains one `LabelsResult` per *distinct group*, not per stream. That matters more
+  under stringlabels than it did with `[]Label` — every materialized `labels.Labels`
+  owns a private copy of its name/value bytes, where the old slice result shared its
+  strings with the base (see performance review, below);
 - `Get` falls back to `base.Get(key) != ""` (upstream idiom; empty == absent);
 - `labelsString()` (the `{a="b", c="d"}` formatter) iterates via `Range`; the
   byte-exact quoting helper `bytesBufferQuoteTo` is unchanged.
@@ -70,9 +76,16 @@ The migration deliberately keeps every produced hash value identical to the old 
   opaque `labels.Labels` would have required materializing it first — one alloc per
   line even on cache hits).
 - every place that called the old `lbs.Hash()` (noop pipeline `ForStream`,
-  `toBaseGroup`, `emptyLabelsResult`) now calls `labels.StableHash(lbs)`, which is
-  exactly the old `Hash()` algorithm. The new representation-dependent `Hash()` is
-  not used anywhere in the fork.
+  `emptyLabelsResult`) now calls `labels.StableHash(lbs)`, which is exactly the old
+  `Hash()` algorithm. The new representation-dependent `Hash()` is not used anywhere
+  in the fork.
+- `toBaseGroup` hashes through `toResult` → `hasher.hash(buf)`, i.e. the same
+  algorithm applied to the scratch slice before materialization. Values are identical
+  to `StableHash` of the result for every label set that has no `__name__` — and the
+  `without` branch drops `__name__` explicitly, while the `by` branch can only carry
+  it if a query writes `by (__name__)` over a log stream, which has no such label.
+  This also makes the unchanged-path grouped hash consistent with the modified-path
+  one (`withResult`/`withoutResult`), which has always hashed the scratch slice.
 
 Consequence: `LabelsResult.Hash()` values are bit-identical to the pre-migration fork
 (the spec allowed them to change; they don't). The xlog "recompute persisted hashes on
@@ -147,9 +160,9 @@ Default build needs no tags.
 4. **`toBaseGroup` with unsorted `by()` groups is now correct.** The old
    `WithLabels(names…)` was a merge-join requiring *sorted* names — unsorted groups
    could silently drop labels from the unchanged-path grouped result. The new
-   `NewBuilder(base).Keep(groups…)` is order-insensitive. (`without` keeps dropping
-   `__name__` exactly like the old `WithoutLabels` did, via an explicit
-   `.Del(labels.MetricName)`.)
+   filter-by-membership pass over `base` is order-insensitive. (`without` keeps
+   dropping `__name__` exactly like the old `WithoutLabels` did, via an explicit
+   `l.Name == labels.MetricName` skip.)
 5. **`Get`/`withResult` treat an empty-valued base label as absent** (only reachable
    if a caller constructs base labels with `labels.New`/`FromStrings` containing
    `""` values; stream labels parsed from queries never do).
@@ -211,6 +224,50 @@ Notes:
   the empty-value/dedup changes). Nothing crosses the 10% gate.
 - The fast paths (`LineFilter`, zero-alloc cache hits in the builder) are unchanged:
   hashing still happens on the scratch slice before any materialization.
+
+## Performance review (prod profiling, supprol3 baseline vs supprol4 migrated)
+
+Three call sites were flagged on loki!80 after profiling xlog's alertgw/alerter with
+this fork deployed. Full methodology is in the write-up on xlog!313.
+
+1. **`toBaseGroup` — fixed.** Not a regression fix: the alertgw "+5% heap" reading it
+   came from was a per-pod comparison across different replica counts and was
+   retracted (fleet totals went down). It is a genuine cleanup all the same. The
+   profile showed the grouped-labels allocation split into a second large allocator
+   (`labels.Builder.Labels`), and the per-call `labels.NewBuilder(base)` was only part
+   of it: the bigger cost is that `toBaseGroup` bypassed `resultCache`, so every
+   stream retained its own copy of an identical grouped result — a full private byte
+   copy under stringlabels. Now it filters into the shared scratch and goes through
+   `toResult`. `Benchmark_GroupedLabels_ManyStreams` (new; 1000 distinct streams
+   grouped once each, Apple M1 Max, 3 runs):
+
+   | | ns/op | B/op | allocs/op |
+   | --- | ---: | ---: | ---: |
+   | `by` before | 1 146 445 | 1 165 145 | 10 023 |
+   | `by` after | 824 871 | 798 402 | 5 029 |
+   | | **−28%** | **−31%** | **−50%** |
+   | `without` before | 1 200 481 | 1 245 146 | 10 023 |
+   | `without` after | 838 179 | 798 512 | 5 029 |
+   | | **−30%** | **−36%** | **−50%** |
+
+   The retained-heap win is larger than the allocation win: what used to be one
+   `LabelsResult` (packed string + rendered `String()` + struct) per stream is now one
+   per distinct group.
+
+2. **`unsortedLabels` no-op fast path — not a real cost, no change.** The review
+   flagged its `b.base.Range(...)` as running per line for pipelines with no
+   relabeling stage. It does not: `LabelsResult()`, `Map()` and `IntoMap()` each
+   short-circuit on `len(del) == 0 && len(add) == 0 && err == ""` *before* reaching
+   `labels()`/`unsortedLabels`, so that branch is only reachable when an error label
+   is set. The `Range` decode in the general branch (some label was added or removed)
+   is inherent — the packed string has to be walked to produce a `[]Label`.
+
+3. **`HashForLabels`/`HashWithoutLabels` per-step `Range` — deferred, tracked as
+   loki#3.** Real and inherent: `vectorAggEvaluator` hashes every input sample at
+   every evaluation step, and the packed string must be decoded each time where the
+   old `[]Label` was indexed directly. Fixing it means caching a decoded label
+   representation per series in the step evaluator, which is an engine change, not a
+   labels-migration change.
 
 ## Verification
 

@@ -589,19 +589,55 @@ OuterAdd:
 	return b.toResult(b.buf)
 }
 
+// toBaseGroup groups the base labels, for the case where no stage added or
+// removed a label. The result is cached per stream in b.groupedResult (base
+// and groups are both immutable for the lifetime of a LabelsBuilder, so Reset
+// does not have to invalidate it).
+//
+// It filters into the shared b.buf scratch slice and goes through toResult,
+// exactly like the withResult/withoutResult siblings: that keeps the grouped
+// result deduplicated across streams via the base builder's resultCache — a
+// metric query grouping thousands of streams down to a handful of distinct
+// label sets then retains a handful of LabelsResult, not one per stream. Under
+// stringlabels that matters more than it did with []Label: every materialized
+// labels.Labels owns a full private copy of its name/value bytes, where the
+// pre-migration slice-of-Label result shared its strings with the base.
+//
+// b.base is sorted, and filtering preserves order, so no sort is needed here.
 func (b *LabelsBuilder) toBaseGroup() LabelsResult {
 	if b.groupedResult != nil {
 		return b.groupedResult
 	}
-	var lbs labels.Labels
-	if b.without {
-		// Del(MetricName) preserves the historic WithoutLabels behavior which
-		// always dropped __name__.
-		lbs = labels.NewBuilder(b.base).Del(b.groups...).Del(labels.MetricName).Labels()
+	if b.buf == nil {
+		b.buf = make([]labels.Label, 0, b.base.Len())
 	} else {
-		lbs = labels.NewBuilder(b.base).Keep(b.groups...).Labels()
+		b.buf = b.buf[:0]
 	}
-	res := NewLabelsResult(lbs, labels.StableHash(lbs))
+	if b.without {
+		// __name__ is dropped unconditionally, preserving the historic
+		// WithoutLabels behaviour.
+		b.base.Range(func(l labels.Label) {
+			if l.Name == labels.MetricName {
+				return
+			}
+			for _, g := range b.groups {
+				if l.Name == g {
+					return
+				}
+			}
+			b.buf = append(b.buf, l)
+		})
+	} else {
+		b.base.Range(func(l labels.Label) {
+			for _, g := range b.groups {
+				if l.Name == g {
+					b.buf = append(b.buf, l)
+					return
+				}
+			}
+		})
+	}
+	res := b.toResult(b.buf)
 	b.groupedResult = res
 	return res
 }
