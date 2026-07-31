@@ -237,6 +237,14 @@ var evaluatorGroupsPool = sync.Pool{
 
 const (
 	maxUnsortedGroups = 8
+
+	// maxGroupMemoEntries bounds the per-series grouping memo (see groupMemo).
+	// A wide fan-out would otherwise make the memo grow with the input series
+	// count; past this many series the tail is not memoized and costs exactly
+	// what it costs today. At 32 bytes per entry this caps one evaluatorGroups
+	// at 128KiB of memo, and evaluatorGroupsPool holds at most a handful of
+	// those (sync.Pool is drained by the GC).
+	maxGroupMemoEntries = 4096
 )
 
 type evaluatorGroups struct {
@@ -246,6 +254,40 @@ type evaluatorGroups struct {
 	stepResults []stepResult
 	labelsAlloc []labels.Label
 	hashBuf     []byte
+	// memo caches the grouping of each input series, indexed by the position of
+	// the sample in the step vector. See groupMemo.
+	memo []groupMemo
+}
+
+// groupMemo memoizes the grouping of one input series for the lifetime of one
+// vector aggregation evaluator.
+//
+// The group a sample belongs to is a pure function of its label set and of the
+// grouping clause, and the grouping clause is fixed for the whole life of the
+// evaluator. The step evaluators below re-emit the *same* labels.Labels values
+// for the same series at every step (rangeVectorIterator keeps one wrappedLabels
+// per series in its `metrics` slice for the lifetime of the query), so without a
+// memo every step re-derives an answer that cannot have changed.
+//
+// That re-derivation is not free under the stringlabels representation: the
+// grouping hash has to walk the packed label string and decode a varint size for
+// every name and every value, for the *whole* label set, to pick out the two or
+// three grouped labels. On the label sets the alerter feeds the engine (25
+// labels, ~830 bytes packed) that is ~165ns per sample per step.
+//
+// The memo is validated by full value equality on labels.Labels, so a stale or
+// misaligned entry can only cost a recomputation, never a wrong group: `lbls`
+// compares the packed label data, and `hash` is a pure function of it. It is
+// indexed by position because the step vector is re-emitted in a stable order;
+// when that order does shift (a series drops out of the range window), the
+// mismatching entries are simply overwritten and the next step realigns.
+type groupMemo struct {
+	lbls labels.Labels
+	hash uint64
+	// group is the index of the matching entry in evaluatorGroups.groups at the
+	// time it was memoized. Group insertion shifts indices, so it is re-checked
+	// against the memoized hash before use and falls back to searchLabels.
+	group int32
 }
 
 func newEvaluatorGroups() *evaluatorGroups {
@@ -295,11 +337,30 @@ func (eg *evaluatorGroups) searchLabels(hash uint64) int {
 	return len(eg.groups)
 }
 
+// getLabelsGroup returns the group lbls aggregates into. iSample is the position
+// of the sample in the current step vector; it keys the per-series memo and is
+// only ever a hint (see groupMemo).
 func (eg *evaluatorGroups) getLabelsGroup(
 	lbls labels.Labels,
+	iSample int,
 	groups []string,
 	without bool,
 ) *metricGroup {
+	// resolve from the memo: same series, same grouping clause, same answer.
+	memo := eg.memoEntry(iSample)
+	if memo != nil && memo.lbls == lbls {
+		if g := int(memo.group); g < len(eg.groups) && eg.groups[g].hash == memo.hash {
+			return &eg.groups[g]
+		}
+		// the group index moved (a group was inserted before it): the hash is
+		// still valid, only the position has to be found again.
+		if i := eg.searchLabels(memo.hash); i < len(eg.groups) &&
+			eg.groups[i].hash == memo.hash {
+			memo.group = int32(i)
+			return &eg.groups[i]
+		}
+	}
+
 	// switch to sorted mode if the number of groups is greater than maxUnsortedLabels
 	if !eg.sorted && len(eg.groups) > maxUnsortedGroups {
 		eg.sorted = true
@@ -319,6 +380,7 @@ func (eg *evaluatorGroups) getLabelsGroup(
 	// find the group by hash
 	i := eg.searchLabels(hash)
 	if i < len(eg.groups) && eg.groups[i].hash == hash {
+		eg.setMemo(memo, lbls, hash, i)
 		return &eg.groups[i]
 	}
 
@@ -362,7 +424,46 @@ func (eg *evaluatorGroups) getLabelsGroup(
 		i = len(eg.groups)
 		eg.groups = append(eg.groups, metricGroup{hash: hash, labels: groupLbls, stepResult: -1})
 	}
+	eg.setMemo(memo, lbls, hash, i)
 	return &eg.groups[i]
+}
+
+// resizeMemo sizes the memo for a step vector of nSamples, in a single
+// allocation. New slots are zero, and a zero slot never matches a sample
+// (labels.Labels is only empty for an empty label set, whose group is found by
+// the regular path anyway), so no explicit invalidation marker is needed.
+func (eg *evaluatorGroups) resizeMemo(nSamples int) {
+	n := min(nSamples, maxGroupMemoEntries)
+	switch {
+	case n <= len(eg.memo):
+		eg.memo = eg.memo[:n]
+	case n <= cap(eg.memo):
+		old := len(eg.memo)
+		eg.memo = eg.memo[:n]
+		clear(eg.memo[old:])
+	default:
+		memo := make([]groupMemo, n)
+		copy(memo, eg.memo)
+		eg.memo = memo
+	}
+}
+
+// memoEntry returns the memo slot for the sample at position iSample, or nil when
+// the position is not memoized (beyond maxGroupMemoEntries).
+func (eg *evaluatorGroups) memoEntry(iSample int) *groupMemo {
+	if uint(iSample) >= uint(len(eg.memo)) {
+		return nil
+	}
+	return &eg.memo[iSample]
+}
+
+func (eg *evaluatorGroups) setMemo(memo *groupMemo, lbls labels.Labels, hash uint64, group int) {
+	if memo == nil {
+		return
+	}
+	memo.lbls = lbls
+	memo.hash = hash
+	memo.group = int32(group)
 }
 
 func vectorAggEvaluator(
@@ -394,9 +495,15 @@ func vectorAggEvaluator(
 		for i := range eg.groups {
 			eg.groups[i].stepResult = -1
 		}
-		for _, s := range vec {
+		eg.resizeMemo(len(vec))
+		for iSample, s := range vec {
 			metric := s.Metric
-			group := eg.getLabelsGroup(metric, expr.grouping.groups, expr.grouping.without)
+			group := eg.getLabelsGroup(
+				metric,
+				iSample,
+				expr.grouping.groups,
+				expr.grouping.without,
+			)
 
 			if group.stepResult == -1 {
 				// new step result
@@ -540,6 +647,12 @@ func vectorAggEvaluator(
 		eg.groups = eg.groups[:0]
 		eg.stepResults = eg.stepResults[:0]
 		eg.sorted = false
+		// The memo is only valid for one grouping clause and one set of series,
+		// so it must not survive into the next query taken from the pool. The
+		// backing array is kept (bounded by maxGroupMemoEntries) but cleared,
+		// both to invalidate the entries and to drop the label references.
+		clear(eg.memo)
+		eg.memo = eg.memo[:0]
 		evaluatorGroupsPool.Put(eg)
 		return nextEvaluator.Close()
 	}, nextEvaluator.Error)
