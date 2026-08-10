@@ -113,11 +113,11 @@ func newOrFilter(left Filterer, right Filterer) Filterer {
 }
 
 // chainOrFilter is a syntax sugar to chain multiple `or` filters. (1 or many)
-func chainOrFilter(curr, new Filterer) Filterer {
+func chainOrFilter(curr, next Filterer) Filterer {
 	if curr == nil {
-		return new
+		return next
 	}
-	return newOrFilter(curr, new)
+	return newOrFilter(curr, next)
 }
 
 func (a orFilter) Filter(line []byte) bool {

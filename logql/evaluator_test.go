@@ -22,7 +22,7 @@ func TestDefaultEvaluator_DivideByZero(t *testing.T) {
 		false,
 		&res,
 	)
-	require.Equal(t, true, math.IsNaN(res.Point.V))
+	require.Equal(t, true, math.IsNaN(res.V))
 
 	mergeBinOp(OpTypeMod,
 		&promql.Sample{
@@ -35,7 +35,7 @@ func TestDefaultEvaluator_DivideByZero(t *testing.T) {
 		false,
 		&res,
 	)
-	require.Equal(t, true, math.IsNaN(res.Point.V))
+	require.Equal(t, true, math.IsNaN(res.V))
 }
 
 func TestEvaluator_mergeBinOpComparisons(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"github.com/ronanh/loki/logproto"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -31,11 +32,10 @@ func bufDialer(context.Context, string) (net.Conn, error) {
 
 func TestCollectTrailer(t *testing.T) {
 	ctx := context.Background()
-	conn, err := grpc.DialContext(
-		ctx,
-		"bufnet",
+	conn, err := grpc.NewClient(
+		"passthrough:///bufnet",
 		grpc.WithContextDialer(bufDialer),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		t.Fatalf("Failed to dial bufnet: %v", err)
@@ -137,8 +137,8 @@ func (ingesterFn) TailersCount(
 }
 
 func (i ingesterFn) GetChunkIDs(
-	ctx context.Context,
-	request *logproto.GetChunkIDsRequest,
+	_ context.Context,
+	_ *logproto.GetChunkIDsRequest,
 ) (*logproto.GetChunkIDsResponse, error) {
 	return nil, nil
 }

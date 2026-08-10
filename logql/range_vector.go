@@ -240,7 +240,7 @@ func (r *rangeVectorIterator) load(start, end int64) {
 						continue
 					}
 				}
-				metric.hasErrorLabel = metric.Labels.Has(log.ErrorLabel)
+				metric.hasErrorLabel = metric.Has(log.ErrorLabel)
 			}
 			series.wrappedLabels = *metric
 		}

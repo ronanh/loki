@@ -174,23 +174,23 @@ func lastOverTime(samples []promql.Point) float64 {
 }
 
 func maxOverTime(samples []promql.Point) float64 {
-	max := samples[0].V
+	maxV := samples[0].V
 	for i := range samples {
-		if v := samples[i].V; v > max || math.IsNaN(max) {
-			max = v
+		if v := samples[i].V; v > maxV || math.IsNaN(maxV) {
+			maxV = v
 		}
 	}
-	return max
+	return maxV
 }
 
 func minOverTime(samples []promql.Point) float64 {
-	min := samples[0].V
+	minV := samples[0].V
 	for i := range samples {
-		if v := samples[i].V; v < min || math.IsNaN(min) {
-			min = v
+		if v := samples[i].V; v < minV || math.IsNaN(minV) {
+			minV = v
 		}
 	}
-	return min
+	return minV
 }
 
 func stdvarOverTime(samples []promql.Point) float64 {
@@ -255,6 +255,6 @@ func quantile(q float64, values vectorByValueHeap) float64 {
 	return values[int(lowerIndex)].V*(1-weight) + values[int(upperIndex)].V*weight
 }
 
-func one(samples []promql.Point) float64 {
+func one(_ []promql.Point) float64 {
 	return 1.0
 }

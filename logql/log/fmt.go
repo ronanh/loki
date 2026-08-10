@@ -136,7 +136,7 @@ func (lf *LineFormatter) Process(ts int64, line []byte, lbs *LabelsBuilder) ([]b
 	}
 	lf.currLine = line
 	lf.currTs = ts
-	if err := lf.Template.Execute(lf.buf, m); err != nil {
+	if err := lf.Execute(lf.buf, m); err != nil {
 		lbs.SetErr(errTemplateFormat)
 		return line, true
 	}

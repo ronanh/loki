@@ -37,7 +37,7 @@ func isInvalidCaptureName(b []byte) bool {
 
 	// the rest of the chars must either be, letter, digit or underscore
 	return bytes.ContainsFunc(b, func(r rune) bool {
-		return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_')
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 	})
 }
 

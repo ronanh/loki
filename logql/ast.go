@@ -418,7 +418,7 @@ func (e *DropLabelsExpr) Stage() (log.Stage, error) {
 
 func (e *DropLabelsExpr) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%s %s ", OpPipe, OpDrop))
+	fmt.Fprintf(&sb, "%s %s ", OpPipe, OpDrop)
 
 	for i, dropLabel := range e.dropLabels {
 		if i > 0 {
@@ -557,12 +557,12 @@ type unwrapExpr struct {
 func (u unwrapExpr) String() string {
 	var sb strings.Builder
 	if u.operation != "" {
-		sb.WriteString(fmt.Sprintf(" %s %s %s(%s)", OpPipe, OpUnwrap, u.operation, u.identifier))
+		fmt.Fprintf(&sb, " %s %s %s(%s)", OpPipe, OpUnwrap, u.operation, u.identifier)
 	} else {
-		sb.WriteString(fmt.Sprintf(" %s %s %s", OpPipe, OpUnwrap, u.identifier))
+		fmt.Fprintf(&sb, " %s %s %s", OpPipe, OpUnwrap, u.identifier)
 	}
 	for _, f := range u.postFilters {
-		sb.WriteString(fmt.Sprintf(" %s %s", OpPipe, f))
+		fmt.Fprintf(&sb, " %s %s", OpPipe, f)
 	}
 	return sb.String()
 }

@@ -190,7 +190,7 @@ func (ev *DefaultEvaluator) StepEvaluator(
 			// if range expression is wrapped with a vector expression
 			// we should send the vector expression for allowing reducing labels at the source.
 			nextEv = SampleEvaluatorFunc(
-				func(ctx context.Context, nextEvaluator SampleEvaluator, expr SampleExpr, p Params) (StepEvaluator, error) {
+				func(ctx context.Context, _ SampleEvaluator, _ SampleExpr, _ Params) (StepEvaluator, error) {
 					it, err := ev.querier.SelectSamples(ctx, SelectSampleParams{
 						&logproto.SampleQueryRequest{
 							Start:    q.Start().Add(-rangExpr.left.interval),
@@ -613,9 +613,7 @@ func (r *rangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 
 func (r rangeVectorEvaluator) Close() error {
 	err := r.iter.Close()
-	iter := r.iter
-	r.iter = nil
-	rangeVectorIteratorPool.Put(iter)
+	rangeVectorIteratorPool.Put(r.iter)
 	return err
 }
 
@@ -665,9 +663,7 @@ func (r *absentRangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 
 func (r absentRangeVectorEvaluator) Close() error {
 	err := r.iter.Close()
-	iter := r.iter
-	r.iter = nil
-	rangeVectorIteratorPool.Put(iter)
+	rangeVectorIteratorPool.Put(r.iter)
 	return err
 }
 
@@ -911,7 +907,7 @@ func mergeBinOp(
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V += right.Point.V
+			out.V += right.V
 			return true
 		}
 
@@ -922,7 +918,7 @@ func mergeBinOp(
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V -= right.Point.V
+			out.V -= right.V
 			return true
 		}
 
@@ -933,7 +929,7 @@ func mergeBinOp(
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V *= right.Point.V
+			out.V *= right.V
 			return true
 		}
 
@@ -945,10 +941,10 @@ func mergeBinOp(
 			out.Metric = left.Metric
 			out.Point = left.Point
 			// guard against divide by zero
-			if right.Point.V == 0 {
-				out.Point.V = math.NaN()
+			if right.V == 0 {
+				out.V = math.NaN()
 			} else {
-				out.Point.V /= right.Point.V
+				out.V /= right.V
 			}
 			return true
 		}
@@ -961,10 +957,10 @@ func mergeBinOp(
 			out.Metric = left.Metric
 			out.Point = left.Point
 			// guard against divide by zero
-			if right.Point.V == 0 {
-				out.Point.V = math.NaN()
+			if right.V == 0 {
+				out.V = math.NaN()
 			} else {
-				out.Point.V = math.Mod(out.Point.V, right.Point.V)
+				out.V = math.Mod(out.V, right.V)
 			}
 			return true
 		}
@@ -976,7 +972,7 @@ func mergeBinOp(
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = math.Pow(left.Point.V, right.Point.V)
+			out.V = math.Pow(left.V, right.V)
 			return true
 		}
 
@@ -986,7 +982,7 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V == right.Point.V {
+			if left.V == right.V {
 				val = 1.
 			} else if filter {
 				return false
@@ -994,7 +990,7 @@ func mergeBinOp(
 
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = val
+			out.V = val
 			return true
 		}
 
@@ -1005,7 +1001,7 @@ func mergeBinOp(
 			}
 
 			val := 0.
-			if left.Point.V != right.Point.V {
+			if left.V != right.V {
 				val = 1.
 			} else if filter {
 				return false
@@ -1013,7 +1009,7 @@ func mergeBinOp(
 
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = val
+			out.V = val
 			return true
 		}
 
@@ -1023,14 +1019,14 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V > right.Point.V {
+			if left.V > right.V {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = val
+			out.V = val
 			return true
 		}
 
@@ -1040,14 +1036,14 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V >= right.Point.V {
+			if left.V >= right.V {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = val
+			out.V = val
 			return true
 		}
 
@@ -1057,14 +1053,14 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V < right.Point.V {
+			if left.V < right.V {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = val
+			out.V = val
 			return true
 		}
 
@@ -1074,14 +1070,14 @@ func mergeBinOp(
 				return false
 			}
 			val := 0.
-			if left.Point.V <= right.Point.V {
+			if left.V <= right.V {
 				val = 1.
 			} else if filter {
 				return false
 			}
 			out.Metric = left.Metric
 			out.Point = left.Point
-			out.Point.V = val
+			out.V = val
 			return true
 		}
 
@@ -1113,7 +1109,7 @@ func mergeBinOp(
 	// This can occur when we don't find a matching label set in the vectors.
 	if !res && left != nil && right == nil {
 		*out = *left
-		out.Point.V = 0
+		out.V = 0
 		res = true
 	}
 	return res
@@ -1141,7 +1137,7 @@ func newLiteralStepEvaluator(
 	returnBool bool,
 ) (StepEvaluator, error) {
 	if eval == nil {
-		return nil, nilStepEvaluatorFnErr
+		return nil, errNilStepEvaluatorFn
 	}
 	return &literalStepEvaluator{
 		op:         op,

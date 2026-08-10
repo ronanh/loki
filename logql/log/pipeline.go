@@ -69,7 +69,7 @@ func (n *noopPipeline) ForStream(labels labels.Labels) StreamPipeline {
 
 type noopStage struct{}
 
-func (noopStage) Process(_ int64, line []byte, lbs *LabelsBuilder) ([]byte, bool) {
+func (noopStage) Process(_ int64, line []byte, _ *LabelsBuilder) ([]byte, bool) {
 	return line, true
 }
 func (noopStage) RequiredLabelNames() []string { return []string{} }

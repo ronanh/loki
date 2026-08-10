@@ -1783,7 +1783,7 @@ func TestEngine_RangeQuery(t *testing.T) {
 
 type statsQuerier struct{}
 
-func (statsQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.EntryIterator, error) {
+func (statsQuerier) SelectLogs(ctx context.Context, _ SelectLogParams) (iter.EntryIterator, error) {
 	st := stats.GetChunkData(ctx)
 	st.DecompressedBytes++
 	return iter.NoopIterator, nil
@@ -1791,7 +1791,7 @@ func (statsQuerier) SelectLogs(ctx context.Context, p SelectLogParams) (iter.Ent
 
 func (statsQuerier) SelectSamples(
 	ctx context.Context,
-	p SelectSampleParams,
+	_ SelectSampleParams,
 ) (iter.SampleIterator, error) {
 	st := stats.GetChunkData(ctx)
 	st.DecompressedBytes++
@@ -1827,7 +1827,7 @@ func (e errorIteratorQuerier) SelectLogs(
 
 func (e errorIteratorQuerier) SelectSamples(
 	ctx context.Context,
-	p SelectSampleParams,
+	_ SelectSampleParams,
 ) (iter.SampleIterator, error) {
 	return iter.NewHeapSampleIterator(ctx, e.samples), nil
 }
@@ -2118,7 +2118,7 @@ func newSeries(n int64, f generator, labels string) logproto.Series {
 	}
 }
 
-func TestFakeLimitsImplementsInterface(t *testing.T) {
+func TestFakeLimitsImplementsInterface(_ *testing.T) {
 	var _ Limits = &fakeLimits{} // compile-time check
 	var _ Limits = NoLimits      // NoLimits must satisfy Limits
 }
