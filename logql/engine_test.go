@@ -2105,7 +2105,7 @@ func newSeries(n int64, f generator, labels string) logproto.Series {
 	}
 }
 
-func TestFakeLimitsImplementsInterface(t *testing.T) {
+func TestFakeLimitsImplementsInterface(*testing.T) {
 	var _ Limits = &fakeLimits{} // compile-time check
 	var _ Limits = NoLimits      // NoLimits must satisfy Limits
 }

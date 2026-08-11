@@ -1,8 +1,10 @@
 package log
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +24,7 @@ func TestLabelsBuilder_SemanticsTable(t *testing.T) {
 	}{
 		{
 			"no changes",
-			func(b *LabelsBuilder) {},
+			func(*LabelsBuilder) {},
 			base,
 		},
 		{
@@ -223,4 +225,56 @@ func TestPipeline_LabelsResultStringFormat(t *testing.T) {
 	_, res, ok = NewNoopPipeline().ForStream(special).Process(0, []byte("line"))
 	require.True(t, ok)
 	require.Equal(t, `{job="loki", msg="he said \"hi\"\n"}`, res.String())
+}
+
+// TestHashLabels_MatchesUpstream pins the byte format of the two local hash
+// functions against the two upstream implementations they were derived from.
+//
+// This repo no longer calls labels.Labels.HashWithoutLabels: its values are
+// persisted by xlog, and upstream guarantees stability only for
+// labels.StableHash. Since the algorithm is now spelled out locally, this test
+// is what keeps it from drifting — if a prometheus upgrade ever changes either
+// upstream function, this fails instead of silently re-identifying every
+// stored stream.
+func TestHashLabels_MatchesUpstream(t *testing.T) {
+	for _, lbs := range []labels.Labels{
+		labels.EmptyLabels(),
+		labels.FromStrings("job", "loki"),
+		labels.FromStrings("cluster", "us-east", "job", "loki", "namespace", "prod"),
+		// values containing the separator itself and multi-byte runes.
+		labels.FromStrings("a", "x\xffy", "b", "héllo", "c", ""),
+		// long enough to exercise upstream StableHash's 1KB Digest fallback.
+		labels.FromStrings("big", strings.Repeat("v", 2048), "job", "loki"),
+	} {
+		t.Run(lbs.String(), func(t *testing.T) {
+			want, _ := lbs.HashWithoutLabels(
+				nil,
+			) //nolint:staticcheck // the value we must keep reproducing
+
+			got, buf := hashLabels(nil, lbs)
+			require.Equal(t, want, got, "hashLabels drifted from labels.HashWithoutLabels")
+
+			// The slice form must agree with the labels.Labels form.
+			slice := make([]labels.Label, 0, lbs.Len())
+			lbs.Range(func(l labels.Label) { slice = append(slice, l) })
+			gotSlice, _ := hashLabelSlice(nil, slice)
+			require.Equal(t, want, gotSlice, "hashLabelSlice disagrees with hashLabels")
+
+			// Without __name__, our hash is also upstream's stable one — the
+			// property xlog's persisted stream hashes rely on.
+			require.False(t, lbs.Has(model.MetricNameLabel))
+			require.Equal(t, labels.StableHash(lbs), got)
+
+			// The returned buffer is the serialized form, reusable by the caller.
+			again, _ := hashLabels(buf, lbs)
+			require.Equal(t, want, again)
+		})
+	}
+
+	// __name__ is skipped, exactly as the historic Hash() did.
+	named := labels.FromStrings(model.MetricNameLabel, "up", "job", "loki")
+	got, _ := hashLabels(nil, named)
+	bare, _ := hashLabels(nil, labels.FromStrings("job", "loki"))
+	require.Equal(t, bare, got)
+	require.NotEqual(t, labels.StableHash(named), got)
 }

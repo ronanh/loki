@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cespare/xxhash/v2"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 )
 
@@ -155,42 +156,60 @@ func (l labelsResult) Hash() uint64 {
 	return l.h
 }
 
-var seps = []byte{'\xff'}
+// labelSep separates a label name from its value, and one label from the next,
+// in the byte form that both hash functions below serialize a label set into.
+//
+// Its value is frozen and deliberately written out here rather than borrowed
+// from prometheus. It is the separator prometheus itself uses in
+// labels.StableHash, which upstream documents as "guaranteed to not change over
+// time"; xlog persists the hashes produced here in stream definitions and chunk
+// files, so the format has to survive a prometheus upgrade whatever upstream
+// does to its own unguaranteed hash helpers.
+const labelSep = '\xff'
 
-type hasher struct {
-	buf []byte // buffer for computing hash without bytes slice allocation.
+// appendLabel appends one label to b in the frozen hashing format:
+// name, separator, value, separator.
+func appendLabel(b []byte, name, value string) []byte {
+	b = append(b, name...)
+	b = append(b, labelSep)
+	b = append(b, value...)
+	b = append(b, labelSep)
+	return b
 }
 
-// newHasher allow to compute hashes for labels by reusing the same buffer.
-func newHasher() *hasher {
-	return &hasher{
-		buf: make([]byte, 0, 1024),
-	}
+// hashLabels hashes a label set, skipping __name__.
+//
+// This is the same algorithm — and therefore the same values — as the
+// labels.Labels.Hash() of the 2021 prometheus fork and as
+// labels.Labels.HashWithoutLabels() today. It is spelled out locally instead of
+// calling upstream because these hashes are persisted: only labels.StableHash
+// carries a stability guarantee upstream, and it does not skip __name__.
+//
+// buf carries the serialized labels between calls so that hashing does not
+// allocate; the updated buffer is returned for the caller to keep.
+func hashLabels(buf []byte, lbs labels.Labels) (uint64, []byte) {
+	b := buf[:0]
+	lbs.Range(func(l labels.Label) {
+		if l.Name == model.MetricNameLabel {
+			return
+		}
+		b = appendLabel(b, l.Name, l.Value)
+	})
+	return xxhash.Sum64(b), b
 }
 
-// Hash hashes the labels
-func (h *hasher) Hash(lbs labels.Labels) uint64 {
-	var hash uint64
-	hash, h.buf = lbs.HashWithoutLabels(h.buf, []string(nil)...)
-	return hash
-}
-
-// hash hashes a scratch labels slice with the same algorithm as
-// labels.Labels.HashWithoutLabels (name \xff value \xff, skipping __name__) so
-// that cache keys are consistent with Hash whenever the slice is sorted.
-func (h *hasher) hash(lbs []labels.Label) uint64 {
-	b := h.buf[:0]
+// hashLabelSlice is hashLabels over a not-yet-materialized label slice, so that
+// the builder can look up its result cache without paying for a labels.Labels.
+// The caller owes a sorted slice, exactly as labels.Labels is always sorted.
+func hashLabelSlice(buf []byte, lbs []labels.Label) (uint64, []byte) {
+	b := buf[:0]
 	for _, l := range lbs {
-		if l.Name == labels.MetricName {
+		if l.Name == model.MetricNameLabel {
 			continue
 		}
-		b = append(b, l.Name...)
-		b = append(b, seps[0])
-		b = append(b, l.Value...)
-		b = append(b, seps[0])
+		b = appendLabel(b, l.Name, l.Value)
 	}
-	h.buf = b
-	return xxhash.Sum64(b)
+	return xxhash.Sum64(b), b
 }
 
 // BaseLabelsBuilder is a label builder used by pipeline and stages.
@@ -206,7 +225,10 @@ type BaseLabelsBuilder struct {
 	without, noLabels bool
 
 	resultCache map[uint64]LabelsResult
-	*hasher
+	// hashBuf is the byte buffer the two hash functions serialize into. It is
+	// kept here, shared by every LabelsBuilder derived from this base builder,
+	// so that hashing a label set never allocates.
+	hashBuf []byte
 }
 
 // LabelsBuilder is the same as labels.Builder but tailored for this package.
@@ -231,7 +253,6 @@ func NewBaseLabelsBuilderWithGrouping(
 		// del:            make([]string, 0, 5),
 		// add:            make([]labels.Label, 0, 16),
 		// resultCache:    make(map[uint64]LabelsResult),
-		// hasher:         newHasher(),
 		groups:         groups,
 		parserKeyHints: parserKeyHints,
 		noLabels:       noLabels,
@@ -275,19 +296,18 @@ func (b *LabelsBuilder) Reset() {
 	b.err = ""
 }
 
+// Hash hashes a label set, reusing the base builder's buffer.
 func (b *BaseLabelsBuilder) Hash(lbs labels.Labels) uint64 {
-	if b.hasher == nil {
-		b.hasher = newHasher()
-	}
-	return b.hasher.Hash(lbs)
+	var h uint64
+	h, b.hashBuf = hashLabels(b.hashBuf, lbs)
+	return h
 }
 
-// hashScratch hashes a scratch labels slice, sharing the hasher buffer.
-func (b *BaseLabelsBuilder) hashScratch(lbs []labels.Label) uint64 {
-	if b.hasher == nil {
-		b.hasher = newHasher()
-	}
-	return b.hasher.hash(lbs)
+// hashLabelSlice hashes a label slice, reusing the base builder's buffer.
+func (b *BaseLabelsBuilder) hashLabelSlice(lbs []labels.Label) uint64 {
+	var h uint64
+	h, b.hashBuf = hashLabelSlice(b.hashBuf, lbs)
+	return h
 }
 
 // ParserLabelHints returns a limited list of expected labels to extract for metric queries.
@@ -485,7 +505,7 @@ func (b *LabelsBuilder) LabelsResult() LabelsResult {
 }
 
 func (b *BaseLabelsBuilder) toResult(buf []labels.Label) LabelsResult {
-	hash := b.hashScratch(buf)
+	hash := b.hashLabelSlice(buf)
 	if cached, ok := b.resultCache[hash]; ok {
 		return cached
 	}
@@ -617,7 +637,7 @@ func (b *LabelsBuilder) toBaseGroup() LabelsResult {
 		// __name__ is dropped unconditionally, preserving the historic
 		// WithoutLabels behaviour.
 		b.base.Range(func(l labels.Label) {
-			if l.Name == labels.MetricName {
+			if l.Name == model.MetricNameLabel {
 				return
 			}
 			for _, g := range b.groups {

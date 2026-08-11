@@ -1265,7 +1265,7 @@ func absentLabels(expr SampleExpr) labels.Labels {
 	equalMatchers := map[string]string{} // name -> value (first MatchEqual wins)
 	poisoned := map[string]struct{}{}    // keys with 2+ MatchEqual
 	for _, ma := range lm {
-		if ma.Name == labels.MetricName {
+		if ma.Name == MetricName {
 			continue
 		}
 		if ma.Type == labels.MatchEqual {
