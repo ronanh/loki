@@ -9,9 +9,9 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
+	"github.com/ronanh/loki/logql/labelhash"
 )
 
 const MaxInternedStrings = 1024
@@ -156,34 +156,14 @@ func (l labelsResult) Hash() uint64 {
 	return l.h
 }
 
-// labelSep separates a label name from its value, and one label from the next,
-// in the byte form that both hash functions below serialize a label set into.
-//
-// Its value is frozen and deliberately written out here rather than borrowed
-// from prometheus. It is the separator prometheus itself uses in
-// labels.StableHash, which upstream documents as "guaranteed to not change over
-// time"; xlog persists the hashes produced here in stream definitions and chunk
-// files, so the format has to survive a prometheus upgrade whatever upstream
-// does to its own unguaranteed hash helpers.
-const labelSep = '\xff'
-
-// appendLabel appends one label to b in the frozen hashing format:
-// name, separator, value, separator.
-func appendLabel(b []byte, name, value string) []byte {
-	b = append(b, name...)
-	b = append(b, labelSep)
-	b = append(b, value...)
-	b = append(b, labelSep)
-	return b
-}
-
-// hashLabels hashes a label set, skipping __name__.
+// hashLabels hashes a label set, skipping __name__, in the frozen byte format
+// defined by the labelhash package.
 //
 // This is the same algorithm — and therefore the same values — as the
 // labels.Labels.Hash() of the 2021 prometheus fork and as
-// labels.Labels.HashWithoutLabels() today. It is spelled out locally instead of
-// calling upstream because these hashes are persisted: only labels.StableHash
-// carries a stability guarantee upstream, and it does not skip __name__.
+// labels.Labels.HashWithoutLabels() today. It does not call either: these
+// hashes are persisted by xlog, and upstream guarantees stability only for
+// labels.StableHash, which in turn does not skip __name__.
 //
 // buf carries the serialized labels between calls so that hashing does not
 // allocate; the updated buffer is returned for the caller to keep.
@@ -193,9 +173,9 @@ func hashLabels(buf []byte, lbs labels.Labels) (uint64, []byte) {
 		if l.Name == model.MetricNameLabel {
 			return
 		}
-		b = appendLabel(b, l.Name, l.Value)
+		b = labelhash.Append(b, l.Name, l.Value)
 	})
-	return xxhash.Sum64(b), b
+	return labelhash.Sum(b), b
 }
 
 // hashLabelSlice is hashLabels over a not-yet-materialized label slice, so that
@@ -207,9 +187,9 @@ func hashLabelSlice(buf []byte, lbs []labels.Label) (uint64, []byte) {
 		if l.Name == model.MetricNameLabel {
 			continue
 		}
-		b = appendLabel(b, l.Name, l.Value)
+		b = labelhash.Append(b, l.Name, l.Value)
 	}
-	return xxhash.Sum64(b), b
+	return labelhash.Sum(b), b
 }
 
 // BaseLabelsBuilder is a label builder used by pipeline and stages.
