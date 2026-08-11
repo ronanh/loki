@@ -1,0 +1,147 @@
+
+[TestLabelsResultInvariants/typical-k8s - 1]
+labels:          {cluster="eu1-c01", datacenter="eu1", environment="prod", full_cluster="eu1-c01.prod", k8s_container_name="app", k8s_pod_name="app-7f9c4d-x2x4z", logtype="applog", path="/var/log/containers/app_default_app-1234.log", service_id="svc-123"}
+builderHash:     0x7c637b9a3ab156a1
+noop.hash:       0x7c637b9a3ab156a1
+noop.string:     {cluster="eu1-c01", datacenter="eu1", environment="prod", full_cluster="eu1-c01.prod", k8s_container_name="app", k8s_pod_name="app-7f9c4d-x2x4z", logtype="applog", path="/var/log/containers/app_default_app-1234.log", service_id="svc-123"}
+stage.hash:      0xa636da1619eb6c1b
+stage.string:    {added="value", cluster="eu1-c01", datacenter="eu1", environment="prod", full_cluster="eu1-c01.prod", k8s_container_name="app", k8s_pod_name="app-7f9c4d-x2x4z", logtype="applog", path="/var/log/containers/app_default_app-1234.log", service_id="svc-123"}
+by.unchanged.hash:   0xa5da7f85ad7cdfb9
+by.unchanged.string: {logtype="applog"}
+by.modified.hash:    0xa5da7f85ad7cdfb9
+by.modified.string:  {logtype="applog"}
+without.unchanged.hash:   0x2fc11760657a8e3f
+without.unchanged.string: {cluster="eu1-c01", datacenter="eu1", environment="prod", full_cluster="eu1-c01.prod", k8s_container_name="app", k8s_pod_name="app-7f9c4d-x2x4z", path="/var/log/containers/app_default_app-1234.log", service_id="svc-123"}
+without.modified.hash:    0x6fd63144a16abc08
+without.modified.string:  {added="value", cluster="eu1-c01", datacenter="eu1", environment="prod", full_cluster="eu1-c01.prod", k8s_container_name="app", k8s_pod_name="app-7f9c4d-x2x4z", path="/var/log/containers/app_default_app-1234.log", service_id="svc-123"}
+map:
+  cluster="eu1-c01"
+  datacenter="eu1"
+  environment="prod"
+  full_cluster="eu1-c01.prod"
+  k8s_container_name="app"
+  k8s_pod_name="app-7f9c4d-x2x4z"
+  logtype="applog"
+  path="/var/log/containers/app_default_app-1234.log"
+  service_id="svc-123"
+
+---
+
+[TestLabelsResultInvariants/single-label - 1]
+labels:          {job="loki"}
+builderHash:     0x3459d0b85d25cda9
+noop.hash:       0x3459d0b85d25cda9
+noop.string:     {job="loki"}
+stage.hash:      0x7f86d73b868e624a
+stage.string:    {added="value", job="loki"}
+by.unchanged.hash:   0x3459d0b85d25cda9
+by.unchanged.string: {job="loki"}
+by.modified.hash:    0x3459d0b85d25cda9
+by.modified.string:  {job="loki"}
+without.unchanged.hash:   0xef46db3751d8e999
+without.unchanged.string: {}
+without.modified.hash:    0x0a43029316603b8f
+without.modified.string:  {added="value"}
+map:
+  job="loki"
+
+---
+
+[TestLabelsResultInvariants/special-chars - 1]
+labels:          {msg="a\"b\\c\nd", note="héllo, wörld ✓", zpath="C:\\logs\\app.log"}
+builderHash:     0xc4835705185cf7e6
+noop.hash:       0xc4835705185cf7e6
+noop.string:     {msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+stage.hash:      0x351ac8786f6aa891
+stage.string:    {added="value", msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+by.unchanged.hash:   0xef46db3751d8e999
+by.unchanged.string: {}
+by.modified.hash:    0xef46db3751d8e999
+by.modified.string:  {}
+without.unchanged.hash:   0xc4835705185cf7e6
+without.unchanged.string: {msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+without.modified.hash:    0x351ac8786f6aa891
+without.modified.string:  {added="value", msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+map:
+  msg="a\"b\\c\nd"
+  note="héllo, wörld ✓"
+  zpath="C:\\logs\\app.log"
+
+---
+
+[TestLabelsResultInvariants/empty-value-in-base - 1]
+labels:          {aempty="", bfull="v"}
+builderHash:     0xd25f0a50049ae9ea
+noop.hash:       0xd25f0a50049ae9ea
+noop.string:     {aempty="", bfull="v"}
+stage.hash:      0x998668fb2d2f76bc
+stage.string:    {added="value", aempty="", bfull="v"}
+by.unchanged.hash:   0xef46db3751d8e999
+by.unchanged.string: {}
+by.modified.hash:    0xef46db3751d8e999
+by.modified.string:  {}
+without.unchanged.hash:   0xd25f0a50049ae9ea
+without.unchanged.string: {aempty="", bfull="v"}
+without.modified.hash:    0x998668fb2d2f76bc
+without.modified.string:  {added="value", aempty="", bfull="v"}
+map:
+  aempty=""
+  bfull="v"
+
+---
+
+[TestLabelsResultInvariants/with-metric-name - 1]
+labels:          {__name__="up", instance="10.0.0.1:9090", job="prom"}
+builderHash:     0x6f3b0d08da944d2a
+noop.hash:       0x414a8c8e4923cd62
+noop.string:     {__name__="up", instance="10.0.0.1:9090", job="prom"}
+stage.hash:      0x0e5abd1d20e9147f
+stage.string:    {__name__="up", added="value", instance="10.0.0.1:9090", job="prom"}
+by.unchanged.hash:   0xbb7c95a80f6f9ca9
+by.unchanged.string: {job="prom"}
+by.modified.hash:    0xbb7c95a80f6f9ca9
+by.modified.string:  {job="prom"}
+without.unchanged.hash:   0xe92fe7fee0bd902b
+without.unchanged.string: {instance="10.0.0.1:9090"}
+without.modified.hash:    0xabe1b8573df08ebf
+without.modified.string:  {__name__="up", added="value", instance="10.0.0.1:9090"}
+map:
+  __name__="up"
+  instance="10.0.0.1:9090"
+  job="prom"
+
+---
+
+[TestParserStageInvariants/json - 1]
+line:   {"level":"warn","msg":"hi","nested":{"n":1},"num":3.5,"yes":true}
+hash:   0xac82d7ddfbba8c35
+string: {job="loki", level="base", level_extracted="warn", msg="hi", nested_n="1", num="3.5", yes="true"}
+
+---
+
+[TestParserStageInvariants/json-duplicate-key - 1]
+line:   {"job":"other","level":"warn"}
+hash:   0x71025baf4a674f56
+string: {job="loki", job_extracted="other", level="base", level_extracted="warn"}
+
+---
+
+[TestParserStageInvariants/logfmt - 1]
+line:   level=warn msg="a b" num=3.5 yes=true
+hash:   0xdce0c4729b0cf50f
+string: {job="loki", level="base", level_extracted="warn", msg="a b", num="3.5", yes="true"}
+
+---
+
+[TestParserStageInvariants/logfmt-duplicate-key - 1]
+line:   job=other level=warn
+hash:   0x71025baf4a674f56
+string: {job="loki", job_extracted="other", level="base", level_extracted="warn"}
+
+---
+
+[TestRegexpParserInvariants - 1]
+hash:   0x08c97f276204c62c
+string: {job="loki", method="GET", path="/api/v1/query", status="200"}
+
+---

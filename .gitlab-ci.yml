@@ -54,3 +54,10 @@ go:test:
       go run github.com/boumenot/gocover-cobertura@latest
       < cover.out > coverage.xml
     - go tool cover -func cover.out
+    # The labels-migration invariant snapshots are frozen (see
+    # logql/log/labels_invariants_test.go). snaps.Update(false) already blocks
+    # UPDATE_SNAPS=true, but UPDATE_SNAPS=always still overrides it, so fail
+    # loudly if a test run rewrote one. Tracked files only: the module cache is
+    # full of third-party __snapshots__ dirs. A *missing* snapshot needs no
+    # check — go-snaps already fails the test rather than creating one on CI.
+    - git diff --exit-code -- '*__snapshots__*'

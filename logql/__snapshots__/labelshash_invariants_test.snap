@@ -1,0 +1,112 @@
+
+[TestLabelsHashInvariants/typical-k8s - 1]
+labels: {cluster="eu1-c01", environment="prod", k8s_pod_name="app-7f9c4d-x2x4z", logtype="applog", service_id="svc-123"}
+names:  ["cluster" "logtype"]
+hashLabels:        0xb91ed859c81bea57
+  serialized:      "cluster\xffeu1-c01\xffenvironment\xffprod\xffk8s_pod_name\xffapp-7f9c4d-x2x4z\xfflogtype\xffapplog\xffservice_id\xffsvc-123\xff"
+hashWithoutLabels: 0x9f2737a50715e509
+  serialized:      "environment\xffprod\xffk8s_pod_name\xffapp-7f9c4d-x2x4z\xffservice_id\xffsvc-123\xff"
+hashForLabels:     0x0e929dd24d3b1f89
+  serialized:      "cluster\xffeu1-c01\xfflogtype\xffapplog\xff"
+
+---
+
+[TestLabelsHashInvariants/names-not-present - 1]
+labels: {job="loki"}
+names:  ["absent" "missing"]
+hashLabels:        0x3459d0b85d25cda9
+  serialized:      "job\xffloki\xff"
+hashWithoutLabels: 0x3459d0b85d25cda9
+  serialized:      "job\xffloki\xff"
+hashForLabels:     0xef46db3751d8e999
+  serialized:      ""
+
+---
+
+[TestLabelsHashInvariants/names-empty - 1]
+labels: {a="1", b="2"}
+names:  []
+hashLabels:        0xcc47a7b231134517
+  serialized:      "a\xff1\xffb\xff2\xff"
+hashWithoutLabels: 0xcc47a7b231134517
+  serialized:      "a\xff1\xffb\xff2\xff"
+hashForLabels:     0xef46db3751d8e999
+  serialized:      ""
+
+---
+
+[TestLabelsHashInvariants/names-cover-everything - 1]
+labels: {a="1", b="2"}
+names:  ["a" "b"]
+hashLabels:        0xcc47a7b231134517
+  serialized:      "a\xff1\xffb\xff2\xff"
+hashWithoutLabels: 0xef46db3751d8e999
+  serialized:      ""
+hashForLabels:     0xcc47a7b231134517
+  serialized:      "a\xff1\xffb\xff2\xff"
+
+---
+
+[TestLabelsHashInvariants/with-metric-name - 1]
+labels: {__name__="up", instance="10.0.0.1:9090", job="prom"}
+names:  ["job"]
+hashLabels:        0x414a8c8e4923cd62
+  serialized:      "__name__\xffup\xffinstance\xff10.0.0.1:9090\xffjob\xffprom\xff"
+hashWithoutLabels: 0xb1c203b3111e93d5
+  serialized:      "__name__\xffup\xffinstance\xff10.0.0.1:9090\xff"
+hashForLabels:     0xbb7c95a80f6f9ca9
+  serialized:      "job\xffprom\xff"
+
+---
+
+[TestLabelsHashInvariants/special-chars - 1]
+labels: {msg="a\"b\\c\nd", note="héllo ✓"}
+names:  ["msg"]
+hashLabels:        0x5096203cd565cb9e
+  serialized:      "msg\xffa\"b\\c\nd\xffnote\xffhéllo ✓\xff"
+hashWithoutLabels: 0xcdd6ac473cff4949
+  serialized:      "note\xffhéllo ✓\xff"
+hashForLabels:     0x54878bbb5c6c0902
+  serialized:      "msg\xffa\"b\\c\nd\xff"
+
+---
+
+[TestLabelsHashInvariants/value-contains-separator - 1]
+labels: {a="x\xffy", b="z"}
+names:  ["a"]
+hashLabels:        0xe033148acb55ba31
+  serialized:      "a\xffx\xffy\xffb\xffz\xff"
+hashWithoutLabels: 0xcf7fa04cf08a2403
+  serialized:      "b\xffz\xff"
+hashForLabels:     0x2d97a3378cf65125
+  serialized:      "a\xffx\xffy\xff"
+
+---
+
+[TestParseLabelsInvariants/{job="loki"} - 1]
+input:  {job="loki"}
+parsed: {job="loki"}
+hash:   0x3459d0b85d25cda9
+
+---
+
+[TestParseLabelsInvariants/{cluster="eu1-c01",_logtype="applog",_service_id="svc-123"} - 1]
+input:  {cluster="eu1-c01", logtype="applog", service_id="svc-123"}
+parsed: {cluster="eu1-c01", logtype="applog", service_id="svc-123"}
+hash:   0x61eda4e3df1ed85b
+
+---
+
+[TestParseLabelsInvariants/{msg="a\"b\\c\nd"} - 1]
+input:  {msg="a\"b\\c\nd"}
+parsed: {msg="a\"b\\c\nd"}
+hash:   0x54878bbb5c6c0902
+
+---
+
+[TestParseLabelsInvariants/{unsorted="1",_asorted="2"} - 1]
+input:  {unsorted="1", asorted="2"}
+parsed: {asorted="2", unsorted="1"}
+hash:   0x0a10bf18013a2efc
+
+---
