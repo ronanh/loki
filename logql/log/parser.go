@@ -21,6 +21,17 @@ const (
 	PackedEntryKey  = "_entry"
 )
 
+// isValidLabelName reports whether n may be used as an extracted label name.
+//
+// The scheme is named explicitly rather than left to model.NameValidationScheme
+// (deprecated, and a process-global) so that the rule this fork enforces is
+// visible here. UTF8Validation is the scheme that global already defaulted to,
+// so this is the behaviour the fork has had since prometheus/common v0.65:
+// any non-empty, valid UTF-8 string is an acceptable label name.
+func isValidLabelName(n string) bool {
+	return model.UTF8Validation.IsValidLabelName(n)
+}
+
 var (
 	_ Stage = &JSONParser{}
 	_ Stage = &RegexpParser{}
@@ -199,7 +210,7 @@ func NewRegexpParser(re string) (*RegexpParser, error) {
 	uniqueNames := map[string]struct{}{}
 	for i, n := range regex.SubexpNames() {
 		if n != "" {
-			if !model.LabelName(n).IsValid() {
+			if !isValidLabelName(n) {
 				return nil, fmt.Errorf("invalid extracted label name '%s'", n)
 			}
 			if _, ok := uniqueNames[n]; ok {
@@ -314,7 +325,7 @@ func NewJSONExpressionParser(expressions []JSONExpression) (*JSONExpressionParse
 			return nil, fmt.Errorf("cannot parse expression [%s]: %w", exp.Expression, err)
 		}
 
-		if !model.LabelName(exp.Identifier).IsValid() {
+		if !isValidLabelName(exp.Identifier) {
 			return nil, fmt.Errorf("invalid extracted label name '%s'", exp.Identifier)
 		}
 
