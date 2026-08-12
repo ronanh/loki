@@ -11,7 +11,7 @@ include:
       binary_directory: ""
 
 variables:
-  GO_VERSION: 1.26.3
+  GO_VERSION: 1.26.5
   GO_IMAGE: golang:${GO_VERSION}
 
 stages:
