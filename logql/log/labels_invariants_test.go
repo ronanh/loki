@@ -39,7 +39,7 @@ var frozenSnapshot = snaps.WithConfig(snaps.Update(false))
 // The timestamp is fixed at 0: these tests are about labels, and no fixture
 // uses a stage that reads it.
 func processLine(sp StreamPipeline, line string) (string, LabelsResult, bool) {
-	return sp.ProcessString(0, line)
+	return sp.ProcessString(0, line, nil, 0)
 }
 
 func processStage(s Stage, line string, lb *LabelsBuilder) ([]byte, bool) {

@@ -2,6 +2,7 @@ package log
 
 import (
 	"bytes"
+	"encoding/binary"
 	"maps"
 	"slices"
 	"strconv"
@@ -16,6 +17,12 @@ import (
 
 const MaxInternedStrings = 1024
 
+// maxResultCacheSize caps the per-query LabelsResult cache. Per-line delta
+// labels can be high-cardinality (e.g. trace_id): at the cap the cache is
+// emptied and refilled, so memory stays bounded and a burst of unique label
+// sets does not leave later streams without cache hits.
+const maxResultCacheSize = 4096
+
 var emptyLabelsResult = NewLabelsResult(
 	labels.EmptyLabels(),
 	labels.StableHash(labels.EmptyLabels()),
@@ -24,15 +31,47 @@ var emptyLabelsResult = NewLabelsResult(
 // LabelsResult is a computed labels result that contains the labels set with associated string and
 // hash.
 // The is mainly used for caching and returning labels computations out of pipelines and stages.
+//
+// Results are categorized:
+// Stream/Delta/Parsed return the per-category subsets of Labels(), and
+// Deleted returns the stream label names removed by the pipeline (drop/del).
+// The categorized view is what the store needs to encode an output delta
+// relative to the stream labels without any set-diffing.
 type LabelsResult interface {
 	String() string
 	Labels() labels.Labels
 	Hash() uint64
+	// Stream returns the labels of Labels() that come from the stream.
+	Stream() labels.Labels
+	// Delta returns the labels of Labels() that come from the per-line
+	// deltaLabels (after any query-time collision rename).
+	Delta() labels.Labels
+	// Parsed returns the labels of Labels() produced by pipeline stages
+	// (parsers, label_format, ...; includes __error__ when set).
+	Parsed() labels.Labels
+	// Deleted returns the stream label names removed by the pipeline.
+	Deleted() []string
 }
 
 // NewLabelsResult creates a new LabelsResult from a labels set and a hash.
+// The whole set is categorized as stream labels.
 func NewLabelsResult(lbs labels.Labels, hash uint64) LabelsResult {
-	return &labelsResult{lbs: lbs, s: labelsString(lbs), h: hash}
+	return &labelsResult{lbs: lbs, s: labelsString(lbs), h: hash, stream: lbs}
+}
+
+// NewCategorizedLabelsResult creates a LabelsResult carrying the per-category
+// decomposition of all (stream ⊎ delta ⊎ parsed = all, deleted = stream label
+// names removed by the pipeline).
+func NewCategorizedLabelsResult(
+	all labels.Labels,
+	hash uint64,
+	stream, delta, parsed labels.Labels,
+	deleted []string,
+) LabelsResult {
+	return &labelsResult{
+		lbs: all, s: labelsString(all), h: hash,
+		stream: stream, delta: delta, parsed: parsed, deleted: deleted,
+	}
 }
 
 func labelsString(ls labels.Labels) string {
@@ -142,6 +181,9 @@ type labelsResult struct {
 	lbs labels.Labels
 	s   string
 	h   uint64
+
+	stream, delta, parsed labels.Labels
+	deleted               []string
 }
 
 func (l labelsResult) String() string {
@@ -154,6 +196,22 @@ func (l labelsResult) Labels() labels.Labels {
 
 func (l labelsResult) Hash() uint64 {
 	return l.h
+}
+
+func (l labelsResult) Stream() labels.Labels {
+	return l.stream
+}
+
+func (l labelsResult) Delta() labels.Labels {
+	return l.delta
+}
+
+func (l labelsResult) Parsed() labels.Labels {
+	return l.parsed
+}
+
+func (l labelsResult) Deleted() []string {
+	return l.deleted
 }
 
 // hashLabels hashes a label set, skipping __name__, in the frozen byte format
@@ -197,6 +255,13 @@ func hashLabelSlice(buf []byte, lbs []labels.Label) (uint64, []byte) {
 type BaseLabelsBuilder struct {
 	del []string
 	add []labels.Label
+	// deltas holds the per-line deltaLabels injected by Process (after any
+	// query-time collision rename against the stream labels); reset per line.
+	deltas []labels.Label
+	// deltaHash is the caller-provided hash of the line's effective
+	// label set (stream ⊕ delta), 0 = unavailable/recompute. Only trusted on
+	// the fast path where no stage touched the labels.
+	deltaHash uint64
 	// nolint(structcheck) https://github.com/golangci/golangci-lint/issues/826
 	err string
 
@@ -273,7 +338,60 @@ func (b *BaseLabelsBuilder) ForLabels(lbs labels.Labels, hash uint64) *LabelsBui
 func (b *LabelsBuilder) Reset() {
 	b.del = b.del[:0]
 	b.add = b.add[:0]
+	b.deltas = b.deltas[:0]
+	b.deltaHash = 0
 	b.err = ""
+}
+
+// BaseLabels returns the stream's base labels result (unaffected by the
+// current line's state).
+func (b *LabelsBuilder) BaseLabels() LabelsResult {
+	return b.currentResult
+}
+
+// SetDeltaLabels injects the current line's deltaLabels (additive per-line
+// labels relative to the stream labels, decoded from storage) with category
+// DeltaLabel. A delta name colliding with a stream label is renamed
+// name_extracted, which forces hash recomputation. deltaHash is the
+// caller-provided hash of (stream ⊕ delta), 0 = recompute.
+//
+// Must be called right after Reset and before any stage runs.
+func (b *LabelsBuilder) SetDeltaLabels(deltaLabels []labels.Label, deltaHash uint64) {
+	if len(deltaLabels) == 0 {
+		return
+	}
+	forceRecompute := false
+	for _, l := range deltaLabels {
+		if l.Value == "" {
+			// xlog writes SET "" as DEL, so an empty value is not expected:
+			// ignore the entry and distrust the caller's hash
+			forceRecompute = true
+			continue
+		}
+		name := l.Name
+		if b.base.Has(name) {
+			name += duplicateSuffix
+			forceRecompute = true
+		}
+		// a rename may land on a name another delta entry already uses
+		// (foreign data carrying both x and x_extracted): later entries
+		// overwrite so the set never holds duplicate names
+		replaced := false
+		for i := range b.deltas {
+			if b.deltas[i].Name == name {
+				b.deltas[i].Value = l.Value
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			b.deltas = append(b.deltas, labels.Label{Name: name, Value: l.Value})
+		}
+	}
+	if forceRecompute {
+		deltaHash = 0
+	}
+	b.deltaHash = deltaHash
 }
 
 // Hash hashes a label set, reusing the base builder's buffer.
@@ -288,6 +406,40 @@ func (b *BaseLabelsBuilder) hashLabelSlice(lbs []labels.Label) uint64 {
 	var h uint64
 	h, b.hashBuf = hashLabelSlice(b.hashBuf, lbs)
 	return h
+}
+
+// mixHash combines two 64-bit hashes into a cache key (order-sensitive): a splitmix64 finalizer
+// over a ^ rotated h.
+func (b *BaseLabelsBuilder) mixHash(a, h uint64) uint64 {
+	x := a ^ (h<<32 | h>>32) ^ 0x9e3779b97f4a7c15
+	x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
+	x = (x ^ (x >> 27)) * 0x94d049bb133111eb
+	return x ^ (x >> 31)
+}
+
+// categorizedKey computes a result-cache key covering the full categorized
+// builder state: the stream hash (seed) plus the delta labels, parsed labels,
+// deleted names and error, each category separated by \xfe. Unlike the
+// effective-set hash, equal effective sets with different category
+// decompositions get distinct keys.
+func (b *BaseLabelsBuilder) categorizedKey(baseHash uint64) uint64 {
+	buf := binary.LittleEndian.AppendUint64(b.hashBuf[:0], baseHash)
+	for _, l := range b.deltas {
+		buf = labelhash.Append(buf, l.Name, l.Value)
+	}
+	buf = append(buf, '\xfe')
+	for _, l := range b.add {
+		buf = labelhash.Append(buf, l.Name, l.Value)
+	}
+	buf = append(buf, '\xfe')
+	for _, n := range b.del {
+		buf = append(buf, n...)
+		buf = append(buf, labelhash.Sep)
+	}
+	buf = append(buf, '\xfe')
+	buf = append(buf, b.err...)
+	b.hashBuf = buf
+	return labelhash.Sum(buf)
 }
 
 // ParserLabelHints returns a limited list of expected labels to extract for metric queries.
@@ -318,6 +470,7 @@ func (b *LabelsBuilder) BaseHas(key string) bool {
 }
 
 // Get returns the value of a labels key if it exists.
+// Precedence: parsed (stage Sets) > deleted > delta labels > stream labels.
 func (b *LabelsBuilder) Get(key string) (string, bool) {
 	for _, a := range b.add {
 		if a.Name == key {
@@ -326,6 +479,11 @@ func (b *LabelsBuilder) Get(key string) (string, bool) {
 	}
 	if slices.Contains(b.del, key) {
 		return "", false
+	}
+	for _, d := range b.deltas {
+		if d.Name == key {
+			return d.Value, true
+		}
 	}
 
 	if v := b.base.Get(key); v != "" {
@@ -373,7 +531,7 @@ func (b *LabelsBuilder) labels() []labels.Label {
 }
 
 func (b *LabelsBuilder) unsortedLabels(buf []labels.Label) []labels.Label {
-	if len(b.del) == 0 && len(b.add) == 0 {
+	if len(b.del) == 0 && len(b.add) == 0 && len(b.deltas) == 0 {
 		if buf == nil {
 			buf = make([]labels.Label, 0, b.base.Len()+1)
 		} else {
@@ -391,7 +549,7 @@ func (b *LabelsBuilder) unsortedLabels(buf []labels.Label) []labels.Label {
 	// In the general case, labels are removed, modified or moved
 	// rather than added.
 	if buf == nil {
-		buf = make([]labels.Label, 0, b.base.Len()+len(b.add)+1)
+		buf = make([]labels.Label, 0, b.base.Len()+len(b.deltas)+len(b.add)+1)
 	} else {
 		buf = buf[:0]
 	}
@@ -406,13 +564,39 @@ func (b *LabelsBuilder) unsortedLabels(buf []labels.Label) []labels.Label {
 				return
 			}
 		}
+		for _, ld := range b.deltas {
+			// only possible on the rename-once edge (base holds both name
+			// and name_extracted); deltas otherwise never collide with base
+			if l.Name == ld.Name {
+				return
+			}
+		}
 		buf = append(buf, l)
 	})
+	for _, ld := range b.deltas {
+		if slices.Contains(b.del, ld.Name) {
+			continue
+		}
+		if labelsContainName(b.add, ld.Name) {
+			// parsed labels win over delta labels
+			continue
+		}
+		buf = append(buf, ld)
+	}
 	buf = append(buf, b.add...)
 	if b.err != "" {
 		buf = append(buf, labels.Label{Name: ErrorLabel, Value: b.err})
 	}
 	return buf
+}
+
+func labelsContainName(lbs []labels.Label, name string) bool {
+	for _, l := range lbs {
+		if l.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 type stringMapPool struct {
@@ -444,7 +628,7 @@ var smp = newStringMapPool()
 // puts labels entries into an existing map, it is up to the caller to
 // properly clear the map if it is going to be reused
 func (b *LabelsBuilder) IntoMap(m map[string]string) {
-	if len(b.del) == 0 && len(b.add) == 0 && !b.HasErr() {
+	if len(b.del) == 0 && len(b.add) == 0 && len(b.deltas) == 0 && !b.HasErr() {
 		if b.baseMap == nil {
 			b.baseMap = b.base.Map()
 			maps.Copy(m, b.baseMap)
@@ -460,7 +644,7 @@ func (b *LabelsBuilder) IntoMap(m map[string]string) {
 }
 
 func (b *LabelsBuilder) Map() (map[string]string, bool) {
-	if len(b.del) == 0 && len(b.add) == 0 && b.err == "" {
+	if len(b.del) == 0 && len(b.add) == 0 && len(b.deltas) == 0 && b.err == "" {
 		if b.baseMap == nil {
 			b.baseMap = b.base.Map()
 		}
@@ -479,21 +663,156 @@ func (b *LabelsBuilder) Map() (map[string]string, bool) {
 func (b *LabelsBuilder) LabelsResult() LabelsResult {
 	// unchanged path.
 	if len(b.del) == 0 && len(b.add) == 0 && b.err == "" {
-		return b.currentResult
+		if len(b.deltas) == 0 {
+			return b.currentResult
+		}
+		return b.deltaResult()
 	}
-	return b.toResult(b.labels())
+	return b.toCategorizedResult()
 }
 
+// deltaResult is the hot path for a line whose only label state is its delta
+// labels (no stage touched labels): when the caller's deltaHash is available it
+// is used directly — as the cache key (mixed with the stream hash so equal
+// effective sets with different stream/delta splits never alias) and as the
+// result Hash() — so repeated (stream, delta) combinations do no hashing and
+// no label materialization at all.
+func (b *LabelsBuilder) deltaResult() LabelsResult {
+	if b.deltaHash == 0 {
+		return b.toCategorizedResult()
+	}
+	key := b.mixHash(b.currentResult.Hash(), b.deltaHash)
+	if cached, ok := b.resultCache[key]; ok {
+		return cached
+	}
+	res := b.newCategorizedResult(b.deltaHash)
+	b.cacheResult(key, res)
+	return res
+}
+
+// cachedDeltaResult returns the cached result of a line whose only label state is deltas with
+// this hash, without looking at the deltas. An entry exists under this key only once a line with
+// the same hash went through SetDeltaLabels without anomaly.
+func (b *LabelsBuilder) cachedDeltaResult(deltaHash uint64) (LabelsResult, bool) {
+	if deltaHash == 0 {
+		return nil, false
+	}
+	res, ok := b.resultCache[b.mixHash(b.currentResult.Hash(), deltaHash)]
+	return res, ok
+}
+
+// cacheResult retains a result in the per-query cache, emptying the cache
+// when it reaches maxResultCacheSize.
+func (b *BaseLabelsBuilder) cacheResult(key uint64, res LabelsResult) {
+	if b.resultCache == nil {
+		b.resultCache = make(map[uint64]LabelsResult, 1)
+	}
+	if len(b.resultCache) >= maxResultCacheSize {
+		clear(b.resultCache)
+	}
+	b.resultCache[key] = res
+}
+
+// toCategorizedResult builds (or fetches from cache) the categorized result
+// for the current builder state. The cache key covers the per-category
+// content (seeded with the stream hash), NOT just the effective set: two
+// lines with equal effective labels but different stream/delta/parsed
+// decompositions must not share a categorized result.
+func (b *LabelsBuilder) toCategorizedResult() LabelsResult {
+	key := b.categorizedKey(b.currentResult.Hash())
+	if cached, ok := b.resultCache[key]; ok {
+		return cached
+	}
+	res := b.newCategorizedResult(0)
+	b.cacheResult(key, res)
+	return res
+}
+
+// newCategorizedResult materializes the current builder state into a
+// categorized LabelsResult. knownHash, when non-zero, is trusted as the
+// stable hash of the effective set (caller's deltaHash fast path); otherwise
+// the hash is computed (same algorithm/values as before deltas existed).
+func (b *LabelsBuilder) newCategorizedResult(knownHash uint64) LabelsResult {
+	buf := b.labels()
+	hash := knownHash
+	if hash == 0 {
+		hash = b.hashLabelSlice(buf)
+	}
+	all := labels.New(buf...)
+
+	// stream = base minus deleted minus shadowed-by-parsed (deltas cannot
+	// shadow base post-rename, modulo the rename-once edge handled below)
+	stream := b.base
+	var deleted []string
+	if len(b.del) > 0 || b.shadowsBase() {
+		streamB := labels.NewScratchBuilder(b.base.Len())
+		b.base.Range(func(l labels.Label) {
+			if slices.Contains(b.del, l.Name) {
+				deleted = append(deleted, l.Name)
+				return
+			}
+			if labelsContainName(b.add, l.Name) || labelsContainName(b.deltas, l.Name) {
+				return
+			}
+			streamB.Add(l.Name, l.Value)
+		})
+		stream = streamB.Labels()
+	}
+
+	delta := labels.EmptyLabels()
+	if len(b.deltas) > 0 {
+		deltaB := labels.NewScratchBuilder(len(b.deltas))
+		for _, ld := range b.deltas {
+			if slices.Contains(b.del, ld.Name) || labelsContainName(b.add, ld.Name) {
+				continue
+			}
+			deltaB.Add(ld.Name, ld.Value)
+		}
+		deltaB.Sort()
+		delta = deltaB.Labels()
+	}
+
+	parsed := labels.EmptyLabels()
+	if len(b.add) > 0 || b.err != "" {
+		parsedB := labels.NewScratchBuilder(len(b.add) + 1)
+		for _, la := range b.add {
+			parsedB.Add(la.Name, la.Value)
+		}
+		if b.err != "" {
+			parsedB.Add(ErrorLabel, b.err)
+		}
+		parsedB.Sort()
+		parsed = parsedB.Labels()
+	}
+
+	return NewCategorizedLabelsResult(all, hash, stream, delta, parsed, deleted)
+}
+
+// shadowsBase reports whether a parsed or delta label replaces a stream label.
+func (b *LabelsBuilder) shadowsBase() bool {
+	for _, l := range b.add {
+		if b.base.Has(l.Name) {
+			return true
+		}
+	}
+	for _, l := range b.deltas {
+		if b.base.Has(l.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+// toResult caches a plain (uncategorized) result keyed by the content hash of
+// buf. Used by the grouped paths, whose outputs are aggregation-facing and
+// carry no categorization.
 func (b *BaseLabelsBuilder) toResult(buf []labels.Label) LabelsResult {
 	hash := b.hashLabelSlice(buf)
 	if cached, ok := b.resultCache[hash]; ok {
 		return cached
 	}
 	res := NewLabelsResult(labels.New(buf...), hash)
-	if b.resultCache == nil {
-		b.resultCache = make(map[uint64]LabelsResult, 1)
-	}
-	b.resultCache[hash] = res
+	b.cacheResult(hash, res)
 	return res
 }
 
@@ -507,8 +826,9 @@ func (b *LabelsBuilder) GroupedLabels() LabelsResult {
 	if b.noLabels {
 		return emptyLabelsResult
 	}
-	// unchanged path.
-	if len(b.del) == 0 && len(b.add) == 0 {
+	// unchanged path (delta labels count as changes: they must flow into the
+	// grouped output).
+	if len(b.del) == 0 && len(b.add) == 0 && len(b.deltas) == 0 {
 		if len(b.groups) == 0 {
 			return b.currentResult
 		}
@@ -544,6 +864,12 @@ Outer:
 				continue Outer
 			}
 		}
+		for _, ld := range b.deltas {
+			if g == ld.Name {
+				b.buf = append(b.buf, ld)
+				continue Outer
+			}
+		}
 		if v := b.base.Get(g); v != "" {
 			b.buf = append(b.buf, labels.Label{Name: g, Value: v})
 		}
@@ -569,6 +895,11 @@ func (b *LabelsBuilder) withoutResult() LabelsResult {
 				return
 			}
 		}
+		for _, ld := range b.deltas {
+			if l.Name == ld.Name {
+				return
+			}
+		}
 		for _, lg := range b.groups {
 			if l.Name == lg {
 				return
@@ -576,6 +907,18 @@ func (b *LabelsBuilder) withoutResult() LabelsResult {
 		}
 		b.buf = append(b.buf, l)
 	})
+OuterDelta:
+	for _, ld := range b.deltas {
+		if slices.Contains(b.del, ld.Name) || labelsContainName(b.add, ld.Name) {
+			continue
+		}
+		for _, lg := range b.groups {
+			if ld.Name == lg {
+				continue OuterDelta
+			}
+		}
+		b.buf = append(b.buf, ld)
+	}
 OuterAdd:
 	for _, la := range b.add {
 		for _, lg := range b.groups {
