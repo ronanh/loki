@@ -835,6 +835,8 @@ func (i *reverseIterator) Close() error {
 	return nil
 }
 
+const maxPooledEntries = 64 << 10
+
 var entryBufferPool = sync.Pool{
 	New: func() any {
 		return &entryBuffer{
@@ -859,15 +861,13 @@ type reverseEntryIterator struct {
 // NewEntryReversedIter returns an iterator which loads all entries and iterates backward.
 // The labels of entries is always empty.
 func NewEntryReversedIter(it EntryIterator) (EntryIterator, error) {
-	iter, err := &reverseEntryIterator{
-		iter: it,
-		buf:  entryBufferPool.Get().(*entryBuffer),
-	}, it.Error()
-	if err != nil {
+	if err := it.Error(); err != nil {
 		return nil, err
 	}
-
-	return iter, nil
+	return &reverseEntryIterator{
+		iter: it,
+		buf:  entryBufferPool.Get().(*entryBuffer),
+	}, nil
 }
 
 func (i *reverseEntryIterator) load() {
@@ -881,10 +881,12 @@ func (i *reverseEntryIterator) load() {
 }
 
 func (i *reverseEntryIterator) Next() bool {
+	if i.buf == nil {
+		return false
+	}
 	i.load()
 	if len(i.buf.entries) == 0 {
-		entryBufferPool.Put(i.buf)
-		i.buf.entries = nil
+		i.release()
 		return false
 	}
 	i.cur, i.buf.entries = i.buf.entries[len(i.buf.entries)-1], i.buf.entries[:len(i.buf.entries)-1]
@@ -901,12 +903,25 @@ func (i *reverseEntryIterator) Labels() string {
 
 func (i *reverseEntryIterator) Error() error { return i.err }
 
-func (i *reverseEntryIterator) Close() error {
-	if i.buf.entries != nil {
-		i.buf.entries = i.buf.entries[:0]
-		entryBufferPool.Put(i.buf)
-		i.buf.entries = nil
+// release resets the buffer before Put because another goroutine may own it right after.
+func (i *reverseEntryIterator) release() {
+	if i.buf == nil {
+		return
 	}
+	buf := i.buf
+	i.buf = nil
+	// A buffer grown by a large query is left to the GC, so the pool does not keep it alive.
+	if cap(buf.entries) > maxPooledEntries {
+		return
+	}
+	// Drop references to lines and labels so the pooled buffer does not keep them alive.
+	clear(buf.entries[:cap(buf.entries)])
+	buf.entries = buf.entries[:0]
+	entryBufferPool.Put(buf)
+}
+
+func (i *reverseEntryIterator) Close() error {
+	i.release()
 	if !i.loaded {
 		i.loaded = true
 		return i.iter.Close()

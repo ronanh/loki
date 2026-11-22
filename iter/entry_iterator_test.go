@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -975,4 +977,77 @@ func TestMergingIteratorWithTimeRangedChildClosesItOnce(t *testing.T) {
 
 	require.NoError(t, merged.Close())
 	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestEntryReversedIterSharesPoolSafelyAcrossGoroutines(t *testing.T) {
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			for range 500 {
+				it, err := NewEntryReversedIter(streamOf(`{foo="bar"}`, 1, 2, 3))
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				var timestamps []int64
+				for it.Next() {
+					timestamps = append(timestamps, it.Entry().Timestamp.UnixNano())
+				}
+				if !slices.Equal(timestamps, []int64{3, 2, 1}) {
+					t.Errorf("got timestamps %v, want [3 2 1]", timestamps)
+					return
+				}
+				it.Next()
+				if err := it.Close(); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+}
+
+func TestEntryReversedIterReleasesBufferOnceAndEmpty(t *testing.T) {
+	for _, stopEarly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stop early %v", stopEarly), func(t *testing.T) {
+			it, err := NewEntryReversedIter(streamOf(`{foo="bar"}`, 1, 2, 3))
+			require.NoError(t, err)
+			reversed := it.(*reverseEntryIterator)
+			require.True(t, it.Next())
+			buf := reversed.buf
+
+			if !stopEarly {
+				for it.Next() {
+				}
+			}
+			require.NoError(t, it.Close())
+			require.Nil(t, reversed.buf)
+			require.Empty(t, buf.entries)
+			require.Positive(t, cap(buf.entries))
+			for _, entry := range buf.entries[:cap(buf.entries)] {
+				require.Zero(t, entry)
+			}
+
+			require.False(t, it.Next())
+			require.NoError(t, it.Close())
+		})
+	}
+}
+
+func TestEntryReversedIterDoesNotPoolOversizeBuffer(t *testing.T) {
+	it, err := NewEntryReversedIter(streamOf(`{foo="bar"}`, 1))
+	require.NoError(t, err)
+	reversed := it.(*reverseEntryIterator)
+	oversize := &entryBuffer{entries: make([]entryWithLabels, 1, maxPooledEntries+1)}
+	reversed.buf = oversize
+
+	require.NoError(t, it.Close())
+	require.Nil(t, reversed.buf)
+	require.Len(
+		t,
+		oversize.entries,
+		1,
+		"an oversize buffer must not be reset and put back in the pool",
+	)
 }
