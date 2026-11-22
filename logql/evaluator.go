@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"sort"
 	"sync"
@@ -703,10 +704,14 @@ type binOpStepEvaluator struct {
 	results promql.Vector
 	pairs   map[uint64][2]*promql.Sample
 	hashBuf []byte
+	closed  bool
 }
 
 func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
-	// pairs := map[uint64][2]*promql.Sample{}
+	// Close drops pairs, so stepping after it would write to a nil map.
+	if b.closed {
+		return false, 0, nil
+	}
 	var ts int64
 
 	// populate pairs
@@ -794,6 +799,10 @@ func (b *binOpStepEvaluator) Next() (bool, int64, promql.Vector) {
 }
 
 func (b *binOpStepEvaluator) Close() (lastError error) {
+	if b.closed {
+		return nil
+	}
+	b.closed = true
 	if err := b.lhs.Close(); err != nil {
 		lastError = err
 	}
@@ -870,6 +879,10 @@ func newBinOpStepEvaluator(
 	}
 	rhs, err := ev.StepEvaluator(ctx, ev, expr.RHS, q)
 	if err != nil {
+		// lhs may hold pooled iterators, and nothing else will close it.
+		if closeErr := lhs.Close(); closeErr != nil {
+			slog.ErrorContext(ctx, "closing left operand", "err", closeErr)
+		}
 		return nil, err
 	}
 

@@ -455,3 +455,71 @@ func TestVectorAggEvaluatorCloseTwiceClosesChildOnce(t *testing.T) {
 	next, _, _ = evaluator.Next()
 	require.False(t, next)
 }
+
+// closeCalls[n] counts Close calls on the nth evaluator built; building number failOnCall fails.
+func stepEvaluatorWithCloseCounts(closeCalls []int, failOnCall int) SampleEvaluator {
+	var calls int
+	return SampleEvaluatorFunc(
+		func(context.Context, SampleEvaluator, SampleExpr, Params) (StepEvaluator, error) {
+			index := calls
+			calls++
+			if index == failOnCall {
+				return nil, errors.New("cannot build evaluator")
+			}
+			return newStepEvaluator(
+				func() (bool, int64, promql.Vector) {
+					return true, 0, promql.Vector{{Metric: labels.FromStrings("app", "foo"), F: 1}}
+				},
+				func() error { closeCalls[index]++; return nil },
+				nil,
+			)
+		},
+	)
+}
+
+func parseBinOpExpr(t *testing.T) *binOpExpr {
+	t.Helper()
+	expr, err := ParseSampleExpr(
+		`count_over_time({app="foo"}[1m]) / count_over_time({app="bar"}[1m])`,
+	)
+	require.NoError(t, err)
+	binOp, ok := expr.(*binOpExpr)
+	require.True(t, ok)
+	return binOp
+}
+
+func TestBinOpStepEvaluatorCloseTwiceClosesChildrenOnce(t *testing.T) {
+	closeCalls := make([]int, 2)
+	start := time.Unix(0, 0)
+	params := NewLiteralParams("", start, start, 0, 0, logproto.FORWARD, 0, nil)
+	evaluator, err := newBinOpStepEvaluator(
+		context.Background(),
+		stepEvaluatorWithCloseCounts(closeCalls, -1),
+		parseBinOpExpr(t),
+		params,
+	)
+	require.NoError(t, err)
+	next, _, _ := evaluator.Next()
+	require.True(t, next)
+
+	require.NoError(t, evaluator.Close())
+	require.NoError(t, evaluator.Close())
+	require.Equal(t, []int{1, 1}, closeCalls)
+	require.NoError(t, evaluator.Error())
+	next, _, _ = evaluator.Next()
+	require.False(t, next)
+}
+
+func TestBinOpStepEvaluatorClosesLeftOperandWhenRightFails(t *testing.T) {
+	closeCalls := make([]int, 2)
+	start := time.Unix(0, 0)
+	params := NewLiteralParams("", start, start, 0, 0, logproto.FORWARD, 0, nil)
+	_, err := newBinOpStepEvaluator(
+		context.Background(),
+		stepEvaluatorWithCloseCounts(closeCalls, 1),
+		parseBinOpExpr(t),
+		params,
+	)
+	require.Error(t, err)
+	require.Equal(t, []int{1, 0}, closeCalls)
+}
