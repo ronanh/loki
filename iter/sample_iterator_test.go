@@ -302,3 +302,147 @@ func TestMergingSampleIteratorKeepsCloseErrorOfEmptyChild(t *testing.T) {
 	require.ErrorIs(t, merged.Error(), closeErr)
 	require.False(t, merged.Next())
 }
+
+func seriesOf(labels string, samples ...logproto.Sample) SampleIterator {
+	return NewSeriesIterator(logproto.Series{Labels: labels, Samples: samples})
+}
+
+func TestMergingSampleIteratorCloseClosesEveryChildWhenOneFails(t *testing.T) {
+	closeErr := errors.New("close failed")
+	first := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+		closeErr:       closeErr,
+	}
+	second := &closeCountingSampleIterator{SampleIterator: seriesOf(`{app="bar"}`, sample(1))}
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{first, second})
+	require.ErrorIs(t, merged.Close(), closeErr)
+	require.Equal(t, 1, first.closeCalls)
+	require.Equal(t, 1, second.closeCalls)
+}
+
+func TestMergingSampleIteratorKeepsCloseErrorOfExhaustedChild(t *testing.T) {
+	closeErr := errors.New("close failed")
+	child := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+		closeErr:       closeErr,
+	}
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{child})
+	require.True(t, merged.Next())
+	require.False(t, merged.Next())
+	require.ErrorIs(t, merged.Error(), closeErr)
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestNonOverlappingSampleIteratorStopsAtFailingChild(t *testing.T) {
+	childErr := errors.New("child failed")
+	first := &closeCountingSampleIterator{SampleIterator: seriesOf(`{app="foo"}`, sample(1))}
+	failing := &closeCountingSampleIterator{SampleIterator: &failingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(2)),
+		errAtEnd:       childErr,
+	}}
+	notStarted := &closeCountingSampleIterator{SampleIterator: seriesOf(`{app="foo"}`, sample(3))}
+
+	it := NewNonOverlappingSampleIterator([]SampleIterator{first, failing, notStarted}, "")
+	require.True(t, it.Next())
+	require.Equal(t, sample(1), it.Sample())
+	require.True(t, it.Next())
+	require.Equal(t, sample(2), it.Sample())
+	require.False(t, it.Next())
+	require.ErrorIs(t, it.Error(), childErr)
+	require.False(t, it.Next())
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, first.closeCalls)
+	require.Equal(t, 1, failing.closeCalls)
+	require.Equal(t, 1, notStarted.closeCalls)
+}
+
+func TestNonOverlappingSampleIteratorCloseClosesCurrentChild(t *testing.T) {
+	current := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1), sample(2)),
+	}
+	next := &closeCountingSampleIterator{SampleIterator: seriesOf(`{app="foo"}`, sample(3))}
+
+	it := NewNonOverlappingSampleIterator([]SampleIterator{current, next}, "")
+	require.True(t, it.Next())
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, current.closeCalls)
+	require.Equal(t, 1, next.closeCalls)
+}
+
+func TestNonOverlappingSampleIteratorClosesLastChildOnce(t *testing.T) {
+	child := &closeCountingSampleIterator{SampleIterator: seriesOf(`{app="foo"}`, sample(1))}
+
+	it := NewNonOverlappingSampleIterator([]SampleIterator{child}, "")
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.False(t, it.Next())
+	require.NoError(t, it.Error())
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestMergingSampleIteratorKeepsCloseErrorOfDroppedDuplicate(t *testing.T) {
+	// Both children fail to close, so the test does not depend on which one dedup drops.
+	firstErr, secondErr := errors.New("first close failed"), errors.New("second close failed")
+	first := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+		closeErr:       firstErr,
+	}
+	second := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+		closeErr:       secondErr,
+	}
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{first, second})
+	require.True(t, merged.Next())
+	require.False(t, merged.Next())
+
+	var errs util.MultiError
+	require.ErrorAs(t, merged.Error(), &errs)
+	require.ElementsMatch(t, []error{firstErr, secondErr}, []error(errs))
+	require.Equal(t, 1, first.closeCalls)
+	require.Equal(t, 1, second.closeCalls)
+}
+
+// seekableCloseCountingSampleIterator adds Seek so the merging iterator takes its Seekable path.
+type seekableCloseCountingSampleIterator struct {
+	closeCountingSampleIterator
+}
+
+func (it *seekableCloseCountingSampleIterator) Seek(t int64) bool {
+	for it.Next() {
+		if it.Sample().Timestamp >= t {
+			return true
+		}
+	}
+	return false
+}
+
+func TestMergingSampleIteratorSeekKeepsCloseErrorOfExhaustedChild(t *testing.T) {
+	seekableErr, plainErr := errors.New("seekable close failed"), errors.New("plain close failed")
+	seekable := &seekableCloseCountingSampleIterator{closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+		closeErr:       seekableErr,
+	}}
+	plain := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="bar"}`, sample(1)),
+		closeErr:       plainErr,
+	}
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{seekable, plain})
+	require.False(t, merged.(Seekable).Seek(10))
+
+	var errs util.MultiError
+	require.ErrorAs(t, merged.Error(), &errs)
+	require.ElementsMatch(t, []error{seekableErr, plainErr}, []error(errs))
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, seekable.closeCalls)
+	require.Equal(t, 1, plain.closeCalls)
+}

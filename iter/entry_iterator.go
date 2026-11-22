@@ -351,29 +351,19 @@ func NewMergingIterator(
 	its []EntryIterator,
 	direction logproto.Direction,
 ) HeapIterator {
-	startedIts := make([]EntryIterator, 0, len(its))
-	var err error
-	// The merging iterator owns every child: one dropped here is never closed by mi.Close.
-	for _, it := range its {
-		if it.Next() {
-			startedIts = append(startedIts, it)
-			continue
-		}
-		if err == nil {
-			err = it.Error()
-		}
-		closeErr := it.Close()
-		if err == nil {
-			err = closeErr
-		}
-	}
-
 	mi := &mergingIterator{
 		stats:    stats.GetChunkData(ctx),
 		ctx:      ctx,
-		its:      startedIts,
+		its:      make([]EntryIterator, 0, len(its)),
 		reversed: direction == logproto.BACKWARD,
-		err:      err,
+	}
+	// The merging iterator owns every child: one dropped here is never closed by mi.Close.
+	for _, it := range its {
+		if it.Next() {
+			mi.its = append(mi.its, it)
+		} else {
+			mi.dropChild(it)
+		}
 	}
 	sort.Slice(mi.its, mi.less)
 
@@ -382,15 +372,27 @@ func NewMergingIterator(
 
 // Close closes the iterator and frees associated ressources
 func (mi *mergingIterator) Close() error {
+	var firstErr error
 	for _, it := range mi.its {
 		if it != nil {
-			if err := it.Close(); err != nil {
-				return err
+			if err := it.Close(); err != nil && firstErr == nil {
+				firstErr = err
 			}
 		}
 	}
 	mi.its = nil
-	return nil
+	return firstErr
+}
+
+// dropChild closes a child that has no more entries and keeps the first error.
+func (mi *mergingIterator) dropChild(it EntryIterator) {
+	if mi.err == nil {
+		mi.err = it.Error()
+	}
+	closeErr := it.Close()
+	if mi.err == nil {
+		mi.err = closeErr
+	}
 }
 
 // Error returns errors encountered by the iterator
@@ -411,13 +413,7 @@ func (mi *mergingIterator) Push(it EntryIterator) {
 		sort.Slice(mi.its, mi.less)
 		return
 	}
-	if mi.err == nil {
-		mi.err = it.Error()
-	}
-	closeErr := it.Close()
-	if mi.err == nil {
-		mi.err = closeErr
-	}
+	mi.dropChild(it)
 }
 
 func (mi *mergingIterator) Peek() time.Time {
@@ -461,7 +457,7 @@ func (mi *mergingIterator) Next() bool {
 	// advance iterator
 	if !mi0.Next() {
 		// stream finished: remove it
-		mi0.Close()
+		mi.dropChild(mi0)
 		mi.its[0] = nil
 		mi0 = nil
 		mi.its = mi.its[1:]
@@ -514,7 +510,7 @@ func (mi *mergingIterator) dedup() bool {
 		mi.stats.TotalDuplicates++
 		if !mi.its[i].Next() {
 			// stream finished: remove it
-			mi.its[i].Close()
+			mi.dropChild(mi.its[i])
 			mi.its[i] = nil
 			mi.its = append(mi.its[:i], mi.its[i+1:]...)
 			// restart iteration from the same position
@@ -607,6 +603,7 @@ type nonOverlappingIterator struct {
 	i         int
 	iterators []EntryIterator
 	curr      EntryIterator
+	err       error
 }
 
 // NewNonOverlappingIterator gives a chained iterator over a list of iterators.
@@ -618,15 +615,24 @@ func NewNonOverlappingIterator(iterators []EntryIterator, labels string) EntryIt
 }
 
 func (i *nonOverlappingIterator) Next() bool {
+	if i.err != nil {
+		return false
+	}
 	for i.curr == nil || !i.curr.Next() {
-		if len(i.iterators) == 0 {
-			if i.curr != nil {
-				i.curr.Close()
-			}
-			return false
-		}
 		if i.curr != nil {
-			i.curr.Close()
+			i.err = i.curr.Error()
+			closeErr := i.curr.Close()
+			if i.err == nil {
+				i.err = closeErr
+			}
+			i.curr = nil
+			// Skipping a failed child would silently leave a gap in the stream.
+			if i.err != nil {
+				return false
+			}
+		}
+		if len(i.iterators) == 0 {
+			return false
 		}
 		i.i++
 		i.curr, i.iterators = i.iterators[0], i.iterators[1:]
@@ -648,6 +654,9 @@ func (i *nonOverlappingIterator) Labels() string {
 }
 
 func (i *nonOverlappingIterator) Error() error {
+	if i.err != nil {
+		return i.err
+	}
 	if i.curr != nil {
 		return i.curr.Error()
 	}
@@ -655,11 +664,18 @@ func (i *nonOverlappingIterator) Error() error {
 }
 
 func (i *nonOverlappingIterator) Close() error {
-	for _, iter := range i.iterators {
-		iter.Close()
+	var firstErr error
+	if i.curr != nil {
+		firstErr = i.curr.Close()
+		i.curr = nil
+	}
+	for _, it := range i.iterators {
+		if err := it.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
 	i.iterators = nil
-	return nil
+	return firstErr
 }
 
 type timeRangedIterator struct {

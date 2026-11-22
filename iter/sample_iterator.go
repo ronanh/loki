@@ -79,13 +79,16 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 		labels string
 	}, 0, len(its))
 	startedItsSamples := make([]logproto.Sample, 0, len(its))
-	iActiveIts := make([]int, 0, len(its))
-	var errs []error
+	mi := &mergingSampleIterator{
+		stats:      stats.GetChunkData(ctx),
+		ctx:        ctx,
+		iActiveIts: make([]int, 0, len(its)),
+	}
 	// The merging iterator owns every child: one dropped here is never closed by mi.Close.
 	for _, it := range its {
 		hasNext := it.Next()
 		if err := it.Error(); err != nil {
-			errs = append(errs, err)
+			mi.errs = append(mi.errs, err)
 		}
 		if hasNext {
 			startedItsSamples = append(startedItsSamples, it.Sample())
@@ -94,19 +97,12 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 				*logproto.Sample
 				labels string
 			}{it, &startedItsSamples[len(startedItsSamples)-1], it.Labels()})
-			iActiveIts = append(iActiveIts, len(startedIts)-1)
-		} else if err := it.Close(); err != nil {
-			errs = append(errs, err)
+			mi.iActiveIts = append(mi.iActiveIts, len(startedIts)-1)
+		} else {
+			mi.closeChild(it)
 		}
 	}
-
-	mi := &mergingSampleIterator{
-		stats:      stats.GetChunkData(ctx),
-		ctx:        ctx,
-		its:        startedIts,
-		iActiveIts: iActiveIts,
-		errs:       errs,
-	}
+	mi.its = startedIts
 	sort.Slice(mi.iActiveIts, mi.less)
 
 	return mi
@@ -120,16 +116,24 @@ var (
 
 // Close closes the iterator and frees associated ressources
 func (mi *mergingSampleIterator) Close() error {
+	var firstErr error
 	for _, it := range mi.its {
 		if it.SampleIterator != nil {
-			if err := it.Close(); err != nil {
-				return err
+			if err := it.Close(); err != nil && firstErr == nil {
+				firstErr = err
 			}
 		}
 	}
 	mi.its = nil
 	mi.iActiveIts = nil
-	return nil
+	return firstErr
+}
+
+// closeChild closes a child that has no more samples and keeps its Close error.
+func (mi *mergingSampleIterator) closeChild(it SampleIterator) {
+	if err := it.Close(); err != nil {
+		mi.errs = append(mi.errs, err)
+	}
 }
 
 // Error returns errors encountered by the iterator
@@ -209,7 +213,7 @@ func (mi *mergingSampleIterator) Next() bool {
 	}
 	if !hasNext {
 		// stream finished: remove it
-		its0.Close()
+		mi.closeChild(its0.SampleIterator)
 		its0.SampleIterator = nil
 		mi.iActiveIts = mi.iActiveIts[1:]
 	} else {
@@ -270,7 +274,7 @@ func (mi *mergingSampleIterator) dedup() {
 		}
 		if !hasNext {
 			// stream finished: remove it
-			itsi.Close()
+			mi.closeChild(itsi.SampleIterator)
 			itsi.SampleIterator = nil
 			mi.iActiveIts = slices.Delete(mi.iActiveIts, i, i+1)
 			// restart iteration from the same position
@@ -310,7 +314,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 			}
 			if !hasNext {
 				// stream finished: remove it
-				itsi.Close()
+				mi.closeChild(itsi.SampleIterator)
 				itsi.SampleIterator = nil
 				continue
 			}
@@ -332,7 +336,7 @@ func (mi *mergingSampleIterator) Seek(t int64) bool {
 				}
 				if !hasNext {
 					// stream finished: remove it
-					itsi.Close()
+					mi.closeChild(itsi.SampleIterator)
 					itsi.SampleIterator = nil
 					break
 				}
@@ -475,6 +479,7 @@ type nonOverlappingSampleIterator struct {
 	i         int
 	iterators []SampleIterator
 	curr      SampleIterator
+	err       error
 }
 
 // NewNonOverlappingSampleIterator gives a chained iterator over a list of iterators.
@@ -486,15 +491,24 @@ func NewNonOverlappingSampleIterator(iterators []SampleIterator, labels string) 
 }
 
 func (i *nonOverlappingSampleIterator) Next() bool {
+	if i.err != nil {
+		return false
+	}
 	for i.curr == nil || !i.curr.Next() {
-		if len(i.iterators) == 0 {
-			if i.curr != nil {
-				i.curr.Close()
-			}
-			return false
-		}
 		if i.curr != nil {
-			i.curr.Close()
+			i.err = i.curr.Error()
+			closeErr := i.curr.Close()
+			if i.err == nil {
+				i.err = closeErr
+			}
+			i.curr = nil
+			// Skipping a failed child would silently leave a gap in the stream.
+			if i.err != nil {
+				return false
+			}
+		}
+		if len(i.iterators) == 0 {
+			return false
 		}
 		i.i++
 		i.curr, i.iterators = i.iterators[0], i.iterators[1:]
@@ -516,6 +530,9 @@ func (i *nonOverlappingSampleIterator) Labels() string {
 }
 
 func (i *nonOverlappingSampleIterator) Error() error {
+	if i.err != nil {
+		return i.err
+	}
 	if i.curr != nil {
 		return i.curr.Error()
 	}
@@ -523,11 +540,18 @@ func (i *nonOverlappingSampleIterator) Error() error {
 }
 
 func (i *nonOverlappingSampleIterator) Close() error {
-	for _, iter := range i.iterators {
-		iter.Close()
+	var firstErr error
+	if i.curr != nil {
+		firstErr = i.curr.Close()
+		i.curr = nil
+	}
+	for _, it := range i.iterators {
+		if err := it.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
 	i.iterators = nil
-	return nil
+	return firstErr
 }
 
 type timeRangedSampleIterator struct {

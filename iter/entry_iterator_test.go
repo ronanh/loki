@@ -675,3 +675,157 @@ func TestMergingIteratorPushClosesEmptyChild(t *testing.T) {
 	require.Equal(t, 0, merged.Len())
 	require.NoError(t, merged.Error())
 }
+
+// failingEntryIterator returns errAtEnd from Error() once its inner iterator has no more entries.
+type failingEntryIterator struct {
+	EntryIterator
+	errAtEnd error
+	err      error
+}
+
+func (it *failingEntryIterator) Next() bool {
+	if it.EntryIterator.Next() {
+		return true
+	}
+	it.err = it.errAtEnd
+	return false
+}
+
+func (it *failingEntryIterator) Error() error { return it.err }
+
+func streamOf(labels string, timestamps ...int64) EntryIterator {
+	entries := make([]logproto.Entry, 0, len(timestamps))
+	for _, ts := range timestamps {
+		entries = append(entries, logproto.Entry{Timestamp: time.Unix(0, ts), Line: fmt.Sprint(ts)})
+	}
+	return NewStreamIterator(logproto.Stream{Labels: labels, Entries: entries})
+}
+
+func TestMergingIteratorReportsErrorOfExhaustedChild(t *testing.T) {
+	childErr := errors.New("child failed")
+	failing := &closeCountingEntryIterator{EntryIterator: &failingEntryIterator{
+		EntryIterator: streamOf(`{foo="bar"}`, 1),
+		errAtEnd:      childErr,
+	}}
+	longerErr := errors.New("longer child failed")
+	longer := &closeCountingEntryIterator{EntryIterator: &failingEntryIterator{
+		EntryIterator: streamOf(`{foo="baz"}`, 1, 2),
+		errAtEnd:      longerErr,
+	}}
+
+	merged := NewMergingIterator(
+		context.Background(),
+		[]EntryIterator{failing, longer},
+		logproto.FORWARD,
+	)
+	var entries int
+	for merged.Next() {
+		entries++
+	}
+	require.Equal(t, 3, entries)
+	require.ErrorIs(t, merged.Error(), childErr)
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, failing.closeCalls)
+	require.Equal(t, 1, longer.closeCalls)
+}
+
+func TestMergingIteratorReportsErrorOfDroppedDuplicate(t *testing.T) {
+	// dedup only compares timestamp and labels, while sorting breaks ties on the line,
+	// so the healthy child always comes first and the failing one is the dropped duplicate.
+	healthy := &closeCountingEntryIterator{EntryIterator: NewStreamIterator(logproto.Stream{
+		Labels: `{foo="bar"}`,
+		Entries: []logproto.Entry{
+			{Timestamp: time.Unix(0, 1), Line: "a"},
+			{Timestamp: time.Unix(0, 2), Line: "a"},
+		},
+	})}
+	duplicateErr := errors.New("duplicate failed")
+	duplicate := &closeCountingEntryIterator{EntryIterator: &failingEntryIterator{
+		EntryIterator: NewStreamIterator(logproto.Stream{
+			Labels:  `{foo="bar"}`,
+			Entries: []logproto.Entry{{Timestamp: time.Unix(0, 1), Line: "b"}},
+		}),
+		errAtEnd: duplicateErr,
+	}}
+
+	merged := NewMergingIterator(
+		context.Background(),
+		[]EntryIterator{duplicate, healthy},
+		logproto.FORWARD,
+	)
+	require.True(t, merged.Next())
+	require.Equal(t, "a", merged.Entry().Line)
+	require.ErrorIs(t, merged.Error(), duplicateErr)
+	require.Equal(t, 1, duplicate.closeCalls)
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, healthy.closeCalls)
+	require.Equal(t, 1, duplicate.closeCalls)
+}
+
+func TestMergingIteratorCloseClosesEveryChildWhenOneFails(t *testing.T) {
+	closeErr := errors.New("close failed")
+	first := &closeCountingEntryIterator{
+		EntryIterator: streamOf(`{foo="bar"}`, 1),
+		closeErr:      closeErr,
+	}
+	second := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="baz"}`, 1)}
+
+	merged := NewMergingIterator(
+		context.Background(),
+		[]EntryIterator{first, second},
+		logproto.FORWARD,
+	)
+	require.ErrorIs(t, merged.Close(), closeErr)
+	require.Equal(t, 1, first.closeCalls)
+	require.Equal(t, 1, second.closeCalls)
+}
+
+func TestNonOverlappingIteratorStopsAtFailingChild(t *testing.T) {
+	childErr := errors.New("child failed")
+	first := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 1)}
+	failing := &closeCountingEntryIterator{EntryIterator: &failingEntryIterator{
+		EntryIterator: streamOf(`{foo="bar"}`, 2),
+		errAtEnd:      childErr,
+	}}
+	notStarted := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 3)}
+
+	it := NewNonOverlappingIterator([]EntryIterator{first, failing, notStarted}, "")
+	require.True(t, it.Next())
+	require.Equal(t, int64(1), it.Entry().Timestamp.UnixNano())
+	require.True(t, it.Next())
+	require.Equal(t, int64(2), it.Entry().Timestamp.UnixNano())
+	require.False(t, it.Next())
+	require.ErrorIs(t, it.Error(), childErr)
+	require.False(t, it.Next())
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, first.closeCalls)
+	require.Equal(t, 1, failing.closeCalls)
+	require.Equal(t, 1, notStarted.closeCalls)
+}
+
+func TestNonOverlappingIteratorCloseClosesCurrentChild(t *testing.T) {
+	current := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 1, 2)}
+	next := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 3)}
+
+	it := NewNonOverlappingIterator([]EntryIterator{current, next}, "")
+	require.True(t, it.Next())
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, current.closeCalls)
+	require.Equal(t, 1, next.closeCalls)
+}
+
+func TestNonOverlappingIteratorClosesLastChildOnce(t *testing.T) {
+	child := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 1)}
+
+	it := NewNonOverlappingIterator([]EntryIterator{child}, "")
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.False(t, it.Next())
+	require.NoError(t, it.Error())
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
