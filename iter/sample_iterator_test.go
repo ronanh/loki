@@ -446,3 +446,81 @@ func TestMergingSampleIteratorSeekKeepsCloseErrorOfExhaustedChild(t *testing.T) 
 	require.Equal(t, 1, seekable.closeCalls)
 	require.Equal(t, 1, plain.closeCalls)
 }
+
+func TestTimeRangedSampleIteratorClosesChildOnceWhenRangeEnds(t *testing.T) {
+	child := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1), sample(2), sample(3)),
+	}
+
+	it := NewTimeRangedSampleIterator(child, 1, 2)
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.Equal(t, 1, child.closeCalls)
+	require.False(t, it.Next())
+	require.NoError(t, it.Error())
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestTimeRangedSampleIteratorReportsCloseErrorOfChild(t *testing.T) {
+	closeErr := errors.New("close failed")
+	child := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+		closeErr:       closeErr,
+	}
+
+	it := NewTimeRangedSampleIterator(child, 0, 10)
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.ErrorIs(t, it.Error(), closeErr)
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestTimeRangedSampleIteratorCloseBeforeEndClosesChildOnce(t *testing.T) {
+	child := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1), sample(2)),
+	}
+
+	it := NewTimeRangedSampleIterator(child, 0, 10)
+	require.True(t, it.Next())
+	require.NoError(t, it.Close())
+	require.False(t, it.Next())
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestTimeRangedSampleIteratorPrefersChildErrorOverCloseError(t *testing.T) {
+	childErr, closeErr := errors.New("child failed"), errors.New("close failed")
+	child := &closeCountingSampleIterator{
+		SampleIterator: &failingSampleIterator{
+			SampleIterator: seriesOf(`{app="foo"}`, sample(1)),
+			errAtEnd:       childErr,
+		},
+		closeErr: closeErr,
+	}
+
+	it := NewTimeRangedSampleIterator(child, 0, 10)
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.ErrorIs(t, it.Error(), childErr)
+}
+
+func TestMergingSampleIteratorWithTimeRangedChildClosesItOnce(t *testing.T) {
+	closeErr := errors.New("close failed")
+	child := &closeCountingSampleIterator{
+		SampleIterator: seriesOf(`{app="foo"}`, sample(1), sample(2)),
+		closeErr:       closeErr,
+	}
+	timeRanged := NewTimeRangedSampleIterator(child, 0, 2)
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{timeRanged})
+	require.True(t, merged.Next())
+	require.False(t, merged.Next())
+	require.Equal(t, closeErr, merged.Error())
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, child.closeCalls)
+}

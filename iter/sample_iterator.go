@@ -557,6 +557,8 @@ func (i *nonOverlappingSampleIterator) Close() error {
 type timeRangedSampleIterator struct {
 	SampleIterator
 	mint, maxt int64
+	done       bool
+	err        error
 }
 
 // NewTimeRangedSampleIterator returns an iterator which filters entries by time range.
@@ -569,9 +571,12 @@ func NewTimeRangedSampleIterator(it SampleIterator, mint, maxt int64) SampleIter
 }
 
 func (i *timeRangedSampleIterator) Next() bool {
+	if i.done {
+		return false
+	}
 	ok := i.SampleIterator.Next()
 	if !ok {
-		i.Close()
+		i.finish()
 		return ok
 	}
 	ts := i.SampleIterator.Sample().Timestamp
@@ -591,9 +596,35 @@ func (i *timeRangedSampleIterator) Next() bool {
 		}
 	}
 	if !ok {
-		i.Close()
+		i.finish()
 	}
 	return ok
+}
+
+// finish closes the child as soon as the range ends, so its resources do not wait for Close.
+func (i *timeRangedSampleIterator) finish() {
+	i.done = true
+	i.err = i.SampleIterator.Error()
+	closeErr := i.SampleIterator.Close()
+	if i.err == nil {
+		i.err = closeErr
+	}
+}
+
+func (i *timeRangedSampleIterator) Error() error {
+	if i.done {
+		return i.err
+	}
+	return i.SampleIterator.Error()
+}
+
+func (i *timeRangedSampleIterator) Close() error {
+	// The child's close error, if any, is already reported by Error.
+	if i.done {
+		return nil
+	}
+	i.done = true
+	return i.SampleIterator.Close()
 }
 
 // ReadBatch reads a set of entries off an iterator.

@@ -681,6 +681,8 @@ func (i *nonOverlappingIterator) Close() error {
 type timeRangedIterator struct {
 	EntryIterator
 	mint, maxt time.Time
+	done       bool
+	err        error
 }
 
 // NewTimeRangedIterator returns an iterator which filters entries by time range.
@@ -694,9 +696,12 @@ func NewTimeRangedIterator(it EntryIterator, mint, maxt time.Time) EntryIterator
 }
 
 func (i *timeRangedIterator) Next() bool {
+	if i.done {
+		return false
+	}
 	ok := i.EntryIterator.Next()
 	if !ok {
-		i.Close()
+		i.finish()
 		return ok
 	}
 	ts := i.EntryIterator.Entry().Timestamp
@@ -716,9 +721,31 @@ func (i *timeRangedIterator) Next() bool {
 		}
 	}
 	if !ok {
-		i.Close()
+		i.finish()
 	}
 	return ok
+}
+
+// finish closes the child as soon as the range ends, so its resources do not wait for Close.
+func (i *timeRangedIterator) finish() {
+	i.done = true
+	i.err = closeFinished(i.EntryIterator)
+}
+
+func (i *timeRangedIterator) Error() error {
+	if i.done {
+		return i.err
+	}
+	return i.EntryIterator.Error()
+}
+
+func (i *timeRangedIterator) Close() error {
+	// The child's close error, if any, is already reported by Error.
+	if i.done {
+		return nil
+	}
+	i.done = true
+	return i.EntryIterator.Close()
 }
 
 type entryWithLabels struct {
@@ -733,6 +760,7 @@ type reverseIterator struct {
 
 	loaded bool
 	limit  uint32
+	err    error
 }
 
 // NewReversedIter returns an iterator which loads all or up to N entries
@@ -764,8 +792,18 @@ func (i *reverseIterator) load() {
 				entryWithLabels{i.iter.Entry(), i.iter.Labels()},
 			)
 		}
-		i.iter.Close()
+		i.err = closeFinished(i.iter)
 	}
+}
+
+// closeFinished closes a child that is no longer read and returns its error, else its close error.
+func closeFinished(it EntryIterator) error {
+	err := it.Error()
+	closeErr := it.Close()
+	if err == nil {
+		err = closeErr
+	}
+	return err
 }
 
 func (i *reverseIterator) Next() bool {
@@ -787,10 +825,11 @@ func (i *reverseIterator) Labels() string {
 	return i.cur.labels
 }
 
-func (i *reverseIterator) Error() error { return nil }
+func (i *reverseIterator) Error() error { return i.err }
 
 func (i *reverseIterator) Close() error {
 	if !i.loaded {
+		i.loaded = true
 		return i.iter.Close()
 	}
 	return nil
@@ -814,6 +853,7 @@ type reverseEntryIterator struct {
 	buf  *entryBuffer
 
 	loaded bool
+	err    error
 }
 
 // NewEntryReversedIter returns an iterator which loads all entries and iterates backward.
@@ -836,7 +876,7 @@ func (i *reverseEntryIterator) load() {
 		for i.iter.Next() {
 			i.buf.entries = append(i.buf.entries, entryWithLabels{i.iter.Entry(), i.iter.Labels()})
 		}
-		i.iter.Close()
+		i.err = closeFinished(i.iter)
 	}
 }
 
@@ -859,7 +899,7 @@ func (i *reverseEntryIterator) Labels() string {
 	return i.cur.labels
 }
 
-func (i *reverseEntryIterator) Error() error { return nil }
+func (i *reverseEntryIterator) Error() error { return i.err }
 
 func (i *reverseEntryIterator) Close() error {
 	if i.buf.entries != nil {
@@ -868,6 +908,7 @@ func (i *reverseEntryIterator) Close() error {
 		i.buf.entries = nil
 	}
 	if !i.loaded {
+		i.loaded = true
 		return i.iter.Close()
 	}
 	return nil

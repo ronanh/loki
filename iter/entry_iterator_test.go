@@ -829,3 +829,150 @@ func TestNonOverlappingIteratorClosesLastChildOnce(t *testing.T) {
 	require.NoError(t, it.Close())
 	require.Equal(t, 1, child.closeCalls)
 }
+
+func TestTimeRangedIteratorClosesChildOnceWhenRangeEnds(t *testing.T) {
+	child := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 1, 2, 3)}
+
+	it := NewTimeRangedIterator(child, time.Unix(0, 1), time.Unix(0, 2))
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.Equal(t, 1, child.closeCalls)
+	require.False(t, it.Next())
+	require.NoError(t, it.Error())
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestTimeRangedIteratorReportsCloseErrorOfChild(t *testing.T) {
+	closeErr := errors.New("close failed")
+	child := &closeCountingEntryIterator{
+		EntryIterator: streamOf(`{foo="bar"}`, 1),
+		closeErr:      closeErr,
+	}
+
+	it := NewTimeRangedIterator(child, time.Unix(0, 0), time.Unix(0, 10))
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.ErrorIs(t, it.Error(), closeErr)
+
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestTimeRangedIteratorCloseBeforeEndClosesChildOnce(t *testing.T) {
+	child := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 1, 2)}
+
+	it := NewTimeRangedIterator(child, time.Unix(0, 0), time.Unix(0, 10))
+	require.True(t, it.Next())
+	require.NoError(t, it.Close())
+	require.False(t, it.Next())
+	require.NoError(t, it.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
+
+func TestReversedIteratorsReportErrorsOfChild(t *testing.T) {
+	childErr := errors.New("child failed")
+	closeErr := errors.New("close failed")
+	for _, reverser := range reversers {
+		name, reverse := reverser.name, reverser.reverse
+		t.Run(name+" child error", func(t *testing.T) {
+			child := &closeCountingEntryIterator{EntryIterator: &failingEntryIterator{
+				EntryIterator: streamOf(`{foo="bar"}`, 1, 2),
+				errAtEnd:      childErr,
+			}}
+			it, err := reverse(child)
+			require.NoError(t, err)
+			require.True(t, it.Next())
+			require.Equal(t, int64(2), it.Entry().Timestamp.UnixNano())
+			require.ErrorIs(t, it.Error(), childErr)
+			require.NoError(t, it.Close())
+			require.Equal(t, 1, child.closeCalls)
+		})
+		t.Run(name+" close error", func(t *testing.T) {
+			child := &closeCountingEntryIterator{
+				EntryIterator: streamOf(`{foo="bar"}`, 1),
+				closeErr:      closeErr,
+			}
+			it, err := reverse(child)
+			require.NoError(t, err)
+			require.True(t, it.Next())
+			require.False(t, it.Next())
+			require.ErrorIs(t, it.Error(), closeErr)
+			require.NoError(t, it.Close())
+			require.Equal(t, 1, child.closeCalls)
+		})
+	}
+}
+
+var reversers = []struct {
+	name    string
+	reverse func(EntryIterator) (EntryIterator, error)
+}{
+	{
+		"NewReversedIter",
+		func(it EntryIterator) (EntryIterator, error) { return NewReversedIter(it, 0, false) },
+	},
+	{
+		"NewReversedIter preloaded",
+		func(it EntryIterator) (EntryIterator, error) { return NewReversedIter(it, 0, true) },
+	},
+	{
+		"NewReversedIter with limit",
+		func(it EntryIterator) (EntryIterator, error) { return NewReversedIter(it, 10, false) },
+	},
+	{"NewEntryReversedIter", NewEntryReversedIter},
+}
+
+func TestReversedIteratorsCloseBeforeLoadClosesChildOnce(t *testing.T) {
+	for _, reverser := range reversers {
+		if reverser.name == "NewReversedIter preloaded" {
+			continue
+		}
+		t.Run(reverser.name, func(t *testing.T) {
+			child := &closeCountingEntryIterator{EntryIterator: streamOf(`{foo="bar"}`, 1)}
+			it, err := reverser.reverse(child)
+			require.NoError(t, err)
+			require.NoError(t, it.Close())
+			require.NoError(t, it.Close())
+			require.Equal(t, 1, child.closeCalls)
+		})
+	}
+}
+
+func TestTimeRangedIteratorPrefersChildErrorOverCloseError(t *testing.T) {
+	childErr, closeErr := errors.New("child failed"), errors.New("close failed")
+	child := &closeCountingEntryIterator{
+		EntryIterator: &failingEntryIterator{
+			EntryIterator: streamOf(`{foo="bar"}`, 1),
+			errAtEnd:      childErr,
+		},
+		closeErr: closeErr,
+	}
+
+	it := NewTimeRangedIterator(child, time.Unix(0, 0), time.Unix(0, 10))
+	require.True(t, it.Next())
+	require.False(t, it.Next())
+	require.ErrorIs(t, it.Error(), childErr)
+}
+
+func TestMergingIteratorWithTimeRangedChildClosesItOnce(t *testing.T) {
+	closeErr := errors.New("close failed")
+	child := &closeCountingEntryIterator{
+		EntryIterator: streamOf(`{foo="bar"}`, 1, 2),
+		closeErr:      closeErr,
+	}
+	timeRanged := NewTimeRangedIterator(child, time.Unix(0, 0), time.Unix(0, 2))
+
+	merged := NewMergingIterator(
+		context.Background(),
+		[]EntryIterator{timeRanged},
+		logproto.FORWARD,
+	)
+	require.True(t, merged.Next())
+	require.False(t, merged.Next())
+	require.ErrorIs(t, merged.Error(), closeErr)
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, child.closeCalls)
+}
