@@ -1,11 +1,16 @@
 package logql
 
 import (
+	"context"
+	"errors"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
+	"github.com/ronanh/loki/iter"
+	"github.com/ronanh/loki/logproto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -337,4 +342,116 @@ func Test_absentLabels(t *testing.T) {
 			require.Equal(t, tc.expected, got)
 		})
 	}
+}
+
+type closeCountingSampleIterator struct {
+	iter.SampleIterator
+	closeCalls int
+	err        error
+}
+
+func (it *closeCountingSampleIterator) Close() error {
+	it.closeCalls++
+	return nil
+}
+
+func (it *closeCountingSampleIterator) Error() error { return it.err }
+
+func newRangeAggTestEvaluator(t *testing.T, query string, child iter.SampleIterator) StepEvaluator {
+	t.Helper()
+	expr, err := ParseSampleExpr(query)
+	require.NoError(t, err)
+	rangeExpr, ok := expr.(*rangeAggregationExpr)
+	require.True(t, ok)
+	start := time.Unix(0, 0)
+	params := NewLiteralParams(
+		query,
+		start,
+		start.Add(time.Minute),
+		time.Second,
+		0,
+		logproto.FORWARD,
+		0,
+		nil,
+	)
+	evaluator, err := rangeAggEvaluator(iter.NewPeekingSampleIterator(child), rangeExpr, params)
+	require.NoError(t, err)
+	return evaluator
+}
+
+var rangeAggTestQueries = []string{
+	`count_over_time({app="foo"}[1m])`,
+	`absent_over_time({app="foo"}[1m])`,
+}
+
+func TestRangeAggEvaluatorCloseTwiceClosesChildOnce(t *testing.T) {
+	for _, query := range rangeAggTestQueries {
+		t.Run(query, func(t *testing.T) {
+			child := &closeCountingSampleIterator{
+				SampleIterator: iter.NewSeriesIterator(logproto.Series{
+					Labels: `{app="foo"}`,
+					Samples: []logproto.Sample{
+						{Timestamp: time.Second.Nanoseconds(), Hash: 1, Value: 1},
+					},
+				}),
+			}
+			evaluator := newRangeAggTestEvaluator(t, query, child)
+			next, _, _ := evaluator.Next()
+			require.True(t, next)
+
+			require.NoError(t, evaluator.Close())
+			require.NoError(t, evaluator.Close())
+			require.Equal(t, 1, child.closeCalls)
+			require.NoError(t, evaluator.Error())
+			next, _, _ = evaluator.Next()
+			require.False(t, next)
+		})
+	}
+}
+
+func TestRangeAggEvaluatorKeepsErrorAfterClose(t *testing.T) {
+	for _, query := range rangeAggTestQueries {
+		t.Run(query, func(t *testing.T) {
+			childErr := errors.New("child failed")
+			child := &closeCountingSampleIterator{
+				SampleIterator: iter.NewSeriesIterator(logproto.Series{Labels: `{app="foo"}`}),
+				err:            childErr,
+			}
+			evaluator := newRangeAggTestEvaluator(t, query, child)
+			require.ErrorIs(t, evaluator.Error(), childErr)
+
+			require.NoError(t, evaluator.Close())
+			require.ErrorIs(t, evaluator.Error(), childErr)
+		})
+	}
+}
+
+func TestVectorAggEvaluatorCloseTwiceClosesChildOnce(t *testing.T) {
+	expr, err := ParseSampleExpr(`sum(count_over_time({app="foo"}[1m]))`)
+	require.NoError(t, err)
+	vectorExpr, ok := expr.(*vectorAggregationExpr)
+	require.True(t, ok)
+
+	var childCloseCalls int
+	childEvaluator := SampleEvaluatorFunc(
+		func(context.Context, SampleEvaluator, SampleExpr, Params) (StepEvaluator, error) {
+			return newStepEvaluator(
+				func() (bool, int64, promql.Vector) { return true, 0, promql.Vector{} },
+				func() error { childCloseCalls++; return nil },
+				nil,
+			)
+		},
+	)
+	start := time.Unix(0, 0)
+	params := NewLiteralParams("", start, start, 0, 0, logproto.FORWARD, 0, nil)
+	evaluator, err := vectorAggEvaluator(context.Background(), childEvaluator, vectorExpr, params)
+	require.NoError(t, err)
+	next, _, _ := evaluator.Next()
+	require.True(t, next)
+
+	require.NoError(t, evaluator.Close())
+	require.NoError(t, evaluator.Close())
+	require.Equal(t, 1, childCloseCalls)
+	next, _, _ = evaluator.Next()
+	require.False(t, next)
 }

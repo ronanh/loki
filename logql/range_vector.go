@@ -95,6 +95,10 @@ func (r *rangeVectorIterator) Next() bool {
 }
 
 func (r *rangeVectorIterator) Close() error {
+	// Close resets r.iter, so a second call finds nothing to close.
+	if r.iter == nil {
+		return nil
+	}
 	for i := range r.window {
 		// might reuse the allocated points
 		allocPoints := r.window[i].allocPoints
@@ -130,6 +134,9 @@ func (r *rangeVectorIterator) Close() error {
 }
 
 func (r *rangeVectorIterator) Error() error {
+	if r.iter == nil {
+		return nil
+	}
 	return r.iter.Error()
 }
 

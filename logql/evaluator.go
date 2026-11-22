@@ -378,6 +378,10 @@ func vectorAggEvaluator(
 	sort.Strings(expr.grouping.groups)
 	eg := evaluatorGroupsPool.Get().(*evaluatorGroups)
 	return newStepEvaluator(func() (bool, int64, promql.Vector) {
+		// eg is nil once closed: it is back in the pool and may belong to another query.
+		if eg == nil {
+			return false, 0, promql.Vector{}
+		}
 		next, ts, vec := nextEvaluator.Next()
 
 		if !next {
@@ -537,10 +541,14 @@ func vectorAggEvaluator(
 		}
 		return next, ts, vec
 	}, func() error {
+		if eg == nil {
+			return nil
+		}
 		eg.groups = eg.groups[:0]
 		eg.stepResults = eg.stepResults[:0]
 		eg.sorted = false
 		evaluatorGroupsPool.Put(eg)
+		eg = nil
 		return nextEvaluator.Close()
 	}, nextEvaluator.Error)
 }
@@ -583,6 +591,9 @@ type rangeVectorEvaluator struct {
 }
 
 func (r *rangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
+	if r.iter == nil {
+		return false, 0, promql.Vector{}
+	}
 	next := r.iter.Next()
 	if !next {
 		return false, 0, promql.Vector{}
@@ -600,19 +611,30 @@ func (r *rangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	return true, ts, vec
 }
 
-func (r rangeVectorEvaluator) Close() error {
-	err := r.iter.Close()
-	iter := r.iter
+func (r *rangeVectorEvaluator) Close() error {
+	if r.iter == nil {
+		return nil
+	}
+	if r.err == nil {
+		r.err = r.iter.Error()
+	}
+	err := releaseRangeVectorIterator(r.iter)
 	r.iter = nil
-	rangeVectorIteratorPool.Put(iter)
 	return err
 }
 
-func (r rangeVectorEvaluator) Error() error {
-	if r.err != nil {
+func (r *rangeVectorEvaluator) Error() error {
+	if r.err != nil || r.iter == nil {
 		return r.err
 	}
 	return r.iter.Error()
+}
+
+// releaseRangeVectorIterator closes it and returns it to the pool; callers must then drop it.
+func releaseRangeVectorIterator(it RangeVectorIterator) error {
+	err := it.Close()
+	rangeVectorIteratorPool.Put(it)
+	return err
 }
 
 type absentRangeVectorEvaluator struct {
@@ -623,6 +645,9 @@ type absentRangeVectorEvaluator struct {
 }
 
 func (r *absentRangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
+	if r.iter == nil {
+		return false, 0, promql.Vector{}
+	}
 	next := r.iter.Next()
 	if !next {
 		return false, 0, promql.Vector{}
@@ -650,16 +675,20 @@ func (r *absentRangeVectorEvaluator) Next() (bool, int64, promql.Vector) {
 	}
 }
 
-func (r absentRangeVectorEvaluator) Close() error {
-	err := r.iter.Close()
-	iter := r.iter
+func (r *absentRangeVectorEvaluator) Close() error {
+	if r.iter == nil {
+		return nil
+	}
+	if r.err == nil {
+		r.err = r.iter.Error()
+	}
+	err := releaseRangeVectorIterator(r.iter)
 	r.iter = nil
-	rangeVectorIteratorPool.Put(iter)
 	return err
 }
 
-func (r absentRangeVectorEvaluator) Error() error {
-	if r.err != nil {
+func (r *absentRangeVectorEvaluator) Error() error {
+	if r.err != nil || r.iter == nil {
 		return r.err
 	}
 	return r.iter.Error()
