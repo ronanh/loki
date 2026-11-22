@@ -265,7 +265,7 @@ func (mi *mergingSampleIterator) dedup() {
 		// Duplicate -> advance to discard
 		mi.stats.TotalDuplicates++
 		hasNext := itsi.Next()
-		if err := its0.Error(); err != nil {
+		if err := itsi.Error(); err != nil {
 			mi.errs = append(mi.errs, err)
 		}
 		if !hasNext {

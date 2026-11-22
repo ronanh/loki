@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ronanh/loki/logproto"
+	"github.com/ronanh/loki/util"
 	"github.com/stretchr/testify/require"
 )
 
@@ -121,6 +122,49 @@ func TestNewHeapSampleIterator(t *testing.T) {
 	require.False(t, it.Next())
 	require.NoError(t, it.Error())
 	require.NoError(t, it.Close())
+}
+
+// failingSampleIterator returns errAtEnd from Error() once its inner iterator has no more samples.
+type failingSampleIterator struct {
+	SampleIterator
+	errAtEnd error
+	err      error
+}
+
+func (it *failingSampleIterator) Next() bool {
+	if it.SampleIterator.Next() {
+		return true
+	}
+	it.err = it.errAtEnd
+	return false
+}
+
+func (it *failingSampleIterator) Error() error { return it.err }
+
+func TestMergingSampleIteratorReportsErrorOfDroppedDuplicate(t *testing.T) {
+	newFailing := func(errAtEnd error) SampleIterator {
+		return &failingSampleIterator{
+			SampleIterator: NewSeriesIterator(logproto.Series{
+				Labels:  `{app="foo"}`,
+				Samples: []logproto.Sample{sample(1)},
+			}),
+			errAtEnd: errAtEnd,
+		}
+	}
+	// Both children fail, so the test does not depend on which one dedup advances.
+	firstErr, secondErr := errors.New("first child failed"), errors.New("second child failed")
+
+	merged := NewMergingSampleIterator(
+		context.Background(),
+		[]SampleIterator{newFailing(firstErr), newFailing(secondErr)},
+	)
+	require.True(t, merged.Next())
+	require.Equal(t, sample(1), merged.Sample())
+	require.False(t, merged.Next())
+
+	var errs util.MultiError
+	require.ErrorAs(t, merged.Error(), &errs)
+	require.ElementsMatch(t, []error{firstErr, secondErr}, []error(errs))
 }
 
 type fakeSampleClient struct {
