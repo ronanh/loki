@@ -2,6 +2,7 @@ package iter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -617,4 +618,60 @@ func Test_timeRangedIterator_Next(t *testing.T) {
 			},
 		)
 	}
+}
+
+type closeCountingEntryIterator struct {
+	EntryIterator
+	closeCalls int
+	closeErr   error
+}
+
+func (it *closeCountingEntryIterator) Close() error {
+	it.closeCalls++
+	return it.closeErr
+}
+
+func TestMergingIteratorClosesEveryChild(t *testing.T) {
+	withData := &closeCountingEntryIterator{
+		EntryIterator: mkStreamIterator(identity, defaultLabels),
+	}
+	empty := &closeCountingEntryIterator{
+		EntryIterator: NewStreamIterator(logproto.Stream{Labels: `{foo="bar"}`}),
+	}
+
+	merged := NewMergingIterator(
+		context.Background(),
+		[]EntryIterator{withData, empty},
+		logproto.FORWARD,
+	)
+	require.Equal(t, 1, empty.closeCalls)
+	require.NoError(t, merged.Error())
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, withData.closeCalls)
+	require.Equal(t, 1, empty.closeCalls)
+}
+
+func TestMergingIteratorKeepsCloseErrorOfEmptyChild(t *testing.T) {
+	closeErr := errors.New("close failed")
+	empty := &closeCountingEntryIterator{
+		EntryIterator: NewStreamIterator(logproto.Stream{Labels: `{foo="bar"}`}),
+		closeErr:      closeErr,
+	}
+
+	merged := NewMergingIterator(context.Background(), []EntryIterator{empty}, logproto.FORWARD)
+	require.ErrorIs(t, merged.Error(), closeErr)
+	require.False(t, merged.Next())
+}
+
+func TestMergingIteratorPushClosesEmptyChild(t *testing.T) {
+	merged := NewMergingIterator(context.Background(), nil, logproto.FORWARD)
+	empty := &closeCountingEntryIterator{
+		EntryIterator: NewStreamIterator(logproto.Stream{Labels: `{foo="bar"}`}),
+	}
+
+	merged.Push(empty)
+	require.Equal(t, 1, empty.closeCalls)
+	require.Equal(t, 0, merged.Len())
+	require.NoError(t, merged.Error())
 }

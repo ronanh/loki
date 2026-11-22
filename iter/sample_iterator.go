@@ -81,6 +81,7 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 	startedItsSamples := make([]logproto.Sample, 0, len(its))
 	iActiveIts := make([]int, 0, len(its))
 	var errs []error
+	// The merging iterator owns every child: one dropped here is never closed by mi.Close.
 	for _, it := range its {
 		hasNext := it.Next()
 		if err := it.Error(); err != nil {
@@ -94,6 +95,8 @@ func NewMergingSampleIterator(ctx context.Context, its []SampleIterator) Peeking
 				labels string
 			}{it, &startedItsSamples[len(startedItsSamples)-1], it.Labels()})
 			iActiveIts = append(iActiveIts, len(startedIts)-1)
+		} else if err := it.Close(); err != nil {
+			errs = append(errs, err)
 		}
 	}
 

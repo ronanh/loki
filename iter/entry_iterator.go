@@ -353,11 +353,18 @@ func NewMergingIterator(
 ) HeapIterator {
 	startedIts := make([]EntryIterator, 0, len(its))
 	var err error
+	// The merging iterator owns every child: one dropped here is never closed by mi.Close.
 	for _, it := range its {
 		if it.Next() {
 			startedIts = append(startedIts, it)
-		} else if err == nil {
+			continue
+		}
+		if err == nil {
 			err = it.Error()
+		}
+		closeErr := it.Close()
+		if err == nil {
+			err = closeErr
 		}
 	}
 
@@ -402,6 +409,14 @@ func (mi *mergingIterator) Push(it EntryIterator) {
 	if it.Next() {
 		mi.its = append(mi.its, it)
 		sort.Slice(mi.its, mi.less)
+		return
+	}
+	if mi.err == nil {
+		mi.err = it.Error()
+	}
+	closeErr := it.Close()
+	if mi.err == nil {
+		mi.err = closeErr
 	}
 }
 

@@ -2,6 +2,7 @@ package iter
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -202,4 +203,58 @@ func TestReadSampleBatch(t *testing.T) {
 	require.ElementsMatch(t, []logproto.Series{carSeries, varSeries}, res.Series)
 	require.Equal(t, uint32(6), size)
 	require.NoError(t, err)
+}
+
+type closeCountingSampleIterator struct {
+	SampleIterator
+	closeCalls int
+	closeErr   error
+}
+
+func (it *closeCountingSampleIterator) Close() error {
+	it.closeCalls++
+	return it.closeErr
+}
+
+func TestMergingSampleIteratorClosesEveryChild(t *testing.T) {
+	withData := &closeCountingSampleIterator{SampleIterator: NewSeriesIterator(logproto.Series{
+		Labels:  `{app="foo"}`,
+		Samples: []logproto.Sample{sample(1), sample(2)},
+	})}
+	empty := &closeCountingSampleIterator{
+		SampleIterator: NewSeriesIterator(logproto.Series{Labels: `{app="bar"}`}),
+	}
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{withData, empty})
+	require.Equal(t, 1, empty.closeCalls)
+	require.NoError(t, merged.Error())
+
+	require.NoError(t, merged.Close())
+	require.Equal(t, 1, withData.closeCalls)
+	require.Equal(t, 1, empty.closeCalls)
+}
+
+func TestPeekingSampleIteratorClosesEmptyChild(t *testing.T) {
+	empty := &closeCountingSampleIterator{
+		SampleIterator: NewSeriesIterator(logproto.Series{Labels: `{app="bar"}`}),
+	}
+
+	peeking := NewPeekingSampleIterator(empty)
+	require.Equal(t, 1, empty.closeCalls)
+	require.False(t, peeking.Next())
+
+	require.NoError(t, peeking.Close())
+	require.Equal(t, 1, empty.closeCalls)
+}
+
+func TestMergingSampleIteratorKeepsCloseErrorOfEmptyChild(t *testing.T) {
+	closeErr := errors.New("close failed")
+	empty := &closeCountingSampleIterator{
+		SampleIterator: NewSeriesIterator(logproto.Series{Labels: `{app="bar"}`}),
+		closeErr:       closeErr,
+	}
+
+	merged := NewMergingSampleIterator(context.Background(), []SampleIterator{empty})
+	require.ErrorIs(t, merged.Error(), closeErr)
+	require.False(t, merged.Next())
 }
