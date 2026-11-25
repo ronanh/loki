@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var labelBar, _ = promqlParser.ParseMetric(`{app="bar"}`)
+
 func Test_logSelectorExpr_String(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

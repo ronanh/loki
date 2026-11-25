@@ -1,7 +1,6 @@
 package logql
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"regexp"
@@ -12,8 +11,6 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
-	"github.com/ronanh/loki/iter"
-	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
 )
 
@@ -37,44 +34,6 @@ type QueryParams interface {
 type implicit struct{}
 
 func (implicit) logQLExpr() {}
-
-// SelectParams specifies parameters passed to data selections.
-type SelectLogParams struct {
-	*logproto.QueryRequest
-}
-
-// LogSelector returns the LogSelectorExpr from the SelectParams.
-// The `LogSelectorExpr` can then returns all matchers and filters to use for that request.
-func (s SelectLogParams) LogSelector() (LogSelectorExpr, error) {
-	return ParseLogSelector(s.Selector)
-}
-
-type SelectSampleParams struct {
-	*logproto.SampleQueryRequest
-}
-
-// Expr returns the SampleExpr from the SelectSampleParams.
-// The `LogSelectorExpr` can then returns all matchers and filters to use for that request.
-func (s SelectSampleParams) Expr() (SampleExpr, error) {
-	return ParseSampleExpr(s.Selector)
-}
-
-// LogSelector returns the LogSelectorExpr from the SelectParams.
-// The `LogSelectorExpr` can then returns all matchers and filters to use for that request.
-func (s SelectSampleParams) LogSelector() (LogSelectorExpr, error) {
-	expr, err := ParseSampleExpr(s.Selector)
-	if err != nil {
-		return nil, err
-	}
-	return expr.Selector(), nil
-}
-
-// Querier allows a LogQL expression to fetch an EntryIterator for a
-// set of matchers and filters
-type Querier interface {
-	SelectLogs(context.Context, SelectLogParams) (iter.EntryIterator, error)
-	SelectSamples(context.Context, SelectSampleParams) (iter.SampleIterator, error)
-}
 
 // LogSelectorExpr is a LogQL expression filtering and returning logs.
 type LogSelectorExpr interface {

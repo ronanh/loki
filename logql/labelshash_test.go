@@ -128,3 +128,51 @@ func BenchmarkHashForLabelsImpl(b *testing.B) {
 		})
 	}
 }
+
+// The shapes below mirror what the xlog alerter actually feeds the engine
+// (measured on supprol4, 2026-08-01):
+//
+//   - stream label sets: 23..29 labels, ~700..970 bytes once packed by the
+//     stringlabels representation (median 25 labels / 827 bytes),
+//   - ~60..120 input series per step reaching the vector aggregation,
+//   - ~20 distinct groups per query,
+//   - 2..4 steps per query, then the whole evaluator is torn down (one query
+//     per Kafka message).
+//
+// benchStreamLabels builds `n` such label sets. `groupCard` distinct values are
+// used for the grouped labels so the group count is controllable independently
+// of the series count.
+func benchStreamLabels(n, groupCard int) []labels.Labels {
+	out := make([]labels.Labels, n)
+	for i := range out {
+		g := i % groupCard
+		out[i] = labels.FromStrings(
+			"admin_tenant", "AdmLogCentralizationsupprol3eu2",
+			"cluster", "supprol3",
+			"datacenter", "eu2",
+			"emitter_admin_tenant", "AdmObsCollectorocfarmeu2",
+			"environment", "DEVENV",
+			"full_cluster", "supprol3_main",
+			"k8s_container_name", fmt.Sprintf("alertgw%d", g),
+			"k8s_pod_name", fmt.Sprintf("ak8fdtgqi7xmlspbebzn-alertgw-6d6d9c5bb7-vb%03d", g),
+			"k8s_workload_def_name", "alertgw",
+			"k8s_workload_name", "ak8fdtgqi7xmlspbebzn-alertgw",
+			"logtype", "STDOUT",
+			"path", fmt.Sprintf("alertgw%d.log", i),
+			"path_hash", fmt.Sprintf("1AF1DF7857734B7AFBE15201891257%02d", i%100),
+			"region", "eu2",
+			"resource_id", fmt.Sprintf("ak8fdtgqi7xmlspbebzn-alertgw-6d6d9c5bb7-v%03d", i),
+			"resource_ip", fmt.Sprintf("10.42.48.%d", i%256),
+			"resource_level", "resource",
+			"resource_name", fmt.Sprintf("alertgw_6d6d9c5bb7-v%03d-alertgw", i),
+			"service_id", "LogCentralization_wTnZbEbPSLmX7iQGtdF8KA",
+			"service_type", "Container",
+			"svc_def_name", "LogCentralization",
+			"svc_def_version", "1.11.0_20260730213939916",
+			"svc_workload_definition_name", "alertgw",
+			"svc_workload_definition_version", "1.11.0",
+			"svc_workload_name", "ak8fdtgqi7xmlspbebzn-alertgw",
+		)
+	}
+	return out
+}

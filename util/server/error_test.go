@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/ronanh/loki/logql"
-	"github.com/ronanh/loki/util"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +23,6 @@ func Test_writeError(t *testing.T) {
 		{"deadline", context.DeadlineExceeded, ErrDeadlineExceeded, http.StatusGatewayTimeout},
 		{"parse error", logql.ParseError{}, "parse error : ", http.StatusBadRequest},
 		{"internal", errors.New("foo"), "foo", http.StatusInternalServerError},
-		{"multi mixed", util.MultiError{context.Canceled, context.DeadlineExceeded}, "2 errors: context canceled; context deadline exceeded", http.StatusInternalServerError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()

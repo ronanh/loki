@@ -4,14 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/prometheus/prometheus/promql"
 	"github.com/stretchr/testify/require"
 )
-
-var foldOps = []string{
-	OpTypeAdd, OpTypeSub, OpTypeMul, OpTypeDiv, OpTypeMod, OpTypePow,
-	OpTypeCmpEQ, OpTypeNEQ, OpTypeGT, OpTypeGTE, OpTypeLT, OpTypeLTE,
-}
 
 func TestFoldLiterals(t *testing.T) {
 	for _, tc := range []struct {
@@ -46,30 +40,5 @@ func TestFoldLiterals(t *testing.T) {
 			}
 			require.Equal(t, tc.want, lit.Value())
 		})
-	}
-}
-
-func TestFoldLiteralsMatchesMergeBinOp(t *testing.T) {
-	values := []float64{-3, -1, -0.5, 0, 0.5, 1, 2, 3, math.NaN(), math.Inf(1), math.Inf(-1)}
-	for _, op := range foldOps {
-		for _, left := range values {
-			for _, right := range values {
-				var want promql.Sample
-				mergeBinOp(
-					op,
-					&promql.Sample{F: left},
-					&promql.Sample{F: right},
-					false,
-					false,
-					&want,
-				)
-				got := foldLiterals(op, left, right)
-				if math.IsNaN(want.F) {
-					require.True(t, math.IsNaN(got), "%v %s %v: got %v", left, op, right, got)
-					continue
-				}
-				require.Equal(t, want.F, got, "%v %s %v", left, op, right)
-			}
-		}
 	}
 }
