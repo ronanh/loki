@@ -3,6 +3,7 @@ package logql
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
-	"github.com/prometheus/prometheus/promql"
 	"github.com/ronanh/loki/iter"
 	"github.com/ronanh/loki/logproto"
 	"github.com/ronanh/loki/logql/log"
@@ -1101,16 +1101,53 @@ func mustNewBinOpExpr(op string, opts BinOpOptions, lhs, rhs Expr) SampleExpr {
 // the invariant that it does not have two literal
 // legs.
 func reduceBinOp(op string, left, right *literalExpr) *literalExpr {
-	var res promql.Sample
-	mergeBinOp(
-		op,
-		&promql.Sample{F: left.value},
-		&promql.Sample{F: right.value},
-		false,
-		false,
-		&res,
-	)
-	return &literalExpr{value: res.F}
+	return &literalExpr{value: foldLiterals(op, left.value, right.value)}
+}
+
+// foldLiterals computes op on two literals with the same result as the engine on two samples.
+// Logical and set operators never get here: mustNewBinOpExpr rejects literal legs for them.
+func foldLiterals(op string, left, right float64) float64 {
+	switch op {
+	case OpTypeAdd:
+		return left + right
+	case OpTypeSub:
+		return left - right
+	case OpTypeMul:
+		return left * right
+	case OpTypeDiv:
+		if right == 0 {
+			return math.NaN()
+		}
+		return left / right
+	case OpTypeMod:
+		if right == 0 {
+			return math.NaN()
+		}
+		return math.Mod(left, right)
+	case OpTypePow:
+		return math.Pow(left, right)
+	case OpTypeCmpEQ:
+		return boolToFloat(left == right)
+	case OpTypeNEQ:
+		return boolToFloat(left != right)
+	case OpTypeGT:
+		return boolToFloat(left > right)
+	case OpTypeGTE:
+		return boolToFloat(left >= right)
+	case OpTypeLT:
+		return boolToFloat(left < right)
+	case OpTypeLTE:
+		return boolToFloat(left <= right)
+	default:
+		panic(fmt.Errorf("should never happen: unexpected operation: (%s)", op))
+	}
+}
+
+func boolToFloat(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 type literalExpr struct {
