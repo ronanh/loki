@@ -1,5 +1,5 @@
 include:
-  - project: supervision-team/continuous-delivery-automation
+  - project: devops/cd-code-mirror
     file: templates/trigger-source-code-mirror.yml
   - component: $CI_SERVER_FQDN/components/go/lint@0.7.2
   - component: $CI_SERVER_FQDN/components/go/test@0.7.2
