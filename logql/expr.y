@@ -388,7 +388,7 @@ rangeOp:
 
 labels:
       IDENTIFIER                 { $$ = []string{ $1 } }
-    | labels COMMA IDENTIFIER    { $$ = append($1, $3) }
+    | labels COMMA IDENTIFIER    { $$ = appendGroup($1, $3) }
     ;
 
 grouping:

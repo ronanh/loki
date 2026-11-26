@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -829,6 +830,16 @@ type GroupBuilder interface {
 type grouping struct {
 	groups  []string
 	without bool
+}
+
+// appendGroup adds a label name to a grouping clause unless the clause already
+// has it, so `by (a, a)` groups as `by (a)`, as in prometheus. The labels
+// builder emits one label per name of a `by` clause and relies on this.
+func appendGroup(groups []string, name string) []string {
+	if slices.Contains(groups, name) {
+		return groups
+	}
+	return append(groups, name)
 }
 
 // impls Stringer

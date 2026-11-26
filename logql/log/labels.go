@@ -224,6 +224,9 @@ type LabelsBuilder struct {
 
 // NewBaseLabelsBuilderWithGrouping creates a new base labels builder with grouping to compute
 // results.
+//
+// A `by` grouping (without false) must not name a label twice: the result
+// carries one label per name in groups. The LogQL parser drops a repeat.
 func NewBaseLabelsBuilderWithGrouping(
 	groups []string,
 	parserKeyHints ParserHint,

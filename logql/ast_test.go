@@ -274,6 +274,39 @@ func Test_DuplicateLabelKeySampleExprString(t *testing.T) {
 	}
 }
 
+// A label named twice in a grouping clause counts once, as in prometheus.
+// Before the parser dropped the repeat, `sum by (a, c, a)` grouped a line that
+// a stage had modified into {a="1", a="1", c="3"}, but an untouched line into
+// {a="1", c="3"}.
+func Test_GroupingRepeatedLabel(t *testing.T) {
+	stream := labels.FromStrings("a", "1", "app", "foo", "b", "2", "c", "3")
+
+	for _, tt := range []struct {
+		grouping string
+		want     labels.Labels
+	}{
+		{"by (a, c, a)", labels.FromStrings("a", "1", "c", "3")},
+		{"without (a, c, a)", labels.FromStrings("app", "foo", "b", "2")},
+	} {
+		t.Run(tt.grouping, func(t *testing.T) {
+			// with no stage, grouping takes the unchanged path; label_format
+			// setting a to its own value takes the modified path.
+			for _, pipeline := range []string{``, ` | label_format a="{{.a}}"`} {
+				expr, err := ParseSampleExpr(
+					`sum ` + tt.grouping + ` (count_over_time({app="foo"}` + pipeline + ` [1m]))`)
+				require.NoError(t, err)
+				require.Equal(t, []string{"a", "c"}, expr.(*VectorAggregationExpr).Groups())
+
+				ex, err := expr.Extractor()
+				require.NoError(t, err)
+				_, res, ok := ex.ForStream(stream).ProcessString(0, "line")
+				require.True(t, ok)
+				require.Equal(t, tt.want, res.Labels(), "pipeline %q", pipeline)
+			}
+		})
+	}
+}
+
 type linecheck struct {
 	l string
 	e bool

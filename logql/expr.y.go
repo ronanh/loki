@@ -1591,7 +1591,7 @@ exprdefault:
 	case 164:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.Labels = append(exprDollar[1].Labels, exprDollar[3].str)
+			exprVAL.Labels = appendGroup(exprDollar[1].Labels, exprDollar[3].str)
 		}
 	case 165:
 		exprDollar = exprS[exprpt-4 : exprpt+1]
