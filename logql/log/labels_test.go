@@ -216,6 +216,27 @@ func TestLabelsBuilder_GroupedLabelsResultIsShared(t *testing.T) {
 	}
 }
 
+// LabelsResult.String() reaches query responses and is parsed back by
+// consumers, so it quotes values exactly as prometheus' labels.Labels.String()
+// does. A backslash used to be rendered as \" and an invalid UTF-8 byte as
+// U+FFFD, neither of which parses back to the original value.
+func TestLabelsResult_StringQuotesLikePrometheus(t *testing.T) {
+	for _, tt := range []struct{ name, value string }{
+		{"backslash", `C:\logs\app.log`},
+		{"double quote", `say "hi"`},
+		{"control characters", "a\nb\tc\x01d\x7f"},
+		{"printable unicode", "héllo, wörld ✓"},
+		{"non-printable unicode", "zero\u200bwidth \U000E0001"},
+		{"invalid utf-8", "a\xffb"},
+		{"replacement character", "a\uFFFDb"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			lbs := labels.FromStrings("v", tt.value)
+			require.Equal(t, lbs.String(), NewLabelsResult(lbs, 0).String())
+		})
+	}
+}
+
 func assertLabelResult(t *testing.T, lbs labels.Labels, res LabelsResult) {
 	t.Helper()
 	require.Equal(t,

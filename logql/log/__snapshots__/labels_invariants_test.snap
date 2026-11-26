@@ -51,17 +51,17 @@ map:
 labels:          {msg="a\"b\\c\nd", note="héllo, wörld ✓", zpath="C:\\logs\\app.log"}
 builderHash:     0xc4835705185cf7e6
 noop.hash:       0xc4835705185cf7e6
-noop.string:     {msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+noop.string:     {msg="a\"b\\c\nd", note="héllo, wörld ✓", zpath="C:\\logs\\app.log"}
 stage.hash:      0x351ac8786f6aa891
-stage.string:    {added="value", msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+stage.string:    {added="value", msg="a\"b\\c\nd", note="héllo, wörld ✓", zpath="C:\\logs\\app.log"}
 by.unchanged.hash:   0xef46db3751d8e999
 by.unchanged.string: {}
 by.modified.hash:    0xef46db3751d8e999
 by.modified.string:  {}
 without.unchanged.hash:   0xc4835705185cf7e6
-without.unchanged.string: {msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+without.unchanged.string: {msg="a\"b\\c\nd", note="héllo, wörld ✓", zpath="C:\\logs\\app.log"}
 without.modified.hash:    0x351ac8786f6aa891
-without.modified.string:  {added="value", msg="a\"b\"c\nd", note="héllo, wörld ✓", zpath="C:\"logs\"app.log"}
+without.modified.string:  {added="value", msg="a\"b\\c\nd", note="héllo, wörld ✓", zpath="C:\\logs\\app.log"}
 map:
   msg="a\"b\\c\nd"
   note="héllo, wörld ✓"

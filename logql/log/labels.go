@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"unicode/utf8"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
@@ -59,82 +58,19 @@ func labelsString(ls labels.Labels) string {
 	return b.String()
 }
 
-const (
-	lowerhex = "0123456789abcdef"
-)
-
-// bytesBufferQuoteTo writes a quoted string to a bytes.Buffer
-// heavily inspired from GO strconv/quote.go
-// https://cs.opensource.google/go/go/+/refs/tags/go1.21.5:LICENSE
+// bytesBufferQuoteTo writes s to b quoted exactly as strconv.Quote does, which
+// is how prometheus' labels.Labels.String() renders a value. A value made only
+// of printable ASCII other than `"` and `\`, the common case, needs no escaping
+// and is written without going through strconv.
 func bytesBufferQuoteTo(b *bytes.Buffer, s string) {
-	_ = b.WriteByte('"')
-	for i, r := range s {
-		if 0x20 <= r && r <= 0x7E && r != '\\' && r != '"' {
-			// fast path for common case
-			_ = b.WriteByte(byte(r))
-			continue
-		}
-
-		width := 1
-		if r >= utf8.RuneSelf {
-			width = utf8.RuneLen(r)
-		}
-		if r == utf8.RuneError && width == 1 {
-			_, _ = b.WriteString(`\x`)
-			_ = b.WriteByte(lowerhex[s[i]>>4])
-			_ = b.WriteByte(lowerhex[s[i]&0xF])
-			continue
-		}
-		{
-			var runeTmp [utf8.UTFMax]byte
-			if r == '"' || r == '\\' {
-				_ = b.WriteByte('\\')
-				_ = b.WriteByte('"')
-				continue
-			}
-			if strconv.IsPrint(r) {
-				n := utf8.EncodeRune(runeTmp[:], r)
-				_, _ = b.Write(runeTmp[:n])
-				continue
-			}
-			switch r {
-			case '\a':
-				_, _ = b.WriteString(`\a`)
-			case '\b':
-				_, _ = b.WriteString(`\b`)
-			case '\f':
-				_, _ = b.WriteString(`\f`)
-			case '\n':
-				_, _ = b.WriteString(`\n`)
-			case '\r':
-				_, _ = b.WriteString(`\r`)
-			case '\t':
-				_, _ = b.WriteString(`\t`)
-			case '\v':
-				_, _ = b.WriteString(`\v`)
-			default:
-				switch {
-				case r < ' ' || r == 0x7f:
-					_, _ = b.WriteString(`\x`)
-					_ = b.WriteByte(lowerhex[byte(r)>>4])
-					_ = b.WriteByte(lowerhex[byte(r)&0xF])
-				case !utf8.ValidRune(r):
-					r = 0xFFFD
-					fallthrough
-				case r < 0x10000:
-					_, _ = b.WriteString(`\u`)
-					for s := 12; s >= 0; s -= 4 {
-						_ = b.WriteByte(lowerhex[r>>uint(s)&0xF])
-					}
-				default:
-					_, _ = b.WriteString(`\U`)
-					for s := 28; s >= 0; s -= 4 {
-						_ = b.WriteByte(lowerhex[r>>uint(s)&0xF])
-					}
-				}
-			}
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; c < 0x20 || c > 0x7E || c == '"' || c == '\\' {
+			_, _ = b.Write(strconv.AppendQuote(b.AvailableBuffer(), s))
+			return
 		}
 	}
+	_ = b.WriteByte('"')
+	_, _ = b.WriteString(s)
 	_ = b.WriteByte('"')
 }
 

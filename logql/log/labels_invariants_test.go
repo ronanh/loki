@@ -18,6 +18,10 @@ package log
 // stages producing an empty label value (which becomes a deletion), and
 // grouping clauses given in non-sorted order (whose result becomes sorted).
 // Fixtures avoid both so that a diff here is always a real regression.
+//
+// One deliberate re-record since the migration landed: the special-chars
+// strings, when #5 fixed LabelsResult.String() rendering a backslash as \"
+// instead of \\. No hash changed.
 
 import (
 	"fmt"
@@ -72,8 +76,8 @@ var labelFixtures = []labelFixture{
 		labels.FromStrings("job", "loki"),
 	},
 	{
-		// quoting is response-visible: LabelsResult.String() must keep escaping
-		// exactly as before.
+		// quoting is response-visible: LabelsResult.String() must quote
+		// exactly as prometheus' labels.Labels.String() does.
 		"special-chars",
 		labels.FromStrings(
 			"msg", "a\"b\\c\nd",
@@ -272,23 +276,6 @@ func TestLabelsResultSelfConsistency(t *testing.T) {
 			require.Equal(t, res.Hash(), NewBaseLabelsBuilder().Hash(res.Labels()))
 		})
 	}
-}
-
-// TestLabelsStringEscapesBackslashAsQuote documents a PRE-EXISTING BUG in
-// bytesBufferQuoteTo, found while writing these invariants: the branch handling
-// `"` and `\` writes a literal `"` for both, so a backslash in a label value is
-// rendered as \" instead of \\. The result does not round-trip through
-// ParseLabels and disagrees with prometheus' own labels.Labels.String().
-//
-// Pinned as-is rather than fixed: these snapshots exist to prove the migration
-// changes nothing, and this is response-visible output. Tracked in #5 — fixing
-// it is a deliberate, separate re-record.
-func TestLabelsStringEscapesBackslashAsQuote(t *testing.T) {
-	lbs := labels.FromStrings("path", `C:\logs`)
-	res := NewLabelsResult(lbs, 0)
-
-	require.Equal(t, `{path="C:\"logs"}`, res.String(), "current (wrong) rendering")
-	require.Equal(t, `{path="C:\\logs"}`, lbs.String(), "what prometheus renders")
 }
 
 // TestNoopPipelineCachesPerStream pins that one stream resolves to one
