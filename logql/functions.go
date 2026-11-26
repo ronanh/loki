@@ -2,7 +2,7 @@ package logql
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/ronanh/loki/logql/log"
 )
@@ -45,7 +45,9 @@ func (r rangeAggregationExpr) extractor(override *grouping) (log.SampleExtractor
 		noLabels = true
 	}
 
-	sort.Strings(groups)
+	// a sorted copy: groups is the syntax tree's own slice, and the tree may be
+	// kept and built into extractors again, possibly concurrently.
+	groups = slices.Sorted(slices.Values(groups))
 
 	var stages []log.Stage
 	if p, ok := r.left.left.(*pipelineExpr); ok {

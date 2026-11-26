@@ -3,6 +3,7 @@ package logql
 import (
 	"testing"
 
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,6 +85,39 @@ func Test_Extractor(t *testing.T) {
 			require.Nil(t, err)
 			_, err = expr.Extractor()
 			require.Nil(t, err)
+		})
+	}
+}
+
+// Building an extractor leaves the query's syntax tree as parsed. xlog's
+// alerting keeps a rule's parsed expression for the rule's lifetime and builds
+// an extractor from it for every stream, so whatever one build changed fed the
+// next. With an unwrap and a `without` clause, the build appended the unwrapped
+// label into the clause's own slice and sorted it: the second build of
+// `sum without (d, c, b) (... | unwrap aa ...)` grouped without (aa, aa, b, c)
+// and kept d.
+func Test_ExtractorLeavesGroupingAsParsed(t *testing.T) {
+	stream := labels.FromStrings("aa", "1.5", "app", "x", "b", "2", "c", "3", "d", "4", "e", "5")
+	want := labels.FromStrings("app", "x", "e", "5")
+
+	for _, query := range []string{
+		`sum without (d, c, b) (sum_over_time({app="x"} | unwrap aa [1m]))`,
+		`max_over_time({app="x"} | unwrap aa [1m]) without (d, c, b)`,
+	} {
+		t.Run(query, func(t *testing.T) {
+			expr, err := ParseSampleExpr(query)
+			require.NoError(t, err)
+			parsed := expr.String()
+
+			for range 3 {
+				ex, err := expr.Extractor()
+				require.NoError(t, err)
+				require.Equal(t, parsed, expr.String())
+
+				_, res, ok := ex.ForStream(stream).ProcessString(0, "line")
+				require.True(t, ok)
+				require.Equal(t, want, res.Labels())
+			}
 		})
 	}
 }

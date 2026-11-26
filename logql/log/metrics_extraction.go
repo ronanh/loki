@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"time"
@@ -139,7 +140,9 @@ func LabelExtractorWithStages(
 	}
 	if len(groups) == 0 || without {
 		without = true
-		groups = append(groups, labelName)
+		// Clip makes append copy groups rather than write into the caller's
+		// array, which is usually the syntax tree's.
+		groups = append(slices.Clip(groups), labelName)
 		sort.Strings(groups)
 	}
 	preStage := ReduceStages(preStages)
